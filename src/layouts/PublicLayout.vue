@@ -1,41 +1,39 @@
 <template>
   <q-layout view="hHh lpr fFf">
-    <q-header class="head" :class="{ scrolled }">
-      <div class="container head-inner">
-        <div class="brand text-weight-bold text-teal-8 row items-center">
-          <span class="brand-mark"><Icon icon="mdi:domain" width="18" height="18" /></span>
-          Accommo
-        </div>
+    <nav class="navbar" :class="{ scrolled }">
+      <div class="navbar-inner">
+        <a href="/" class="brand">
+          <svg class="brand-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1095 1095">
+            <path d="M525.56 45.47C575.55 43.2 622.87 47.55 671.52 58.97C707.69 67.45 744.37 80.93 776.27 100.21C855.34 148.02 911.16 217.73 934.81 307.62C939.5 325.44 943.04 344.17 944.88 362.5C948.44 398.13 946.5 434.69 946.48 470.5C946.46 543.5 946.29 616.5 946.29 689.5C946.28 779.83 946.38 870.17 946.37 960.5C946.37 980.16 946.44 999.82 946.52 1019.48C946.56 1030.45 944 1042.53 932.21 1046.65C922.51 1050.03 907.85 1048.21 897.5 1048.2C875.17 1048.16 852.83 1048.13 830.5 1048.15C818.88 1048.15 804.86 1049.02 798.38 1037.13C794.66 1030.3 795.02 1023.06 794.99 1015.5C794.95 1005.5 795.01 995.5 795 985.5C794.93 944.83 795.1 904.17 795.13 863.5C795.2 747.5 794.82 631.5 795.19 515.5C795.27 488.5 795.26 461.5 795.13 434.5C795.03 413.99 795.32 393.73 791.87 373.53C787.95 350.56 778.5 327.65 767.1 307.39C719.88 223.47 620.61 190.38 528.57 198.4C487.5 201.98 446.92 215.49 411.04 235.57C382.46 251.58 355.83 272.01 332.77 295.27C326.98 301.11 320.95 306.82 315.41 312.88C311.09 317.6 307.49 323.26 300.5 323.92C298.1 324.14 295.41 324.14 293.12 323.37C287.38 321.43 275.39 309.49 270.6 304.92C253.9 289 236.12 273.94 218.7 258.82C213.6 254.39 198.51 242.77 195.54 237.96C189.09 227.55 196.71 219.34 203.34 211.82C218.74 194.34 235.92 178.26 253.14 162.64C325.55 96.94 427.37 49.94 525.56 45.47ZM431.56 403.46C485.87 400.58 539.7 411.31 588.72 434.8C598.75 439.6 608.42 445 618.21 450.28C623.33 453.05 628.86 455.38 631.4 461.05C635.15 469.41 633.32 480.54 633.29 489.5C633.24 508.83 633.3 528.17 633.3 547.5C633.29 563.17 633.33 578.83 633.31 594.5C633.31 602.67 634.06 611.55 629.05 618.52C623.52 626.19 610.84 630.54 602.3 626.17C598.29 624.12 596.37 620.18 593.84 616.69C589.13 610.19 583.91 603.96 578.32 598.19C562.91 582.27 544.24 570.24 523.9 561.61C454.09 532.01 359.14 556.17 319.46 622.92C294.66 664.64 297.82 708.64 298.12 755.5C298.51 815.48 298.55 875.52 298.16 935.5C298.01 958.5 298.07 981.5 298.17 1004.5C298.22 1014.87 300.2 1027.95 294.73 1037.28C287.96 1048.86 275.33 1048.19 263.5 1048.18C240.5 1048.15 217.5 1048.21 194.5 1048.22C184.67 1048.23 169.86 1050.15 160.79 1046.64C142.35 1039.49 147.25 1009.39 147.25 993.5C147.26 939.83 147.36 886.17 147.3 832.5C147.26 800.5 147.21 768.5 147.29 736.5C147.38 700.11 147.82 665.16 156.31 629.7C179.46 533 241.74 458.36 335.09 422.59C365.79 410.83 398.79 405.21 431.56 403.46ZM465.64 799.47C478.56 798.93 491.57 799.29 504.5 799.33C513.14 799.36 521.8 798.88 528.96 804.54C536.63 810.6 537.61 820.48 537.75 829.5C537.93 841.83 537.78 854.17 537.82 866.5C537.86 879.05 538.13 892.16 526.04 899.49C519.7 903.33 512.63 902.79 505.5 902.8C495.17 902.8 484.83 902.83 474.5 902.78C465.05 902.74 455.37 902.74 449.01 894.48C440.13 882.97 443.21 866.12 443.21 852.5C443.21 833.76 438.14 800.6 465.64 799.47ZM583.66 799.46C596.57 798.9 609.59 799.18 622.5 799.3C630.24 799.38 638.41 798.79 645.06 803.41C649.74 806.67 653.3 812.19 654.65 817.72C655.79 822.38 655.29 827.74 655.31 832.5C655.37 842.17 655.3 851.83 655.3 861.5C655.3 868.69 656.1 876.36 654.9 883.49C653.85 889.75 649.44 896.18 644 899.45C637.4 903.43 629.9 902.8 622.5 902.79C612.5 902.77 602.5 902.83 592.5 902.76C582.46 902.69 572.46 902.48 566.05 893.44C558.23 882.42 561.22 865.22 561.3 852.5C561.42 833.51 555.98 800.67 583.66 799.46ZM461.66 930.28C467.66 929.04 474.39 929.75 480.5 929.7C489.17 929.64 497.83 929.67 506.5 929.75C510.73 929.78 515.25 929.33 519.4 930.21C523.56 931.08 527.86 933.64 530.85 936.62C537.57 943.35 537.63 952.64 537.74 961.5C537.88 973.83 537.81 986.17 537.84 998.5C537.86 1010.37 537.62 1022.83 526.02 1029.47C519.67 1033.1 512.56 1032.84 505.5 1032.84C494.83 1032.83 484.17 1032.93 473.5 1032.88C464.55 1032.84 454.94 1032.31 448.87 1024.66C440.35 1013.92 443.18 998.34 443.18 985.5C443.19 967.31 437.48 935.31 461.66 930.28ZM579.65 930.27C584.42 929.26 589.64 929.79 594.5 929.75C604.83 929.65 615.17 929.62 625.5 929.75C633.23 929.86 641.04 929.92 647.18 935.35C654.24 941.6 655.09 949.59 655.21 958.5C655.39 971.84 655.32 985.16 655.4 998.5C655.46 1009.86 655.52 1021.55 645.06 1028.56C638.89 1032.69 631.63 1032.79 624.5 1032.82C613.17 1032.87 601.83 1032.92 590.5 1032.81C581.85 1032.72 571.99 1031.83 566.3 1024.25C558.53 1013.9 561.16 994.92 561.18 982.5C561.19 965 556.65 935.11 579.65 930.27Z" fill-rule="evenodd"/>
+          </svg>
+          <span class="brand-text">accommo</span>
+        </a>
 
-        <nav class="gt-sm nav">
-          <a href="#how">How it works</a>
-          <a href="#faq">Questions</a>
-        </nav>
+        <div class="nav-links gt-sm">
+                  <a href="#how">How it works</a>
+                  <a href="#download">Download</a>
+                  <a href="#faq">Questions</a>
+                </div>
 
-        <div class="head-actions">
-          <q-btn unelevated class="get-app gt-xs" href="/accommo.apk" download>Get the app</q-btn>
+        <div class="nav-actions">
+          <a class="dl-btn gt-xs" href="#download">Get the app</a>
 
-          <q-btn
-            flat
-            round
-            dense
-            class="menu-btn lt-md"
-            @click="menu = true"
-            aria-label="Open menu"
-          >
+          <button class="menu-btn lt-md" @click="menu = true" aria-label="Menu">
             <Icon icon="mdi:menu" width="22" height="22" />
-          </q-btn>
+          </button>
+
           <q-menu v-model="menu" anchor="bottom right" self="top right" class="mobile-menu">
-            <q-list style="min-width: 210px">
+            <q-list style="min-width: 200px">
               <q-item clickable v-close-popup href="#how"><q-item-section>How it works</q-item-section></q-item>
-              <q-item clickable v-close-popup href="#faq"><q-item-section>Questions</q-item-section></q-item>
+                            <q-item clickable v-close-popup href="#download"><q-item-section>Download</q-item-section></q-item>
+                            <q-item clickable v-close-popup href="#faq"><q-item-section>Questions</q-item-section></q-item>
               <q-separator />
-              <q-item clickable v-close-popup href="/accommo.apk" download class="menu-cta"><q-item-section>Get the app</q-item-section></q-item>
+              <q-item clickable v-close-popup href="#download" class="menu-cta"><q-item-section>Get the app</q-item-section></q-item>
             </q-list>
           </q-menu>
         </div>
       </div>
-    </q-header>
+    </nav>
 
     <q-page-container>
       <router-view />
@@ -48,60 +46,73 @@ import { ref, onMounted, onUnmounted } from 'vue';
 
 const scrolled = ref(false);
 const menu = ref(false);
-function onScroll() { scrolled.value = window.scrollY > 12; }
-onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }));
+function onScroll() { scrolled.value = window.scrollY > 40; }
+onMounted(() => { window.addEventListener('scroll', onScroll, { passive: true }); onScroll(); });
 onUnmounted(() => window.removeEventListener('scroll', onScroll));
 </script>
 
 <style scoped>
-.head {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid transparent;
-  transition: box-shadow 0.25s ease, border-color 0.25s ease, padding 0.25s ease;
+.navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 2000;
+  background: none;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
 }
-.head.scrolled {
-  box-shadow: 0 6px 24px rgba(22, 32, 29, 0.07);
-  border-bottom: 1px solid #eef3f2;
+.navbar.scrolled {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 24px rgba(22, 32, 29, 0.06);
 }
-.container {
+
+.navbar-inner {
   max-width: 1080px;
   margin: 0 auto;
   padding: 0 clamp(18px, 4vw, 32px);
-  width: 100%;
-}
-.head-inner {
   display: flex;
   align-items: center;
-  gap: clamp(12px, 2vw, 22px);
-  padding-top: 14px;
-  padding-bottom: 14px;
-  transition: padding 0.25s ease;
+  height: 60px;
 }
-.head.scrolled .head-inner { padding-top: 9px; padding-bottom: 9px; }
 
-.brand { font-size: 1.2rem; display: flex; align-items: center; gap: 9px; }
-.brand-mark {
-  width: 30px; height: 30px; border-radius: 9px;
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; flex: 1;
+}
+.brand-icon { height: 30px; width: auto; fill: #ffffff; transition: fill 0.3s ease; }
+.navbar.scrolled .brand-icon { fill: #0d9488; }
+.brand-text { font-size: 1.5rem; font-weight: 700; color: #ffffff; transition: color 0.3s ease; }
+.navbar.scrolled .brand-text { color: #0d9488; }
+
+.nav-links { display: flex; align-items: center; gap: 28px; }
+.nav-links a { color: rgba(255,255,255,0.85); font-weight: 500; font-size: 0.92rem; text-decoration: none; transition: color 0.2s ease; }
+.nav-links a:hover { color: #ffffff; }
+.navbar.scrolled .nav-links a { color: #4a5a61; }
+.navbar.scrolled .nav-links a:hover { color: #0a5f55; }
+
+.nav-actions { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+
+.dl-btn {
+  display: inline-flex; align-items: center;
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  font-weight: 600; font-size: 0.9rem;
+  border-radius: 10px; padding: 8px 18px;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: background 0.2s ease, color 0.3s ease;
+}
+.dl-btn:hover { background: rgba(255,255,255,0.28); }
+.navbar.scrolled .dl-btn {
   background: linear-gradient(135deg, #0e8b7d, #0a5f55);
-  color: #fff; display: grid; place-items: center;
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(14,139,125,0.28);
 }
-.nav { display: flex; gap: clamp(16px, 2vw, 28px); margin-left: clamp(8px, 1.5vw, 18px); }
-.nav a {
-  color: #4a5a61; font-weight: 500; font-size: 0.94rem;
-  text-decoration: none; transition: color 0.15s ease;
-}
-.nav a:hover { color: #0a5f55; }
+.navbar.scrolled .dl-btn:hover { transform: translateY(-1px); }
 
-.head-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.get-app {
-  background: linear-gradient(135deg, #0e8b7d 0%, #0a5f55 100%);
-  color: #fff; font-weight: 600; border-radius: 11px; padding: 8px 18px;
-  box-shadow: 0 8px 18px rgba(14, 139, 125, 0.25);
-}
-.get-app:hover { transform: translateY(-1px); }
-.menu-btn { color: #0a5f55; }
+.menu-btn { background: none; border: none; cursor: pointer; color: #ffffff; padding: 4px; transition: color 0.3s ease; }
+.navbar.scrolled .menu-btn { color: #0a5f55; }
 
 .mobile-menu .q-item { font-weight: 500; }
 .mobile-menu .menu-cta { color: #0a5f55; font-weight: 700; }
