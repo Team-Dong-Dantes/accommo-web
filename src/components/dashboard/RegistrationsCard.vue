@@ -1,31 +1,18 @@
 <template>
-  <q-card class="dashboard-card full-height">
-    <q-card-section class="q-pa-md">
+  <q-card class="dashboard-card full-height reg-card">
+    <q-card-section class="q-pa-md reg-head">
       <div class="text-body2 text-weight-bold" style="line-height: 1.2;">Registrations</div>
       <div class="text-caption text-grey-6 q-mb-sm" style="font-size: 11px;">
         Students &amp; landlords · last 30 days</div>
 
       <q-separator class="q-mb-md" />
 
-      <div class="chart-container q-mb-md">
-        <svg viewBox="0 0 400 120" class="full-width" preserveAspectRatio="none">
-          <path d="M 0 90 C 50 80, 100 90, 150 60 S 250 10, 300 20 S 350 80, 400 50" fill="none" stroke="#12c299"
-            stroke-width="3" stroke-linecap="round" />
-          <path d="M 0 105 C 50 105, 100 110, 150 100 S 250 90, 300 85 S 350 100, 400 100" fill="none" stroke="#5b6cf9"
-            stroke-width="2" stroke-linecap="round" />
-        </svg>
-        <div class="row q-gutter-x-md q-mt-xs">
-          <div class="row items-center">
-            <div class="legend-dot bg-teal-4 q-mr-sm"></div><span class="text-grey-8"
-              style="font-size: 10px;">Students</span>
-          </div>
-          <div class="row items-center">
-            <div class="legend-dot bg-indigo-5 q-mr-sm"></div><span class="text-grey-8"
-              style="font-size: 10px;">Landlords</span>
-          </div>
-        </div>
-      </div>
+      <div class="q-mb-md">
+              <apexchart type="area" height="100" :options="sparkOptions" :series="sparkSeries" />
+            </div>
+    </q-card-section>
 
+    <q-card-section class="q-pa-md reg-scroll">
       <div class="text-uppercase text-grey-5 q-mb-sm" style="font-size: 9px; font-weight: 800; letter-spacing: 0.5px;">
         Pending Registrations</div>
 
@@ -51,17 +38,56 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { PendingRegistration } from '@/composables/useDashboardStats'
 
-defineProps<{
+const props = defineProps<{
   pending: PendingRegistration[]
 }>()
+
+const sparkOptions = computed(() => ({
+  chart: {
+    type: 'area' as const,
+    sparkline: { enabled: true },
+    fontFamily: 'Inter, sans-serif',
+  },
+  stroke: { curve: 'smooth' as const, width: 2 },
+  fill: { type: 'gradient' as const, gradient: { shade: 'light', opacityFrom: 0.3, opacityTo: 0 } },
+  colors: ['#0d9488'],
+  tooltip: { enabled: false },
+  xaxis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
+  yaxis: { show: false, min: 0 },
+  grid: { show: false, padding: { left: 0, right: 0, top: 10, bottom: 0 } },
+}))
+
+const sparkSeries = computed(() => [{
+  name: 'Registrations',
+  data: props.pending.length > 0
+    ? Array.from({ length: 12 }, (_, i) => Math.max(0, props.pending.length - i * 2 + Math.round(Math.random() * 5)))
+    : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+}])
 </script>
 
 <style scoped>
 .dashboard-card {
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+}
+
+.reg-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.reg-head {
+  flex-shrink: 0;
+}
+
+.reg-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .chart-container {

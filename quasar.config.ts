@@ -8,6 +8,7 @@ export default defineConfig((/* ctx */) => {
     boot: [
       'pinia',
       'iconify',
+      'apexcharts',
     ],
 
     css: [
@@ -16,6 +17,7 @@ export default defineConfig((/* ctx */) => {
 
     extras: [
       'roboto-font',
+      'mdi-v7',
     ],
 
     build: {

@@ -6,8 +6,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "quasar dev",
-    "build": "quasar build",
+    "dev": "node node_modules/@quasar/app-vite/bin/quasar.js dev",
+    "build": "node node_modules/@quasar/app-vite/bin/quasar.js build",
     "typecheck": "vue-tsc --noEmit",
     "postinstall": "quasar prepare --silent"
   },
@@ -16,11 +16,13 @@
     "@iconify/vue": "^5.0.1",
     "@quasar/extras": "^2.0.0",
     "@supabase/supabase-js": "^2.111.0",
+    "apexcharts": "^6.7.1",
     "dotenv": "^17.4.2",
     "pinia": "^4.0.2",
     "quasar": "^2.23.1",
     "vue": "^3.5.22",
-    "vue-router": "^5.0.6"
+    "vue-router": "^5.0.6",
+    "vue3-apexcharts": "^1.11.1"
   },
   "devDependencies": {
     "@quasar/app-vite": "^3.2.0",

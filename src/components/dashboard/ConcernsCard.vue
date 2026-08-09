@@ -1,6 +1,6 @@
 <template>
-  <q-card class="dashboard-card full-height">
-    <q-card-section class="q-pa-md">
+  <q-card class="dashboard-card full-height concerns-card">
+    <q-card-section class="q-pa-md concerns-head">
       <div class="text-body2 text-weight-bold" style="line-height: 1.2;">Grievances</div>
       <div class="text-caption text-grey-6 q-mb-sm" style="font-size: 11px;">
         {{ concerns.total }} total · {{ concerns.urgent }} urgent</div>
@@ -39,23 +39,22 @@
         <Icon icon="mdi:alert-circle" width="14" height="14" class="q-mr-sm" />
         <span class="text-weight-bold" style="font-size: 10px;">{{ concerns.urgent }} urgent case(s) need attention</span>
       </div>
+    </q-card-section>
 
-      <div class="text-uppercase text-grey-5 q-mb-xs" style="font-size: 9px; font-weight: 800; letter-spacing: 0.5px;">
-        By Category</div>
-      <div class="column q-gutter-y-xs q-mb-md">
-        <div v-for="cat in byCategory" :key="cat.name">
-          <div class="row justify-between q-mb-none" style="font-size: 11px;"><span class="text-grey-8">{{ cat.name
-              }}</span><span :class="`text-${cat.color} text-weight-bold`">{{ cat.val }}</span></div>
-          <q-linear-progress rounded size="3px" :value="cat.ratio" :color="cat.color" track-color="grey-2" />
-        </div>
-        <div v-if="byCategory.length === 0" class="text-grey-5 text-caption">No concerns reported.</div>
-      </div>
+    <q-card-section class="q-pa-md concerns-scroll">
+      <div class="text-uppercase text-grey-5" style="font-size: 9px; font-weight: 800; letter-spacing: 0.5px;">
+              By Category</div>
+            <div class="category-chart">
+              <apexchart type="bar" width="100%" height="100%" :options="catChartOptions" :series="catChartSeries" />
+            </div>
     </q-card-section>
   </q-card>
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue'
+
+const props = defineProps<{
   concerns: {
     total: number
     open: number
@@ -66,12 +65,57 @@ defineProps<{
   }
   byCategory: { name: string; val: number; ratio: number; color: string }[]
 }>()
+
+const catChartOptions = computed(() => ({
+  chart: {
+    type: 'bar' as const,
+    fontFamily: 'Inter, -apple-system, sans-serif',
+    toolbar: { show: false },
+  },
+  plotOptions: { bar: { borderRadius: 4, horizontal: true, barHeight: '60%' } },
+  xaxis: { categories: props.byCategory.map(c => c.name) },
+  colors: ['#f59e0b'],
+  grid: { borderColor: '#f0f0f0', strokeDashArray: 3 },
+}))
+
+const catChartSeries = computed(() => [{
+  name: 'Concerns',
+  data: props.byCategory.map(c => c.val),
+}])
 </script>
 
 <style scoped>
 .dashboard-card {
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+}
+
+.concerns-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.concerns-head {
+  flex-shrink: 0;
+}
+
+.concerns-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.category-chart {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.category-chart :deep(.apexcharts-canvas) {
+  width: 100%;
 }
 
 .rounded-box {
