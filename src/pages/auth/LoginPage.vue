@@ -62,7 +62,7 @@ async function handleLogin() {
   if (!loginFormRef.value) return;
   const success = await loginFormRef.value.validate();
   if (!success) {
-    $q.notify({ message: 'Please enter your email and password.', position: 'top', color: 'grey-9', textColor: 'white',     icon: 'alert', iconColor: 'amber-4', classes: 'custom-notify' });
+    $q.notify({ message: 'Please enter your email and password.', position: 'top', color: 'grey-9', textColor: 'white',     icon: 'mdi:alert-outline', iconColor: 'amber-4', classes: 'custom-notify' });
     return;
   }
 
@@ -70,10 +70,10 @@ async function handleLogin() {
     loading.value = true;
     await authStore.login(email.value, password.value);
 
-    $q.notify({ message: 'Welcome back!', position: 'top', color: 'grey-9', textColor: 'white',     icon: 'check-circle', iconColor: 'teal-4', classes: 'custom-notify' });
+    $q.notify({ message: 'Welcome back!', position: 'top', color: 'grey-9', textColor: 'white',     icon: 'mdi:check-circle', iconColor: 'teal-4', classes: 'custom-notify' });
     void router.push('/dashboard');
   } catch (error: unknown) {
-    $q.notify({ message: error instanceof Error ? error.message : 'An unexpected error occurred', position: 'top', color: 'grey-9', textColor: 'white',     icon: 'alert-outline', iconColor: 'red-4', classes: 'custom-notify' });
+    $q.notify({ message: error instanceof Error ? error.message : 'An unexpected error occurred', position: 'top', color: 'grey-9', textColor: 'white',     icon: 'mdi:alert-outline', iconColor: 'red-4', classes: 'custom-notify' });
   } finally {
     loading.value = false;
   }
