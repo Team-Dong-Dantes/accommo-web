@@ -8,14 +8,14 @@
 ## 1. Branches
 
 ```
-master (protected)    ← stable, deployable
+master (protected)    ← stable, production-ready
+development           ← active development, auto-deploys via Vercel
   └── feat/xxxxx      ← your feature branches
-deploy                ← auto-deployed branch
 ```
 
-- Always branch off `master`
+- Always branch off `development`
 - Branch naming: `feat/<short-description>` (e.g., `feat/property-list`, `feat/tenant-table`)
-- PR into `master` — needs 1 review from a mobile teammate
+- PR into `development` — needs 1 review from a mobile teammate
 
 ---
 
@@ -37,14 +37,16 @@ deploy                ← auto-deployed branch
 
 ## 3. Deployment
 
+Deployment is handled by **Vercel**. Every push to `development` triggers an automatic production deployment.
+
 ```bash
-git checkout master && git pull
-git checkout deploy
-git merge master
-git push
+git checkout development && git pull
+# ... make changes ...
+git push origin development
+# Vercel auto-deploys from here
 ```
 
-Never work on the `deploy` branch directly.
+No manual deploy steps needed. Check the Vercel dashboard for build status and previews.
 
 ---
 

@@ -3,8 +3,7 @@
 ## Install the dependencies
 
 ```bash
-pnpm install
-# or: yarn/npm/bun install
+npm install
 ```
 
 ### Start the app in development mode (HMR, error reporting, etc.)

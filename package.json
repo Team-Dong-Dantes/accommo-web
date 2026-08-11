@@ -1,8 +1,8 @@
 {
   "name": "accommo-web",
   "version": "0.0.1",
-  "description": "A Quasar Project",
-  "productName": "Quasar App",
+  "description": "Boarding-house listings for ISU Echague students",
+  "productName": "Accommo",
   "type": "module",
   "private": true,
   "scripts": {
@@ -43,6 +43,6 @@
     "vuejs"
   ],
   "engines": {
-    "node": ">= 26 || ^24 || ^22.12"
+    "node": ">= 18"
   }
 }

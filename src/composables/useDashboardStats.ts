@@ -32,7 +32,10 @@ export interface DashboardStats {
     urgent: number
   }
   concernsByCategory: { name: string; val: number; ratio: number; color: string }[]
+  complaints: { total: number; open: number; urgent: number }
   pendingRegistrations: PendingRegistration[]
+  unverifiedUsers: { total: number; pending: number; reviewing: number }
+  activeLeases: number
 }
 
 const CARD_COLORS = [
@@ -82,7 +85,10 @@ function emptyStats(): DashboardStats {
     gender: { female: 0, male: 0, other: 0 },
     concerns: { total: 0, open: 0, inProgress: 0, resolved: 0, rejected: 0, urgent: 0 },
     concernsByCategory: [],
+    complaints: { total: 0, open: 0, urgent: 0 },
     pendingRegistrations: [],
+    unverifiedUsers: { total: 0, pending: 0, reviewing: 0 },
+    activeLeases: 0,
   }
 }
 
@@ -108,6 +114,9 @@ export function useDashboardStats() {
         concernsRes,
         urgentRes,
         pendingRes,
+        unverifiedRes,
+        leaseRes,
+        complaintOpenRes,
       ] = await Promise.all([
         supabase.from('properties').select('id, status, capacity, total_rooms, room_type, name, monthly_rent'),
         supabase.from('rooms').select('capacity, current_pax, status, property:properties(name, room_type)'),
@@ -132,6 +141,18 @@ export function useDashboardStats() {
           .in('status', ['pending', 'reviewing'])
           .order('created_at', { ascending: false })
           .limit(6),
+        supabase
+          .from('users')
+          .select('id', { count: 'exact', head: true })
+          .in('status', ['pending', 'reviewing']),
+        supabase
+          .from('leases')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'active'),
+        supabase
+          .from('complaints')
+          .select('id', { count: 'exact', head: true })
+          .neq('status', 'resolved'),
       ])
 
       const props = (propertiesRes.data ?? []) as Array<{
@@ -311,6 +332,23 @@ export function useDashboardStats() {
           color: isLandlord ? 'indigo-5' : 'teal-5',
         }
       })
+
+      // Unverified users
+      data.unverifiedUsers = {
+        total: unverifiedRes.count ?? 0,
+        pending: pending.filter(u => u.status === 'pending').length,
+        reviewing: pending.filter(u => u.status === 'reviewing').length,
+      }
+
+      // Active leases
+      data.activeLeases = leaseRes.count ?? 0
+
+      // Open complaints
+      data.complaints = {
+        total: (complaintOpenRes.count ?? 0),
+        open: complaintOpenRes.count ?? 0,
+        urgent: urgentRes.count ?? 0,
+      }
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load dashboard data'
     } finally {
