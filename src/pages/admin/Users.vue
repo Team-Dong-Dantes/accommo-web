@@ -1,7 +1,7 @@
 <template>
-  <q-page class="q-pa-md column q-gutter-y-md" style="background-color: #f5f5f5">
+  <q-page class="users-page q-pa-md column no-wrap bg-grey-1">
 
-    <div class="row justify-between items-center">
+    <div class="row justify-between items-center non-shrink">
       <div class="row q-gutter-x-sm items-center">
         <SearchInput v-model="search" placeholder="Search by name, email, or ID..." />
         <FilterDropdown
@@ -19,48 +19,52 @@
       <ExportButton @click="handleExport" />
     </div>
 
-    <DataTable :rows="paginatedRows" :columns="columns" rowKey="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
-      <template #no-data>
-        <div class="full-width row flex-center text-grey-5 q-pa-xl column">
-          <Icon icon="mdi:account-group-off-outline" width="48" height="48" class="q-mb-md" />
-          <div class="text-h6 text-weight-bold">No users found</div>
-          <div>There are currently no registered users matching your criteria.</div>
-        </div>
-      </template>
+    <div class="table-wrapper">
+      <DataTable :rows="paginatedRows" :columns="columns" rowKey="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+        <template #no-data>
+          <div class="full-width row flex-center text-grey-5 q-pa-xl column">
+            <Icon icon="mdi:account-group-off-outline" width="48" height="48" class="q-mb-md" />
+            <div class="text-h6 text-weight-bold">No users found</div>
+            <div>There are currently no registered users matching your criteria.</div>
+          </div>
+        </template>
 
-      <template #body="{ props }">
-        <q-tr :props="props">
-          <q-td key="user" :props="props">
-            <div class="row items-center no-wrap">
-              <q-avatar size="38px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">
-                {{ props.row.initials }}
-              </q-avatar>
-              <div class="column">
-                <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
-                <div class="text-grey-5" style="font-size: 12px">{{ props.row.email }}</div>
+        <template #body="{ props }">
+          <q-tr :props="props">
+            <q-td key="user" :props="props">
+              <div class="row items-center no-wrap">
+                <q-avatar size="38px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">
+                  {{ props.row.initials }}
+                </q-avatar>
+                <div class="column">
+                  <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
+                  <div class="text-grey-5" style="font-size: 12px">{{ props.row.email }}</div>
+                </div>
               </div>
-            </div>
-          </q-td>
-          <q-td key="id" :props="props" class="text-grey-5 text-weight-medium">{{ props.row.id }}</q-td>
-          <q-td key="contact" :props="props" class="text-dark">{{ props.row.contact }}</q-td>
-          <q-td key="role" :props="props">
-            <BadgePill :bg="props.row.roleStyle.bg" :text-color="props.row.roleStyle.text" :icon="props.row.roleStyle.icon" :label="props.row.role" />
-          </q-td>
-          <q-td key="status" :props="props">
-            <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
-          </q-td>
-          <q-td key="joined" :props="props" class="text-grey-8">{{ props.row.joined }}</q-td>
-          <q-td key="details" :props="props" class="text-grey-5 ellipsis" style="max-width: 200px">{{ props.row.details }}</q-td>
-        </q-tr>
-      </template>
-    </DataTable>
+            </q-td>
+            <q-td key="id" :props="props" class="text-grey-5 text-weight-medium">{{ props.row.id }}</q-td>
+            <q-td key="contact" :props="props" class="text-dark">{{ props.row.contact }}</q-td>
+            <q-td key="role" :props="props">
+              <BadgePill :bg="props.row.roleStyle.bg" :text-color="props.row.roleStyle.text" :icon="props.row.roleStyle.icon" :label="props.row.role" />
+            </q-td>
+            <q-td key="status" :props="props">
+              <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
+            </q-td>
+            <q-td key="joined" :props="props" class="text-grey-8">{{ props.row.joined }}</q-td>
+            <q-td key="details" :props="props" class="text-grey-5 ellipsis" style="max-width: 200px">{{ props.row.details }}</q-td>
+          </q-tr>
+        </template>
+      </DataTable>
+    </div>
 
-    <TablePagination
-      v-model="currentPage"
-      :totalItems="filteredRows.length"
-      :rowsPerPage="10"
-      itemName="users"
-    />
+    <div class="non-shrink">
+      <TablePagination
+        v-model="currentPage"
+        :totalItems="filteredRows.length"
+        :rowsPerPage="10"
+        itemName="users"
+      />
+    </div>
 
   </q-page>
 </template>
@@ -206,3 +210,20 @@ const paginatedRows = computed(() => {
 
 watch([search, activeFilters], () => { currentPage.value = 1 }, { deep: true })
 </script>
+
+<style scoped>
+.users-page {
+  overflow: hidden !important;
+  height: 100% !important;
+}
+
+.non-shrink {
+  flex-shrink: 0;
+}
+
+.table-wrapper {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+}
+</style>
