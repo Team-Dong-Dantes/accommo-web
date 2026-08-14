@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pa-md column" style="background-color: #f4f6f8">
+  <q-page class="q-pa-md column" style="background-color: var(--c-bg)">
 
     <q-tabs
       v-model="activeEntityTab"
@@ -13,7 +13,7 @@
       <q-tab name="property" label="Property" class="text-weight-bold" />
     </q-tabs>
 
-    <q-card flat class="bg-white table-container q-mt-none" style="min-height: 600px;">
+    <q-card flat class="bg-surface table-container q-mt-none" style="min-height: 600px;">
 
       <template v-if="!selectedRequest">
 
@@ -424,7 +424,7 @@ async function handleDecision(decisionPayload: any) {
     const targetTable = isProperty ? 'properties' : 'users';
 
     let newStatus: string;
-    if (decisionPayload.decision === 'accept') {
+    if (decisionPayload.decision === 'approve') {
       newStatus = isProperty ? 'accredited' : 'verified';
     } else if (decisionPayload.decision === 'reject') {
       newStatus = 'rejected';
@@ -503,7 +503,7 @@ async function handleDecision(decisionPayload: any) {
 .table-container {
   border-radius: 0 12px 12px 12px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--c-border-strong);
   position: relative;
   z-index: 1;
   overflow: hidden;
@@ -521,7 +521,7 @@ async function handleDecision(decisionPayload: any) {
   transition: background-color 0.2s ease;
 }
 .smart-row:hover {
-  background-color: #fafafa !important;
+  background-color: var(--c-surface-2) !important;
 }
 
 .review-btn {

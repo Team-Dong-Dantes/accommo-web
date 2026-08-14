@@ -1,63 +1,76 @@
 <template>
-  <q-page class="users-page q-pa-md column no-wrap bg-grey-1">
+  <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
 
-    <div class="row justify-between items-center non-shrink">
-      <div class="row q-gutter-x-sm items-center">
-        <SearchInput v-model="search" placeholder="Search by name, email, or ID..." />
-        <FilterDropdown
-          :filters="filterConfig"
-          :activeFilters="activeFilters"
-          @update:activeFilters="activeFilters = $event"
-          @clear="clearFilters"
-        />
-        <CountPill :count="filteredRows.length" label="users" />
-        <q-btn flat dense color="grey-6" class="q-ml-sm" style="border-radius: 8px;" @click="fetchUsers" :loading="loading">
-          <Icon icon="mdi:refresh" width="18" height="18" />
-          <q-tooltip>Refresh</q-tooltip>
-        </q-btn>
+    <div class="row justify-between items-center non-shrink q-mb-md">
+      <div>
+        <p class="page-sub text-muted">Students and landlords across the platform.</p>
       </div>
       <ExportButton @click="handleExport" />
     </div>
 
     <div class="table-wrapper">
-      <DataTable :rows="paginatedRows" :columns="columns" rowKey="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
-        <template #no-data>
-          <div class="full-width row flex-center text-grey-5 q-pa-xl column">
-            <Icon icon="mdi:account-group-off-outline" width="48" height="48" class="q-mb-md" />
-            <div class="text-h6 text-weight-bold">No users found</div>
-            <div>There are currently no registered users matching your criteria.</div>
+      <q-card flat class="table-container">
+        <div class="row items-center justify-between q-pa-md table-bar">
+          <div class="row items-center q-gutter-x-sm">
+            <SearchInput v-model="search" placeholder="Search by name, email, or ID..." style="width: 300px;" />
+            <FilterDropdown
+              :filters="filterConfig"
+              :activeFilters="activeFilters"
+              @update:activeFilters="activeFilters = $event"
+              @clear="clearFilters"
+            />
           </div>
-        </template>
 
-        <template #body="{ props }">
-          <q-tr :props="props">
-            <q-td key="user" :props="props">
-              <div class="row items-center no-wrap">
-                <q-avatar size="38px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">
-                  {{ props.row.initials }}
-                </q-avatar>
-                <div class="column">
-                  <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
-                  <div class="text-grey-5" style="font-size: 12px">{{ props.row.email }}</div>
+          <div class="row items-center q-gutter-x-md">
+            <q-btn flat dense color="grey-6" class="refresh-btn" @click="fetchUsers" :loading="loading">
+              <Icon icon="mdi:refresh" width="18" height="18" />
+              <q-tooltip>Refresh</q-tooltip>
+            </q-btn>
+            <q-badge color="grey-2" text-color="grey-7" class="q-px-sm q-py-xs text-weight-bold total-badge">
+              {{ filteredRows.length }} total {{ filteredRows.length === 1 ? 'user' : 'users' }}
+            </q-badge>
+          </div>
+        </div>
+
+        <DataTable :rows="paginatedRows" :columns="columns" rowKey="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+          <template #no-data>
+            <div class="full-width row flex-center text-muted q-pa-xl column">
+              <Icon icon="mdi:account-group-off-outline" width="48" height="48" class="q-mb-md" />
+              <div class="text-h6 text-weight-bold">No users found</div>
+              <div>There are currently no registered users matching your criteria.</div>
+            </div>
+          </template>
+
+          <template #body="{ props }">
+            <q-tr :props="props">
+              <q-td key="user" :props="props">
+                <div class="row items-center no-wrap">
+                  <q-avatar size="38px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">
+                    {{ props.row.initials }}
+                  </q-avatar>
+                  <div class="column">
+                    <div class="text-weight-bold text-ink" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
+                    <div class="text-muted" style="font-size: 12px">{{ props.row.email }}</div>
+                  </div>
                 </div>
-              </div>
-            </q-td>
-            <q-td key="id" :props="props" class="text-grey-5 text-weight-medium">{{ props.row.id }}</q-td>
-            <q-td key="contact" :props="props" class="text-dark">{{ props.row.contact }}</q-td>
-            <q-td key="role" :props="props">
-              <BadgePill :bg="props.row.roleStyle.bg" :text-color="props.row.roleStyle.text" :icon="props.row.roleStyle.icon" :label="props.row.role" />
-            </q-td>
-            <q-td key="status" :props="props">
-              <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
-            </q-td>
-            <q-td key="joined" :props="props" class="text-grey-8">{{ props.row.joined }}</q-td>
-            <q-td key="details" :props="props" class="text-grey-5 ellipsis" style="max-width: 200px">{{ props.row.details }}</q-td>
-          </q-tr>
-        </template>
-      </DataTable>
+              </q-td>
+              <q-td key="id" :props="props" class="text-muted text-weight-medium" style="font-family: var(--font-mono)">{{ props.row.id }}</q-td>
+              <q-td key="contact" :props="props" class="text-ink">{{ props.row.contact }}</q-td>
+              <q-td key="role" :props="props">
+                <BadgePill :bg="props.row.roleStyle.bg" :text-color="props.row.roleStyle.text" :icon="props.row.roleStyle.icon" :label="props.row.role" />
+              </q-td>
+              <q-td key="status" :props="props">
+                <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
+              </q-td>
+              <q-td key="joined" :props="props" class="text-muted">{{ props.row.joined }}</q-td>
+              <q-td key="details" :props="props" class="text-muted ellipsis" style="max-width: 200px">{{ props.row.details }}</q-td>
+            </q-tr>
+          </template>
+        </DataTable>
+      </q-card>
     </div>
 
-    <div class="non-shrink">
+    <div class="non-shrink q-mt-md">
       <TablePagination
         v-model="currentPage"
         :totalItems="filteredRows.length"
@@ -75,7 +88,6 @@ import { supabase } from '@/utils/supabase'
 
 import SearchInput from '@/components/common/SearchInput.vue'
 import FilterDropdown from '@/components/common/FilterDropdown.vue'
-import CountPill from '@/components/common/CountPill.vue'
 import ExportButton from '@/components/common/ExportButton.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import TablePagination from '@/components/common/TablePagination.vue'
@@ -103,9 +115,7 @@ const columns = [
 ]
 
 function clearFilters() {
-  const cleared: Record<string, any[]> = {}
-  filterConfig.forEach(f => { cleared[f.key] = [] })
-  activeFilters.value = cleared
+  activeFilters.value = { role: [], status: [] }
 }
 
 function handleExport() {
@@ -216,6 +226,22 @@ watch([search, activeFilters], () => { currentPage.value = 1 }, { deep: true })
   overflow: hidden !important;
   height: 100% !important;
 }
+
+.page-sub {
+  font-size: var(--fs-sm);
+  margin: 2px 0 0;
+}
+
+.table-container {
+  background: var(--c-surface);
+  border-radius: var(--card-radius);
+  border: 1px solid var(--c-border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.table-bar { border-bottom: 1px solid var(--c-border); }
+.refresh-btn { border-radius: 8px; }
+.total-badge { border-radius: 6px; }
 
 .non-shrink {
   flex-shrink: 0;

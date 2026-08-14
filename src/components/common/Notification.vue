@@ -1,6 +1,6 @@
 <template>
-  <q-btn flat round dense color="grey-7" size="15px" class="relative-position q-mr-sm">
-    <Icon icon="mdi:bell" width="15" height="15" />
+  <q-btn flat dense class="notif-capsule relative-position" style="border-radius: 999px;">
+    <Icon icon="mdi:bell" width="18" height="18" />
 
     <q-badge v-if="unreadCount > 0" color="red" floating rounded style="top: 0px; right: 0px; font-weight: bold;">
       {{ unreadCount }}
@@ -8,15 +8,15 @@
 
     <q-menu anchor="bottom right" self="top right" :offset="[0, 12]"
       style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); width: 340px; max-height: 80vh;">
-      <div class="row items-center justify-between q-pa-md border-bottom bg-white sticky-top z-top">
+      <div class="row items-center justify-between q-pa-md border-bottom bg-surface sticky-top z-top">
         <div class="text-weight-bold text-subtitle1" style="line-height: 1;">Notifications</div>
-        <q-btn v-if="unreadCount > 0" flat dense size="11px" color="teal-6" label="Mark all as read"
+        <q-btn v-if="unreadCount > 0" flat dense size="11px" color="primary" label="Mark all as read"
           @click="markAllRead" class="text-weight-bold" />
       </div>
 
       <q-list class="q-py-xs">
         <q-item v-for="notif in notifications" :key="notif.id" clickable v-ripple
-          :class="notif.unread ? 'bg-teal-1' : ''" @click="notif.unread = false" class="q-pa-md transition-bg">
+          :class="notif.unread ? 'bg-primary-1' : ''" @click="notif.unread = false" class="q-pa-md transition-bg">
           <q-item-section avatar>
             <q-avatar :color="notif.color" text-color="white" size="40px" font-size="20px">
               <Icon :icon="notif.icon" width="20" height="20" />
@@ -45,8 +45,8 @@
         </q-item>
       </q-list>
 
-      <div class="q-pa-sm text-center border-top bg-white sticky-bottom">
-        <q-btn flat dense color="teal-7" label="View All Notifications" class="full-width text-weight-bold"
+      <div class="q-pa-sm text-center border-top bg-surface sticky-bottom">
+        <q-btn flat dense color="primary" label="View All Notifications" class="full-width text-weight-bold"
           style="font-size: 12px;" />
       </div>
     </q-menu>
@@ -100,5 +100,17 @@ function markAllRead() {
 
 .transition-bg {
   transition: background-color 0.3s ease;
+}
+
+.notif-capsule {
+  border-radius: 999px !important;
+  background: var(--c-surface-2) !important;
+  border: 1px solid var(--c-border) !important;
+  padding: 7px 11px !important;
+  color: var(--c-muted) !important;
+}
+
+.notif-capsule:hover {
+  background: var(--c-border) !important;
 }
 </style>

@@ -1,7 +1,7 @@
 <template>
-  <div class="column no-wrap full-height bg-white" style="border-radius: 12px; overflow: hidden;">
+  <div class="column no-wrap full-height bg-surface" style="border-radius: 12px; overflow: hidden;">
 
-    <div class="q-pa-md border-bottom bg-white shrink-0">
+    <div class="q-pa-md border-bottom bg-surface shrink-0">
 
       <div class="row items-center q-mb-md">
         <q-avatar color="teal-1" text-color="teal-7" size="40px" class="q-mr-sm" style="border-radius: 12px;">
@@ -23,6 +23,9 @@
         <FilterDropdown
           class="custom-radius-filter"
           style="min-width: 85px;"
+          :filters="filters"
+          :active-filters="activeFilters"
+          @update:active-filters="activeFilters = $event"
         />
       </div>
     </div>
@@ -92,6 +95,29 @@ defineProps({
 defineEmits(['select'])
 
 const search = ref('')
+
+// Default filter config for FilterDropdown (self-contained)
+const filters = [
+  {
+    key: 'type',
+    label: 'Room Type',
+    options: [
+      { label: 'Solo', value: 'Solo' },
+      { label: 'Duo', value: 'Duo' },
+      { label: 'Triple', value: 'Triple' },
+      { label: 'Bedspace', value: 'Bedspace' },
+    ],
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    options: [
+      { label: 'Verified', value: 'verified' },
+      { label: 'Flagged', value: 'flagged' },
+    ],
+  },
+]
+const activeFilters = ref<Record<string, any[]>>({})
 </script>
 
 <style scoped>
@@ -102,5 +128,5 @@ const search = ref('')
 .custom-radius-filter :deep(.q-btn) { border-radius: 12px !important; }
 
 .property-item { transition: background-color 0.2s ease; }
-.property-item:hover { background-color: #fafafa; }
+.property-item:hover { background-color: var(--c-surface-2); }
 </style>

@@ -290,7 +290,7 @@ const faqs = [
 }
 .kicker { text-transform: uppercase; letter-spacing: 1.5px; font-size: clamp(10px, 1.1vw, 12px); font-weight: 700; color: var(--teal); margin: 0 0 clamp(10px, 1.4vh, 16px); }
 .headline {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-display);
   font-size: clamp(2rem, 1rem + 4.2vw, 3.25rem);
   line-height: 1.08; letter-spacing: -0.5px;
   font-weight: 700; margin: 0 0 clamp(14px, 2vh, 22px); color: var(--ink);
@@ -408,7 +408,7 @@ const faqs = [
 .band { padding: 76px 0; border-bottom: 1px solid var(--line); }
 .paper { background: var(--paper); }
 .section-head { margin-bottom: 36px; }
-.title { font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.6rem, 3vw, 2.1rem); font-weight: 700; letter-spacing: -0.3px; margin: 0; color: var(--ink); }
+  .title { font-family: var(--font-display); font-size: clamp(1.6rem, 3vw, 2.1rem); font-weight: 700; letter-spacing: -0.3px; margin: 0; color: var(--ink); }
 .body { font-size: 1.04rem; line-height: 1.7; color: var(--muted); margin: 16px 0 0; }
 
 /* how */

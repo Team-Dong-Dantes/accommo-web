@@ -19,7 +19,7 @@
             :max="totalPages"
             @keyup.enter="jumpToPage"
             @blur="jumpToPage"
-            class="page-input bg-white"
+            class="page-input bg-surface"
           />
         </div>
 
@@ -127,7 +127,7 @@ function jumpToPage() {
   text-align: center;
 }
 .pagination-btn {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--c-border-strong);
   border-radius: 8px;
   width: 32px;
   height: 32px;

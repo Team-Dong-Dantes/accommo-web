@@ -1,5 +1,5 @@
 <template>
-  <div class="column no-wrap full-height bg-white" style="border-radius: 12px; overflow: hidden;">
+  <div class="column no-wrap full-height bg-surface" style="border-radius: 12px; overflow: hidden;">
 
     <div class="q-pa-md border-bottom shrink-0">
       <q-btn flat dense color="grey-7" label="All Properties" no-caps class="q-mb-md q-ml-none text-weight-medium q-pl-none" @click="$emit('back')">
@@ -159,7 +159,7 @@
               v-for="room in property?.rooms"
               :key="room.name"
               group="rooms"
-              header-class="bg-white border-all"
+              header-class="bg-surface border-all"
               style="border-radius: 12px; overflow: hidden;"
               expand-icon-class="text-grey-6"
             >
@@ -232,7 +232,7 @@ const quickStats = computed(() => [
 <style scoped>
 .shrink-0 { flex-shrink: 0; }
 .border-bottom { border-bottom: 1px solid #f0f0f0; }
-.border-all { border: 1px solid #e0e0e0; }
+.border-all { border: 1px solid var(--c-border-strong); }
 .border-top-none { border-top: none; }
 .border-white { border: 2px solid white; }
 

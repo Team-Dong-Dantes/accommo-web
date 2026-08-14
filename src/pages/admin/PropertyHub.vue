@@ -1,6 +1,6 @@
 <template>
   <!-- Locked the page height and hid overflow -->
-  <q-page class="q-pa-md column no-wrap" style="background-color: #f4f6f8; height: calc(100vh - 60px); overflow: hidden;">
+  <q-page class="q-pa-md column no-wrap" style="background-color: var(--c-bg); height: calc(100vh - 60px); overflow: hidden;">
 
     <!-- Top Navigation Row -->
     <div class="row justify-between items-end q-mb-none shrink-0">
@@ -32,7 +32,7 @@
     </div>
 
     <!-- Main Table Card (Fills remaining height) -->
-    <q-card flat class="bg-white table-container q-mt-none col column no-wrap" style="border-radius: 0 12px 12px 12px; overflow: hidden;">
+    <q-card flat class="bg-surface table-container q-mt-none col column no-wrap" style="border-radius: 0 12px 12px 12px; overflow: hidden;">
 
       <!-- Toolbar -->
       <div class="row items-center q-pa-md border-bottom q-gutter-x-sm shrink-0">
@@ -447,7 +447,7 @@ function getTrend(trend: string) {
   position: sticky;
   z-index: 1;
   top: 0;
-  background-color: #f5f5f5;
+  background-color: var(--c-primary-soft);
 }
 
 .table-row {
@@ -455,7 +455,7 @@ function getTrend(trend: string) {
 }
 
 .table-row:hover {
-  background-color: #fafafa;
+  background-color: var(--c-surface-2);
 }
 
 .table-row td {

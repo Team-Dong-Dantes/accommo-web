@@ -1,0 +1,88 @@
+/* ============================================================
+   Accommo Design Tokens — "Refined Institutional"
+   Light is the only theme.
+   Driven by CSS custom properties so Quasar + ApexCharts share
+   one source of truth (read at runtime via getComputedStyle).
+   ============================================================ */
+
+:root {
+  /* ----- Color: brand ----- */
+  --c-primary: #0F766E;
+  --c-primary-soft: #E3F0EE;
+  --c-primary-ink: #0B5750;
+
+  --c-accent: #E0654B;          /* vivid coral — CTAs / alerts only */
+  --c-accent-soft: #FBE7E1;
+
+  /* ----- Color: semantic ----- */
+  --c-success: #15803D;
+  --c-success-soft: #E4F3E9;
+  --c-warning: #B45309;
+  --c-warning-soft: #FBEFD6;
+  --c-danger: #C2410C;
+  --c-danger-soft: #FBE4DD;
+  --c-info: #0E7490;
+  --c-info-soft: #E0EFF3;
+
+  /* ----- Color: surfaces & text ----- */
+  --c-bg: #F1F4F8;                       /* pale cool gray app background (lighter) */
+  --c-surface: #F8FAFC;                  /* pale cool gray surface — never white */
+  --c-surface-2: #EDF1F6;                /* pale cool gray inset / hover surface */
+  --c-ink: #16211E;            /* headings */
+  --c-text: #2B3531;           /* body */
+  --c-muted: #6B7770;
+  --c-border: #E7ECF2;
+  --c-border-strong: #D3DAE3;
+
+  /* ----- Color: sidebar (always deep teal) ----- */
+  --c-sidebar-bg: #0E2E2A;
+  --c-sidebar-text: #EAF4F1;
+  --c-sidebar-active-bg: #F1F4F8;
+  --c-sidebar-active-text: #0F766E;
+
+  /* ----- Dark panels (Quick Actions card) ----- */
+  --c-panel-dark: #0E2E2A;
+  --c-panel-dark-text: #EAF4F1;
+
+  /* ----- Typography ----- */
+  --font-body: 'Hanken Grotesk', system-ui, -apple-system, Segoe UI, sans-serif;
+  --font-display: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --fs-display: clamp(1.7rem, 1.3rem + 1.1vw, 2.25rem);
+  --fs-h1: 1.5rem;
+  --fs-h2: 1.25rem;
+  --fs-h3: 1.0625rem;
+  --fs-body: 1rem;             /* 16px */
+  --fs-sm: 0.875rem;
+  --fs-xs: 0.75rem;
+
+  /* ----- Spacing (4px base) ----- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* ----- Radius & shadow ----- */
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 1px 2px rgba(16, 32, 28, 0.06);
+  --shadow: 0 6px 20px rgba(16, 32, 28, 0.08);
+  --shadow-lg: 0 14px 36px rgba(16, 32, 28, 0.12);
+
+  /* ----- Card: the default surface ----- */
+  --card-bg: var(--c-surface);
+  --card-radius: var(--radius);
+  --card-shadow: 0 1px 2px rgba(16, 32, 28, 0.06);
+
+  /* ----- Motion ----- */
+  --t-fast: 0.15s ease;
+  --t: 0.25s ease;
+  --t-slow: 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+
+  color-scheme: light;
+}

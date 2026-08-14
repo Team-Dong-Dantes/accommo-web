@@ -1,5 +1,5 @@
 <template>
-  <q-btn flat text-color="dark" class="bg-white text-weight-bold rounded-button custom-border" no-caps>
+  <q-btn flat text-color="dark" class="bg-surface text-weight-bold rounded-button custom-border" no-caps>
     <Icon icon="mdi:tune" class="on-left" width="18" height="18" />Filter
     <q-menu anchor="bottom right" self="top right" :offset="[0, 8]" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); width: 220px">
 

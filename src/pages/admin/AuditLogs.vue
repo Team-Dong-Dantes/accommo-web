@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pa-md column no-wrap" style="background-color: #f4f6f8; height: calc(100vh - 60px); overflow: hidden;">
+  <q-page class="q-pa-md column no-wrap" style="background-color: var(--c-bg); height: calc(100vh - 60px); overflow: hidden;">
 
     <!-- Top Navigation Row -->
     <div class="row justify-between items-end q-mb-md shrink-0">
@@ -14,7 +14,7 @@
           color="grey-5"
           text-color="dark"
           no-caps
-          class="text-weight-bold bg-white"
+          class="text-weight-bold bg-surface"
           style="border-radius: 8px; padding: 6px 16px;"
         >
           <Icon icon="mdi:calendar-range" class="on-left" width="16" height="16" />Last 30 Days
@@ -32,7 +32,7 @@
     </div>
 
     <!-- Main Table Card -->
-    <q-card flat class="bg-white table-container col column no-wrap" style="border-radius: 12px; overflow: hidden;">
+    <q-card flat class="bg-surface table-container col column no-wrap" style="border-radius: 12px; overflow: hidden;">
 
       <!-- Toolbar -->
       <div class="row items-center justify-between q-pa-md border-bottom shrink-0">
@@ -254,7 +254,7 @@ function getActionColor(action: string) {
 .table-container {
   border-radius: 12px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--c-border-strong);
 }
 
 .border-bottom { border-bottom: 1px solid #f0f0f0; }
@@ -285,10 +285,10 @@ function getActionColor(action: string) {
   position: sticky;
   z-index: 1;
   top: 0;
-  background-color: #f5f5f5;
+  background-color: var(--c-primary-soft);
 }
 
 .table-row { transition: background-color 0.2s ease; }
-.table-row:hover { background-color: #fafafa; }
+.table-row:hover { background-color: var(--c-surface-2); }
 .table-row td { border-bottom: 1px solid #f0f0f0 !important; }
 </style>

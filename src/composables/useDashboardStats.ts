@@ -15,6 +15,7 @@ export interface PendingRegistration {
 export interface DashboardStats {
   loading: boolean
   error: string | null
+  adminName: string
   properties: { total: number; accredited: number; avgRent: number }
   rooms: { total: number; occupied: number; available: number; capacity: number; occupancyPct: number }
   roomsByType: { type: string; capacity: number; count: number }[]
@@ -36,6 +37,11 @@ export interface DashboardStats {
   pendingRegistrations: PendingRegistration[]
   unverifiedUsers: { total: number; pending: number; reviewing: number }
   activeLeases: number
+  registrationsByMonth: { month: string; students: number; landlords: number }[]
+  queue: { pendingStudents: number; pendingLandlords: number; pendingProperties: number }
+  expiringLeases: { id: string; end_date: string | null }[]
+  expiringAccreditations: number
+  recentComplaints: { id: string; subject: string; priority: string; status: string; filed_at: string | null }[]
 }
 
 const CARD_COLORS = [
@@ -75,6 +81,7 @@ function emptyStats(): DashboardStats {
   return {
     loading: true,
     error: null,
+    adminName: 'Admin',
     properties: { total: 0, accredited: 0, avgRent: 0 },
     rooms: { total: 0, occupied: 0, available: 0, capacity: 0, occupancyPct: 0 },
     roomsByType: [],
@@ -89,6 +96,11 @@ function emptyStats(): DashboardStats {
     pendingRegistrations: [],
     unverifiedUsers: { total: 0, pending: 0, reviewing: 0 },
     activeLeases: 0,
+    registrationsByMonth: [],
+    queue: { pendingStudents: 0, pendingLandlords: 0, pendingProperties: 0 },
+    expiringLeases: [],
+    expiringAccreditations: 0,
+    recentComplaints: [],
   }
 }
 
@@ -102,6 +114,21 @@ export function useDashboardStats() {
     error.value = null
     try {
       const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()
+      const nowIso = new Date().toISOString()
+      const thirtyDaysIso = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString()
+      const sevenMonthsAgo = new Date(Date.now() - 210 * 24 * 3600 * 1000).toISOString()
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session?.user) {
+        const { data: adminRow } = await supabase
+          .from('users')
+          .select('full_name')
+          .eq('id', session.user.id)
+          .maybeSingle()
+        if (adminRow?.full_name) data.adminName = adminRow.full_name
+      }
 
       const [
         propertiesRes,
@@ -117,6 +144,12 @@ export function useDashboardStats() {
         unverifiedRes,
         leaseRes,
         complaintOpenRes,
+        regRes,
+        pendingRolesRes,
+        pendingPropsRes,
+        expLeasesRes,
+        expAccRes,
+        complaintsRes,
       ] = await Promise.all([
         supabase.from('properties').select('id, status, capacity, total_rooms, room_type, name, monthly_rent'),
         supabase.from('rooms').select('capacity, current_pax, status, property:properties(name, room_type)'),
@@ -153,6 +186,26 @@ export function useDashboardStats() {
           .from('complaints')
           .select('id', { count: 'exact', head: true })
           .neq('status', 'resolved'),
+        supabase.from('users').select('created_at, role').gte('created_at', sevenMonthsAgo),
+        supabase.from('users').select('role').in('status', ['pending', 'reviewing']),
+        supabase.from('properties').select('id').in('status', ['pending', 'reviewing']),
+        supabase
+          .from('leases')
+          .select('id, end_date')
+          .eq('status', 'active')
+          .gte('end_date', nowIso)
+          .lte('end_date', thirtyDaysIso),
+        supabase
+          .from('landlord_profiles')
+          .select('user_id, accreditation_expires_at')
+          .gte('accreditation_expires_at', nowIso)
+          .lte('accreditation_expires_at', thirtyDaysIso),
+        supabase
+          .from('complaints')
+          .select('id, subject, priority, status, filed_at')
+          .neq('status', 'resolved')
+          .order('filed_at', { ascending: false })
+          .limit(5),
       ])
 
       const props = (propertiesRes.data ?? []) as Array<{
@@ -349,6 +402,57 @@ export function useDashboardStats() {
         open: complaintOpenRes.count ?? 0,
         urgent: urgentRes.count ?? 0,
       }
+
+      // Registration trend (last 7 months, split by role)
+      const regRows = (regRes.data ?? []) as Array<{ created_at: string | null; role: string }>
+      const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const now = new Date()
+      const monthLabels: string[] = []
+      for (let i = 6; i >= 0; i--) {
+        monthLabels.push(monthKey(new Date(now.getFullYear(), now.getMonth() - i, 1)))
+      }
+      const regByMonth = new Map(monthLabels.map(k => [k, { students: 0, landlords: 0 }]))
+      for (const u of regRows) {
+        if (!u.created_at) continue
+        const k = monthKey(new Date(u.created_at))
+        const bucket = regByMonth.get(k)
+        if (!bucket) continue
+        if (u.role === 'student') bucket.students += 1
+        else if (u.role === 'landlord') bucket.landlords += 1
+      }
+      data.registrationsByMonth = monthLabels.map((k) => {
+        const [y, m] = k.split('-')
+        const label = new Date(Number(y), Number(m) - 1, 1).toLocaleString('en', { month: 'short' })
+        const v = regByMonth.get(k)!
+        return { month: label, students: v.students, landlords: v.landlords }
+      })
+
+      // Action queue
+      const pendingRoles = (pendingRolesRes.data ?? []) as Array<{ role: string }>
+      const pendingProps = (pendingPropsRes.data ?? []) as Array<{ id: string }>
+      data.queue = {
+        pendingStudents: pendingRoles.filter(r => r.role === 'student').length,
+        pendingLandlords: pendingRoles.filter(r => r.role === 'landlord').length,
+        pendingProperties: pendingProps.length,
+      }
+
+      // Expiring leases (active, ending within 30 days)
+      data.expiringLeases = (expLeasesRes.data ?? []).map(l => ({
+        id: l.id,
+        end_date: l.end_date,
+      }))
+
+      // Expiring landlord accreditations (within 30 days)
+      data.expiringAccreditations = (expAccRes.data ?? []).length
+
+      // Recent open complaints
+      data.recentComplaints = (complaintsRes.data ?? []).map(c => ({
+        id: c.id,
+        subject: c.subject,
+        priority: c.priority,
+        status: c.status,
+        filed_at: c.filed_at,
+      }))
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load dashboard data'
     } finally {

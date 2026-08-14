@@ -13,7 +13,7 @@ defineProps({
 
 <style scoped>
 .count-pill {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--c-border-strong);
   border-radius: 20px;
   padding: 4px 14px;
   font-size: 13px;

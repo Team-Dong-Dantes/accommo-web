@@ -1,5 +1,5 @@
 <template>
-  <div class="q-pa-md full-width bg-white" style="border-radius: 0 12px 12px 12px;">
+  <div class="q-pa-md full-width bg-surface" style="border-radius: 0 12px 12px 12px;">
 
     <div class="row items-center justify-between q-mb-md">
       <q-btn
@@ -24,7 +24,7 @@
     <div class="row q-col-gutter-md">
 
       <div class="col-12 col-md-8">
-        <q-card flat bordered class="bg-white document-container">
+        <q-card flat bordered class="bg-surface document-container">
 
           <div class="row justify-between items-center q-pa-sm border-bottom">
             <div class="text-weight-bold text-dark q-ml-sm">

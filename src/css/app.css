@@ -1,1 +1,96 @@
-/* app global css */
+/* app global css — Accommo base layer (loaded after tokens.css) */
+
+@import './tokens.css';
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headings lean on the display sans (Space Grotesk) for institutional character */
+h1,
+h2,
+h3,
+h4,
+.text-display {
+  font-family: var(--font-display);
+  color: var(--c-ink);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+
+/* Default card — soft off-white panel used by every Accommo surface */
+.card {
+  background: var(--card-bg, var(--c-surface)) !important;
+  border: 1px solid var(--c-border) !important;
+  border-radius: var(--card-radius, 16px) !important;
+  box-shadow: var(--card-shadow, 0 1px 2px rgba(16, 32, 28, 0.06)) !important;
+}
+
+/* Accessible focus ring everywhere */
+:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--c-primary-soft);
+  color: var(--c-primary-ink);
+}
+
+/* Themed scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--c-border-strong);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--c-muted);
+  background-clip: padding-box;
+}
+
+/* ---- Token utility classes (drop-in replacements for Quasar greys) ---- */
+.bg-surface { background: var(--c-surface) !important; }
+.bg-surface-2 { background: var(--c-surface-2) !important; }
+.bg-panel-dark { background: var(--c-panel-dark) !important; color: var(--c-panel-dark-text) !important; }
+.text-ink { color: var(--c-ink) !important; }
+.text-muted { color: var(--c-muted) !important; }
+.border-token { border: 1px solid var(--c-border) !important; }
+.radius { border-radius: var(--radius) !important; }
+.radius-lg { border-radius: var(--radius-lg) !important; }
+.card-radius { border-radius: var(--card-radius) !important; }
+.radius-sm { border-radius: var(--radius-sm) !important; }
+.shadow-token { box-shadow: var(--shadow) !important; }
+
+/* Staggered entrance for dashboard tiles (micro-interaction) */
+@keyframes accommo-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.rise-in {
+  animation: accommo-rise var(--t-slow) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise-in { animation: none; }
+  * { transition: none !important; }
+}

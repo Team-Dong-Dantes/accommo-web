@@ -1,27 +1,20 @@
 <template>
-  <q-layout view="lHh Lpr lFf" style="background-color: #f5f5f5;">
+  <q-layout view="lHh Lpr lFf" class="app-shell">
 
     <Sidebar />
 
-    <q-header class="bg-white text-dark custom-header-shadow">
+    <q-header class="bg-transparent text-ink">
       <q-toolbar class="q-py-sm q-px-md">
-
-        <div class="column q-ml-sm">
-          <div class="text-h6 text-weight-bold" style="line-height: 1.2;">
-            {{ route.meta.title || 'Accommo' }}
-          </div>
-          <div class="text-caption text-grey-6" style="line-height: 1;">
-            {{ route.meta.subtitle || 'OSAS Administration Panel' }}
-          </div>
+        <div class="text-h5 text-weight-bold q-ml-sm" style="line-height: 1.2; font-family: var(--font-display);">
+          {{ route.meta.title || 'Accommo' }}
         </div>
 
         <q-space />
 
-        <div class="row items-center q-gutter-x-lg q-pr-md">
+        <div class="row items-center q-gutter-x-md q-pr-sm">
           <HeaderNotification />
           <HeaderProfile />
         </div>
-
       </q-toolbar>
     </q-header>
 
@@ -42,7 +35,7 @@ const route = useRoute()
 </script>
 
 <style scoped>
-.custom-header-shadow {
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+.app-shell {
+  background-color: var(--c-bg);
 }
 </style>

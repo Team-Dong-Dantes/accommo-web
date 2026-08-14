@@ -1,7 +1,7 @@
 <template>
-  <div class="row items-center no-wrap cursor-pointer q-pa-xs rounded-borders hover-bg">
+  <div class="row items-center no-wrap cursor-pointer profile-capsule">
 
-    <q-avatar size="48px" color="teal-7" text-color="white" class="text-weight-bold" style="font-size: 30px;">
+    <q-avatar size="48px" color="primary" text-color="white" class="text-weight-bold" style="font-size: 30px;">
       MA
     </q-avatar>
 
@@ -55,12 +55,15 @@ async function handleLogout() {
 </script>
 
 <style scoped>
-.hover-bg {
+.profile-capsule {
+  border-radius: 999px !important;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  padding: 4px 14px 4px 4px;
   transition: background 0.2s ease;
-  padding-right: 8px;
 }
 
-.hover-bg:hover {
-  background: rgba(0, 0, 0, 0.04);
+.profile-capsule:hover {
+  background: var(--c-border);
 }
 </style>

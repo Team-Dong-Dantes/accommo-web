@@ -5,7 +5,7 @@
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
     :placeholder="placeholder"
-    class="bg-white rounded-input"
+    class="bg-surface rounded-input"
     style="width: 300px;"
   >
     <template v-slot:prepend>

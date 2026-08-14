@@ -168,13 +168,13 @@ function isParentActive(paths: string[]) {
 
 <style>
 .sidebar-bg {
-  background-color: #0f8b7d !important;
-  color: white !important;
+  background-color: var(--c-sidebar-bg) !important;
+  color: var(--c-sidebar-text) !important;
   overflow-x: hidden;
 }
 
 .text-light-teal {
-  color: #6de0d1;
+  color: rgba(234, 244, 241, 0.6);
 }
 
 .shrink-0 {
@@ -235,8 +235,8 @@ function isParentActive(paths: string[]) {
 }
 
 .active-menu {
-  background-color: #fafafa !important;
-  color: #0f8b7d !important;
+  background-color: var(--c-sidebar-active-bg) !important;
+  color: var(--c-sidebar-active-text) !important;
   border-radius: 16px !important;
   margin-right: 10px !important;
 }

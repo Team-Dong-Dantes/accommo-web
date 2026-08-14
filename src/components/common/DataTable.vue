@@ -11,7 +11,7 @@
   >
 
     <template v-slot:header="props">
-      <q-tr :props="props" class="bg-white">
+      <q-tr :props="props" class="bg-surface">
         <q-th v-for="col in props.cols" :key="col.name" :props="props" class="text-grey-6 text-weight-bold custom-th">
           {{ col.label }}
         </q-th>
@@ -20,7 +20,7 @@
 
     <template v-slot:body="props">
 
-      <q-tr v-if="props.row._isEmpty" :props="props" class="empty-row bg-white">
+      <q-tr v-if="props.row._isEmpty" :props="props" class="empty-row bg-surface">
         <q-td v-for="col in columns" :key="col.name" :props="props"></q-td>
       </q-tr>
 

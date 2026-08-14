@@ -1,10 +1,10 @@
 <template>
-  <q-page class="q-pa-md row no-wrap q-gutter-x-md" style="height: calc(100vh - 60px); overflow: hidden; background-color: #f4f6f8;">
+  <q-page class="q-pa-md row no-wrap q-gutter-x-md" style="height: calc(100vh - 60px); overflow: hidden; background-color: var(--c-bg);">
 
     <!-- LEFT SIDEBAR: Inbox -->
-    <q-card flat class="bg-white custom-shadow column no-wrap shrink-0" style="border-radius: 12px; width: 340px;">
+    <q-card flat class="bg-surface custom-shadow column no-wrap shrink-0" style="border-radius: 12px; width: 340px;">
 
-      <div class="q-pa-md border-bottom shrink-0 bg-white" style="border-radius: 12px 12px 0 0; z-index: 10;">
+      <div class="q-pa-md border-bottom shrink-0 bg-surface" style="border-radius: 12px 12px 0 0; z-index: 10;">
         <div class="text-h6 text-weight-bold text-dark q-mb-md" style="line-height: 1;">Tickets</div>
 
         <SearchInput v-model="searchQuery" placeholder="Search tickets..." class="q-mb-md custom-radius" />
@@ -61,9 +61,9 @@
     </q-card>
 
     <!-- CENTER PANE: Conversation -->
-    <q-card v-if="selectedTicket" flat class="col bg-white custom-shadow column no-wrap relative-position" style="border-radius: 12px; overflow: hidden;">
+    <q-card v-if="selectedTicket" flat class="col bg-surface custom-shadow column no-wrap relative-position" style="border-radius: 12px; overflow: hidden;">
 
-      <div class="q-pa-md border-bottom shrink-0 bg-white z-top row justify-between items-center">
+      <div class="q-pa-md border-bottom shrink-0 bg-surface z-top row justify-between items-center">
         <div class="row items-center q-gutter-x-sm">
             <q-badge :color="getStatusBgColor(selectedTicket.status)" :text-color="getStatusColor(selectedTicket.status)" class="text-weight-bold q-px-sm q-py-xs" style="border-radius: 6px; font-size: 11px;">
             <Icon icon="mdi:circle" width="6" height="6" class="q-mr-xs" /> {{ selectedTicket.status }}
@@ -92,7 +92,7 @@
                   class="q-pa-md shadow-1 text-dark"
                   :class="[
                     msg.isInternal ? 'bg-amber-1 border-amber' :
-                    (msg.isAgent ? 'bg-teal-1 border-teal' : 'bg-white border-all')
+                    (msg.isAgent ? 'bg-teal-1 border-teal' : 'bg-surface border-all')
                   ]"
                   :style="[
                     'font-size: 14px; line-height: 1.5;',
@@ -122,7 +122,7 @@
         </div>
       </q-scroll-area>
 
-      <div class="q-pa-md bg-white border-top shrink-0">
+      <div class="q-pa-md bg-surface border-top shrink-0">
         <div style="max-width: 800px; margin: 0 auto;" class="column">
 
           <q-card flat class="composer-card overflow-hidden" :class="replyMode === 'internal' ? 'border-amber' : 'border-all'">
@@ -142,10 +142,10 @@
             <q-input
               v-model="replyText" type="textarea" borderless autogrow
               :placeholder="replyMode === 'internal' ? 'Type a private note...' : 'Type your reply...'"
-              class="q-pa-sm" :class="replyMode === 'internal' ? 'bg-amber-1' : 'bg-white'"
+              class="q-pa-sm" :class="replyMode === 'internal' ? 'bg-amber-1' : 'bg-surface'"
             />
 
-            <div class="row justify-between items-center q-pa-sm border-top" :class="replyMode === 'internal' ? 'bg-amber-1' : 'bg-white'">
+            <div class="row justify-between items-center q-pa-sm border-top" :class="replyMode === 'internal' ? 'bg-amber-1' : 'bg-surface'">
               <div class="row q-gutter-x-sm text-grey-6">
                 <q-btn flat dense size="sm" class="custom-radius"><Icon icon="mdi:format-bold" width="18" height="18" /></q-btn>
                 <q-btn flat dense size="sm" class="custom-radius"><Icon icon="mdi:paperclip" width="18" height="18" /></q-btn>
@@ -169,7 +169,7 @@
     </q-card>
 
     <!-- RIGHT PANE: Context Sidebar -->
-    <q-card v-if="selectedTicket" flat class="sidebar-container bg-white custom-shadow column no-wrap shrink-0" style="border-radius: 12px; width: 300px; overflow-y: auto;">
+    <q-card v-if="selectedTicket" flat class="sidebar-container bg-surface custom-shadow column no-wrap shrink-0" style="border-radius: 12px; width: 300px; overflow-y: auto;">
 
       <div class="q-pa-md border-bottom">
         <div class="text-caption text-grey-5 text-weight-bold text-uppercase q-mb-md tracking-wide">Ticket Info</div>
@@ -231,13 +231,13 @@
 
       <div class="q-pa-md bg-grey-1" style="flex-grow: 1;">
         <div class="text-caption text-grey-5 text-weight-bold text-uppercase q-mb-md tracking-wide">Property Context</div>
-        <q-card flat bordered class="bg-white q-pa-sm custom-radius q-mb-md">
+        <q-card flat bordered class="bg-surface q-pa-sm custom-radius q-mb-md">
           <div class="text-weight-bold text-dark q-mb-xs" style="font-size: 13px;">{{ selectedTicket.property.name }}</div>
           <div class="text-grey-6 q-mb-sm" style="font-size: 11px;">Landlord: {{ selectedTicket.property.landlord }}</div>
         </q-card>
 
         <div class="column q-gutter-y-sm">
-          <q-btn outline color="teal-7" no-caps class="text-weight-bold full-width custom-radius bg-white" align="left">
+          <q-btn outline color="teal-7" no-caps class="text-weight-bold full-width custom-radius bg-surface" align="left">
             <Icon icon="mdi:open-in-new" class="on-left" width="18" height="18" />Open Property Profile
           </q-btn>
         </div>
@@ -245,8 +245,8 @@
 
     </q-card>
 
-    <q-card v-else flat class="col bg-white custom-shadow column flex-center" style="border-radius: 12px;">
-      <Icon icon="mdi:forum-outline" width="64" height="64" color="#e0e0e0" class="q-mb-md" />
+    <q-card v-else flat class="col bg-surface custom-shadow column flex-center" style="border-radius: 12px;">
+      <Icon icon="mdi:forum-outline" width="64" height="64" color="var(--c-border-strong)" class="q-mb-md" />
       <div class="text-h6 text-grey-5 text-weight-bold">Select a ticket to begin</div>
     </q-card>
 
@@ -338,10 +338,10 @@ function getStatusBgColor(status: string) {
 </script>
 
 <style scoped>
-.custom-shadow { box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important; border: 1px solid #e0e0e0; }
+.custom-shadow { box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important; border: 1px solid var(--c-border-strong); }
 .border-bottom { border-bottom: 1px solid #f0f0f0; }
 .border-top { border-top: 1px solid #f0f0f0; }
-.border-all { border: 1px solid #e0e0e0; }
+.border-all { border: 1px solid var(--c-border-strong); }
 .border-amber { border: 1px solid #ffca28; }
 .border-teal { border: 1px solid #b2dfdb; }
 .custom-radius { border-radius: 8px !important; }
@@ -355,7 +355,7 @@ function getStatusBgColor(status: string) {
   transition: all 0.2s ease;
   border-bottom: 1px solid #f9f9f9;
 }
-.ticket-item:hover { background-color: #fafafa; }
+.ticket-item:hover { background-color: var(--c-surface-2); }
 .active-ticket {
   background-color: #f4fbfb !important;
   border-left: 4px solid #0f8b7d;

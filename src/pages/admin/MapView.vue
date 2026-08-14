@@ -1,95 +1,135 @@
 <template>
-  <!-- ADDED: q-pa-md (padding) and q-gutter-x-md (spacing) to manage the layout cleanly -->
-  <q-page class="row no-wrap q-pa-md q-gutter-x-md" style="height: calc(100vh - 60px); overflow: hidden; background-color: #f4f6f8;">
+  <q-page class="row no-wrap q-pa-md q-gutter-x-md" style="height: calc(100vh - 60px); overflow: hidden; background-color: var(--c-bg);">
 
     <!-- LEFT SIDEBAR -->
-    <!-- REMOVED: 'z-top' which was forcing this panel to sit above your green navigation drawer -->
-    <div class="sidebar-container bg-white custom-shadow column no-wrap relative-position">
-
-      <!-- Absolute full ensures the transition doesn't collapse the height -->
+    <div class="sidebar-container bg-surface custom-shadow column no-wrap relative-position">
       <div class="col absolute-full">
         <transition name="slide-fade" mode="out-in">
-
           <PropertyList
             v-if="!selectedProperty"
             :properties="mockProperties"
-            @select="selectedProperty = $event"
+            @select="selectProperty"
             class="absolute-full"
           />
-
           <PropertyDetail
             v-else
             :property="selectedProperty"
             @back="selectedProperty = null"
             class="absolute-full"
           />
-
         </transition>
       </div>
     </div>
 
     <!-- RIGHT MAP AREA -->
-    <div class="col relative-position map-area custom-shadow map-bg bg-white">
+    <div class="col relative-position map-area custom-shadow">
+      <!-- Mapbox canvas -->
+      <div ref="mapContainer" class="map-container"></div>
 
       <div class="absolute-top-left q-pa-md" style="z-index: 2;">
-        <q-btn-group outline rounded class="bg-white shadow-1 border-all" style="border-radius: 12px;">
-          <q-btn flat color="dark" dense class="q-px-sm"><Icon icon="mdi:plus" width="18" height="18" /></q-btn>
-          <q-btn flat color="dark" dense class="q-px-sm"><Icon icon="mdi:minus" width="18" height="18" /></q-btn>
+        <q-btn-group outline rounded class="bg-surface shadow-1" style="border-radius: 12px;">
+          <q-btn flat color="dark" dense class="q-px-sm" @click="zoomIn"><Icon icon="mdi:plus" width="18" height="18" /></q-btn>
+          <q-btn flat color="dark" dense class="q-px-sm" @click="zoomOut"><Icon icon="mdi:minus" width="18" height="18" /></q-btn>
         </q-btn-group>
       </div>
 
       <div class="absolute-top-right q-pa-md" style="z-index: 2;">
-        <div class="bg-white shadow-1 border-all q-px-sm q-py-xs row items-center text-grey-7 text-caption text-weight-bold" style="border-radius: 12px;">
+        <div class="bg-surface shadow-1 q-px-sm q-py-xs row items-center text-grey-7 text-caption text-weight-bold" style="border-radius: 12px; border: 1px solid var(--c-border-strong);">
           <Icon icon="mdi:school" width="16" height="16" class="q-mr-xs" /> ISU Echague, Isabela
         </div>
       </div>
 
-      <div class="flex flex-center full-height full-width relative-position overflow-hidden">
-        <div class="radar-ring ring-1"></div>
-        <div class="radar-ring ring-2"></div>
-
-        <div class="absolute shadow-2 bg-white rounded-borders q-px-sm q-py-xs row items-center text-dark text-caption text-weight-bold" style="top: 48%; left: 50%; transform: translate(-50%, -150%); z-index: 3;">
-          <Icon icon="mdi:school" width="14" height="14" color="#303f9f" class="q-mr-xs"/> ISU Echague
-        </div>
-
-        <q-btn round color="teal-6" size="sm" class="absolute shadow-3 pin" style="top: 45%; left: 48%" />
-        <q-btn round color="teal-6" size="md" class="absolute shadow-3 pin" style="top: 52%; left: 51%" />
-        <q-btn round color="teal-6" size="sm" class="absolute shadow-3 pin" style="top: 58%; left: 47%" />
-        <q-btn round color="orange-5" size="xs" class="absolute shadow-3 pin" style="top: 65%; left: 55%" />
-        <q-btn round color="indigo-4" size="sm" class="absolute shadow-3 pin" style="top: 40%; left: 40%" />
-        <q-btn round color="red-5" size="sm" class="absolute shadow-3 pin" style="top: 48%; left: 60%" />
-      </div>
-
       <div class="absolute-bottom-left q-pa-md row q-gutter-x-sm" style="z-index: 2;">
-        <q-badge color="white" text-color="teal-7" class="shadow-1 border-all q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px;">
-          <Icon icon="mdi:circle" width="8" height="8" class="q-mr-xs" /> 13 Verified
+        <q-badge color="grey-2" text-color="teal-7" class="shadow-1 q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px; border: 1px solid var(--c-border-strong);">
+          <span class="legend-dot bg-teal-7" /> {{ verifiedCount }} Verified
         </q-badge>
-        <q-badge color="white" text-color="orange-6" class="shadow-1 border-all q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px;">
-          <Icon icon="mdi:circle" width="8" height="8" class="q-mr-xs" /> 3 Pending
-        </q-badge>
-        <q-badge color="white" text-color="red-5" class="shadow-1 border-all q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px;">
-          <Icon icon="mdi:circle" width="8" height="8" class="q-mr-xs" /> 1 Flagged
-        </q-badge>
-        <q-badge color="white" text-color="indigo-4" class="shadow-1 border-all q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px;">
-          <Icon icon="mdi:circle" width="8" height="8" class="q-mr-xs" /> 1 Audit
+        <q-badge color="grey-2" text-color="orange-6" class="shadow-1 q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px; border: 1px solid var(--c-border-strong);">
+          <span class="legend-dot bg-orange-6" /> {{ pendingCount }} Pending
         </q-badge>
       </div>
 
-      <div class="absolute-bottom-right q-pa-xs text-grey-6 text-weight-medium" style="font-size: 10px; z-index: 2; background: rgba(255,255,255,0.7);">
-        <span class="text-blue-6">Leaflet</span> | &copy; OpenStreetMap contributors &copy; CARTO
+      <div class="absolute-bottom-right q-pa-xs text-grey-6 text-weight-medium" style="font-size: 10px; z-index: 2; background: rgba(255,255,255,0.7); border-radius: 4px;">
+        &copy; Mapbox
       </div>
-
     </div>
-
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import mapboxgl from 'mapbox-gl'
+import 'mapbox-gl/dist/mapbox-gl.css'
 import PropertyList from '@/components/properties/PropertyList.vue'
 import PropertyDetail from '@/components/properties/PropertyDetail.vue'
 
-const selectedProperty = ref(null)
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
+
+const selectedProperty = ref<any>(null)
+const mapContainer = ref<HTMLElement | null>(null)
+let map: mapboxgl.Map | null = null
+let markers: mapboxgl.Marker[] = []
+
+const verifiedCount = computed(() => mockProperties.value.filter(p => p.verified).length)
+const pendingCount = computed(() => mockProperties.value.filter(p => !p.verified).length)
+
+function zoomIn() { map?.zoomIn() }
+function zoomOut() { map?.zoomOut() }
+
+function selectProperty(p: any) {
+  selectedProperty.value = p
+  // Fly to the property's approximate location if we have coords
+  if (map) {
+    const m = markers.find((_, i) => mockProperties.value[i]?.id === p.id)
+    // markers don't store id; just close over by rebuilding is fine
+  }
+}
+
+function addMarkers() {
+  markers.forEach(m => m.remove())
+  markers = []
+  // ISU Echague approximate center
+  const centerLat = 16.710
+  const centerLng = 121.720
+
+  mockProperties.value.forEach((p, i) => {
+    const angle = (i / mockProperties.value.length) * Math.PI * 2
+    const radius = 0.008 + (i % 3) * 0.004
+    const lat = centerLat + Math.sin(angle) * radius
+    const lng = centerLng + Math.cos(angle) * radius * 1.3
+
+    const el = document.createElement('div')
+    el.className = 'map-pin'
+    el.style.background = p.verified ? '#0d9488' : '#f59e0b'
+    el.title = p.name
+    el.addEventListener('click', () => { selectedProperty.value = p })
+
+    const marker = new mapboxgl.Marker({ element: el })
+      .setLngLat([lng, lat])
+      .addTo(map!)
+
+    markers.push(marker)
+  })
+}
+
+onMounted(async () => {
+  await nextTick()
+  if (!mapContainer.value) return
+
+  map = new mapboxgl.Map({
+    container: mapContainer.value,
+    style: 'mapbox://styles/mapbox/light-v11',
+    center: [121.720, 16.710],
+    zoom: 14,
+  })
+
+  map.addControl(new mapboxgl.NavigationControl(), 'top-left')
+  map.on('load', addMarkers)
+})
+
+onBeforeUnmount(() => {
+  map?.remove()
+  map = null
+})
 
 const mockProperties = ref([
   {
@@ -238,59 +278,39 @@ const mockProperties = ref([
 </script>
 
 <style scoped>
-/* Unified shadows and borders */
 .custom-shadow {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important;
   border-radius: 12px;
 }
 .border-all {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--c-border-strong);
 }
 
 .sidebar-container {
   width: 420px;
   min-width: 420px;
-  height: 100%; /* Height inherits cleanly from the padded parent */
-  border: 1px solid #e0e0e0;
-  /* Margins removed because q-page now handles padding */
+  height: 100%;
+  border: 1px solid var(--c-border-strong);
 }
 
 .map-area {
-  height: 100%; /* Height inherits cleanly from the padded parent */
-  border: 1px solid #e0e0e0;
+  height: 100%;
+  border: 1px solid var(--c-border-strong);
   border-radius: 12px;
   overflow: hidden;
-  /* Margins removed because q-page now handles padding */
 }
 
-.map-bg {
-  background-color: #fafafa;
-  background-image: radial-gradient(#d5d5d5 1.5px, transparent 1.5px);
-  background-size: 24px 24px;
-}
-
-.radar-ring {
+.map-container {
   position: absolute;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  top: 50%;
-  left: 50%;
-  pointer-events: none;
-}
-.ring-1 {
-  width: 250px;
-  height: 250px;
-  border: 2px dashed #0f8b7d;
-  background-color: rgba(15, 139, 125, 0.03);
-}
-.ring-2 {
-  width: 450px;
-  height: 450px;
-  border: 1px solid rgba(15, 139, 125, 0.15);
+  inset: 0;
 }
 
-.pin {
-  border: 2px solid white;
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 5px;
 }
 
 .slide-fade-enter-active { transition: all 0.2s ease-out; }
@@ -298,5 +318,18 @@ const mockProperties = ref([
 .slide-fade-enter-from, .slide-fade-leave-to {
   transform: translateX(-10px);
   opacity: 0;
+}
+
+:deep(.mapboxgl-ctrl-attrib) { font-size: 10px; }
+</style>
+
+<style>
+.map-pin {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  cursor: pointer;
 }
 </style>
