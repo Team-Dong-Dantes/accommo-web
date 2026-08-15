@@ -1,83 +1,62 @@
 <template>
   <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
 
-    <div class="row justify-between items-center non-shrink q-mb-md">
-      <div>
-        <p class="page-sub text-muted">Students and landlords across the platform.</p>
-      </div>
-      <ExportButton @click="handleExport" />
+    <div class="row justify-between items-end non-shrink">
+      <TabNav v-model="activeTab" :tabs="tabs" />
+
+      <ExportButton class="q-mb-md" @click="handleExport" />
     </div>
 
-    <div class="table-wrapper">
-      <q-card flat class="table-container">
-        <div class="row items-center justify-between q-pa-md table-bar">
-          <div class="row items-center q-gutter-x-sm">
-            <SearchInput v-model="search" placeholder="Search by name, email, or ID..." style="width: 300px;" />
-            <FilterDropdown
-              :filters="filterConfig"
-              :activeFilters="activeFilters"
-              @update:activeFilters="activeFilters = $event"
-              @clear="clearFilters"
-            />
-          </div>
-
-          <div class="row items-center q-gutter-x-md">
-            <q-btn flat dense color="grey-6" class="refresh-btn" @click="fetchUsers" :loading="loading">
-              <Icon icon="mdi:refresh" width="18" height="18" />
-              <q-tooltip>Refresh</q-tooltip>
-            </q-btn>
-            <q-badge color="grey-2" text-color="grey-7" class="q-px-sm q-py-xs text-weight-bold total-badge">
-              {{ filteredRows.length }} total {{ filteredRows.length === 1 ? 'user' : 'users' }}
-            </q-badge>
-          </div>
+    <TableCard
+      v-model:search="search"
+      v-model:active-filters="activeFilters"
+      v-model:page="currentPage"
+      :filters="filterConfig"
+      :loading="loading"
+      :total-label="`${filteredRows.length} total ${filteredRows.length === 1 ? 'user' : 'users'}`"
+      :rows="paginatedRows"
+      :columns="columns"
+      row-key="rawId"
+      :total-items="filteredRows.length"
+      item-name="users"
+      @clear-filters="clearFilters"
+      @refresh="fetchUsers"
+    >
+      <template #empty>
+        <div class="full-width row flex-center text-muted q-pa-xl column">
+          <Icon :icon="fetchError ? 'mdi:alert-circle-outline' : 'mdi:account-group-off-outline'" width="48" height="48" class="q-mb-md" />
+          <div class="text-h6 text-weight-bold">{{ fetchError ? 'Could not load users' : 'No users found' }}</div>
+          <div v-if="fetchError" class="text-caption q-mt-xs" style="color: var(--c-danger)">{{ fetchError }}</div>
+          <div v-else>There are currently no registered users matching your criteria.</div>
         </div>
+      </template>
 
-        <DataTable :rows="paginatedRows" :columns="columns" rowKey="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
-          <template #no-data>
-            <div class="full-width row flex-center text-muted q-pa-xl column">
-              <Icon icon="mdi:account-group-off-outline" width="48" height="48" class="q-mb-md" />
-              <div class="text-h6 text-weight-bold">No users found</div>
-              <div>There are currently no registered users matching your criteria.</div>
+      <template #body="{ props }">
+        <q-tr :props="props" :key="props.row.rawId">
+          <q-td key="user" :props="props">
+            <div class="row items-center no-wrap">
+              <q-avatar size="38px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">
+                {{ props.row.initials }}
+              </q-avatar>
+              <div class="column">
+                <div class="text-weight-bold text-ink" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
+                <div class="text-muted" style="font-size: 12px">{{ props.row.email }}</div>
+              </div>
             </div>
-          </template>
-
-          <template #body="{ props }">
-            <q-tr :props="props">
-              <q-td key="user" :props="props">
-                <div class="row items-center no-wrap">
-                  <q-avatar size="38px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">
-                    {{ props.row.initials }}
-                  </q-avatar>
-                  <div class="column">
-                    <div class="text-weight-bold text-ink" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
-                    <div class="text-muted" style="font-size: 12px">{{ props.row.email }}</div>
-                  </div>
-                </div>
-              </q-td>
-              <q-td key="id" :props="props" class="text-muted text-weight-medium" style="font-family: var(--font-mono)">{{ props.row.id }}</q-td>
-              <q-td key="contact" :props="props" class="text-ink">{{ props.row.contact }}</q-td>
-              <q-td key="role" :props="props">
-                <BadgePill :bg="props.row.roleStyle.bg" :text-color="props.row.roleStyle.text" :icon="props.row.roleStyle.icon" :label="props.row.role" />
-              </q-td>
-              <q-td key="status" :props="props">
-                <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
-              </q-td>
-              <q-td key="joined" :props="props" class="text-muted">{{ props.row.joined }}</q-td>
-              <q-td key="details" :props="props" class="text-muted ellipsis" style="max-width: 200px">{{ props.row.details }}</q-td>
-            </q-tr>
-          </template>
-        </DataTable>
-      </q-card>
-    </div>
-
-    <div class="non-shrink q-mt-md">
-      <TablePagination
-        v-model="currentPage"
-        :totalItems="filteredRows.length"
-        :rowsPerPage="10"
-        itemName="users"
-      />
-    </div>
+          </q-td>
+          <q-td key="id" :props="props" class="text-muted text-weight-medium" style="font-family: var(--font-mono)">{{ props.row.id }}</q-td>
+          <q-td key="contact" :props="props" class="text-ink">{{ props.row.contact }}</q-td>
+          <q-td key="role" :props="props">
+            <BadgePill :bg="props.row.roleStyle.bg" :text-color="props.row.roleStyle.text" :icon="props.row.roleStyle.icon" :label="props.row.role" />
+          </q-td>
+          <q-td key="status" :props="props">
+            <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
+          </q-td>
+          <q-td key="joined" :props="props" class="text-muted">{{ props.row.joined }}</q-td>
+          <q-td key="details" :props="props" class="text-muted ellipsis" style="max-width: 200px">{{ props.row.details }}</q-td>
+        </q-tr>
+      </template>
+    </TableCard>
 
   </q-page>
 </template>
@@ -86,22 +65,26 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from '@/utils/supabase'
 
-import SearchInput from '@/components/common/SearchInput.vue'
-import FilterDropdown from '@/components/common/FilterDropdown.vue'
+import TabNav from '@/components/common/TabNav.vue'
+import TableCard from '@/components/common/TableCard.vue'
 import ExportButton from '@/components/common/ExportButton.vue'
-import DataTable from '@/components/common/DataTable.vue'
-import TablePagination from '@/components/common/TablePagination.vue'
 import BadgePill from '@/components/common/BadgePill.vue'
 
-const loading = ref(false)
+const loading = ref(true)
+const fetchError = ref('')
 const rawUsers = ref<any[]>([])
 const search = ref('')
 const currentPage = ref(1)
+const activeTab = ref('users')
 const activeFilters = ref({ role: [] as string[], status: [] as string[] })
+
+const tabs = [
+  { name: 'users', label: 'Users' },
+]
 
 const filterConfig = [
   { label: 'Role', key: 'role', options: [ { label: 'Student', value: 'Student' }, { label: 'Landlord', value: 'Landlord' } ] },
-  { label: 'Status', key: 'status', options: [ { label: 'Active', value: 'Active' }, { label: 'Pending', value: 'Pending' }, { label: 'Reviewing', value: 'Reviewing' }, { label: 'Suspended', value: 'Suspended' } ] }
+  { label: 'Status', key: 'status', options: [ { label: 'Verified', value: 'Verified' }, { label: 'Pending', value: 'Pending' }, { label: 'Reviewing', value: 'Reviewing' }, { label: 'Rejected', value: 'Rejected' }, { label: 'Suspended', value: 'Suspended' }, { label: 'Unverified', value: 'Unverified' } ] }
 ]
 
 const columns = [
@@ -124,6 +107,7 @@ function handleExport() {
 
 async function fetchUsers() {
   loading.value = true
+  fetchError.value = ''
 
   try {
     const { data, error } = await supabase
@@ -132,11 +116,13 @@ async function fetchUsers() {
       .order('created_at', { ascending: false })
 
     if (error) {
+      fetchError.value = error.message
       console.error('Supabase Query Error:', error.message)
     } else if (data) {
       rawUsers.value = data.map(mapUserData)
     }
   } catch (err) {
+    fetchError.value = err instanceof Error ? err.message : String(err)
     console.error('Unexpected error fetching users:', err)
   } finally {
     loading.value = false
@@ -171,12 +157,15 @@ function mapUserData(user: any) {
   const avatarColor = isStudent ? 'indigo-5' : 'teal-7'
 
   let statusStyle = { bg: 'grey-2', text: 'grey-7', icon: 'mdi:help-circle-outline' }
-  const status = user.status || 'Pending'
+  const status = (user.status || 'unverified').toLowerCase()
+  const statusLabel = status.charAt(0).toUpperCase() + status.slice(1)
 
-  if (status === 'Active') statusStyle = { bg: 'green-1', text: 'green-6', icon: 'mdi:check-circle' }
-  else if (status === 'Pending') statusStyle = { bg: 'orange-1', text: 'orange-6', icon: 'mdi:clock-outline' }
-  else if (status === 'Reviewing') statusStyle = { bg: 'indigo-1', text: 'indigo-5', icon: 'mdi:eye' }
-  else if (status === 'Suspended') statusStyle = { bg: 'red-1', text: 'red-5', icon: 'mdi:cancel' }
+  if (status === 'verified') statusStyle = { bg: 'green-1', text: 'green-6', icon: 'mdi:check-circle' }
+  else if (status === 'pending') statusStyle = { bg: 'orange-1', text: 'orange-6', icon: 'mdi:clock-outline' }
+  else if (status === 'reviewing') statusStyle = { bg: 'indigo-1', text: 'indigo-5', icon: 'mdi:eye' }
+  else if (status === 'rejected') statusStyle = { bg: 'red-1', text: 'red-5', icon: 'mdi:close-circle' }
+  else if (status === 'suspended') statusStyle = { bg: 'red-1', text: 'red-7', icon: 'mdi:cancel' }
+  else if (status === 'unverified') statusStyle = { bg: 'grey-2', text: 'grey-7', icon: 'mdi:help-circle-outline' }
 
   return {
     id: user.id.length > 10 ? `USR-${user.id.substring(0, 4).toUpperCase()}` : user.id,
@@ -186,7 +175,7 @@ function mapUserData(user: any) {
     contact,
     role: user.role || 'Unknown',
     roleStyle,
-    status,
+    status: statusLabel,
     statusStyle,
     joined: joinedDate,
     details: `${user.role} Account`,
@@ -225,31 +214,5 @@ watch([search, activeFilters], () => { currentPage.value = 1 }, { deep: true })
 .users-page {
   overflow: hidden !important;
   height: 100% !important;
-}
-
-.page-sub {
-  font-size: var(--fs-sm);
-  margin: 2px 0 0;
-}
-
-.table-container {
-  background: var(--c-surface);
-  border-radius: var(--card-radius);
-  border: 1px solid var(--c-border);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
-.table-bar { border-bottom: 1px solid var(--c-border); }
-.refresh-btn { border-radius: 8px; }
-.total-badge { border-radius: 6px; }
-
-.non-shrink {
-  flex-shrink: 0;
-}
-
-.table-wrapper {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: auto;
 }
 </style>

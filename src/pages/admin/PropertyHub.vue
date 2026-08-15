@@ -1,188 +1,232 @@
 <template>
-  <!-- Locked the page height and hid overflow -->
-  <q-page class="q-pa-md column no-wrap" style="background-color: var(--c-bg); height: calc(100vh - 60px); overflow: hidden;">
+  <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
 
-    <!-- Top Navigation Row -->
-    <div class="row justify-between items-end q-mb-none shrink-0">
+    <div class="row justify-between items-end non-shrink">
+      <TabNav v-model="activeTab" :tabs="tabs" />
 
-      <!-- Folder Clip Tabs -->
-      <q-tabs
-        v-model="activeTab"
-        dense
-        no-caps
-        align="left"
-        class="folder-tabs text-dark"
-      >
-        <q-tab name="audit" label="Audit" class="text-weight-bold" />
-        <q-tab name="compliance" label="Compliance" class="text-weight-bold" />
-        <q-tab name="accreditation" label="Accreditation" class="text-weight-bold" />
-        <q-tab name="performance" label="Performance" class="text-weight-bold" />
-      </q-tabs>
-
-      <!-- Export Button -->
       <q-btn
         unelevated
         color="teal-7"
         no-caps
-        class="text-weight-bold"
-        style="border-radius: 8px; padding: 6px 16px; margin-bottom: 12px;"
+        class="text-weight-bold export-btn"
+        style="border-radius: 8px; padding: 6px 16px;"
       >
         <Icon icon="mdi:download" class="on-left" width="18" height="18" />Export
       </q-btn>
     </div>
 
-    <!-- Main Table Card (Fills remaining height) -->
-    <q-card flat class="bg-surface table-container q-mt-none col column no-wrap" style="border-radius: 0 12px 12px 12px; overflow: hidden;">
+    <TableCard
+      v-model:search="search"
+      v-model:active-filters="activeFilters"
+      v-model:page="currentPage"
+      :filters="filterConfig"
+      :loading="loading"
+      :total-label="`${filteredProperties.length} propert${filteredProperties.length === 1 ? 'y' : 'ies'}`"
+      :total-items="filteredProperties.length"
+      item-name="properties"
+      @clear-filters="clearFilters"
+      @refresh="fetchProperties"
+    >
+      <template #panels>
+        <q-tab-panels v-model="activeTab" animated style="background: transparent; height: 100%;">
 
-      <!-- Toolbar -->
-      <div class="row items-center q-pa-md border-bottom q-gutter-x-sm shrink-0">
-        <SearchInput v-model="search" placeholder="Search property or landlord..." style="width: 300px;" />
-        <FilterDropdown />
-        <div class="text-grey-6 text-weight-medium q-ml-sm" style="font-size: 13px;">
-          <q-badge color="grey-2" text-color="grey-7" class="q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px;">
-            {{ filteredProperties.length }} properties
-          </q-badge>
-        </div>
-      </div>
-
-      <!-- Dynamic Data Table (Scrolls internally if needed) -->
-      <q-table
-        flat
-        :rows="paginatedProperties"
-        :columns="currentColumns"
-        row-key="id"
-        :rows-per-page-options="[15]"
-        hide-pagination
-        class="col custom-table"
-      >
-        <!-- Header Styling -->
-        <template v-slot:header="props">
-          <q-tr :props="props" class="bg-grey-1 border-bottom">
-            <q-th
-              v-for="col in props.cols"
-              :key="col.name"
-              :props="props"
-              class="text-grey-6 text-weight-bold text-uppercase tracking-wide"
-              :style="[col.headerStyle || '', 'font-size: 11px; padding: 12px 16px;']"
-            >
-              {{ col.label }}
-            </q-th>
-          </q-tr>
-        </template>
-
-        <!-- Body Rows -->
-        <template v-slot:body="props">
-          <q-tr :props="props" class="table-row">
-
-            <q-td v-for="col in props.cols" :key="col.name" :props="props" style="padding: 12px 16px; white-space: normal;">
-
-              <!-- GLOBAL: Property Column -->
-              <div v-if="col.name === 'property'" class="row items-center no-wrap">
-                <q-avatar size="36px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 13px; flex-shrink: 0;">
-                  {{ props.row.initials }}
-                </q-avatar>
-                <div class="column">
-                  <div class="text-weight-bold text-dark" style="font-size: 13px;">{{ props.row.name }}</div>
-                  <div class="text-grey-5" style="font-size: 11px;">{{ props.row.id }}</div>
+          <!-- AUDIT -->
+          <q-tab-panel name="audit" class="q-pa-none">
+            <DataTable :rows="paginatedProperties" :columns="auditColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+              <template #no-data>
+                <div class="full-width row flex-center text-muted q-pa-xl column">
+                  <Icon icon="mdi:clipboard-text-outline" width="48" height="48" class="q-mb-md" />
+                  <div class="text-h6 text-weight-bold">No properties found</div>
+                  <div>No properties matching your criteria.</div>
                 </div>
-              </div>
+              </template>
+              <template #body="{ props }">
+                <q-tr :props="props" class="smart-row">
+                  <q-td key="property" :props="props">
+                    <div class="row items-center no-wrap">
+                      <q-avatar size="40px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">{{ props.row.initials }}</q-avatar>
+                      <div class="column">
+                        <div class="text-weight-bold text-ink" style="font-size: 14px; line-height: 1.25">{{ props.row.name }}</div>
+                        <div class="text-muted" style="font-size: 12px">{{ props.row.id }}</div>
+                      </div>
+                    </div>
+                  </q-td>
+                  <q-td key="landlord" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.landlord }}</q-td>
+                  <q-td key="lastInspected" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.audit.lastInspected }}</q-td>
+                  <q-td key="auditResult" :props="props">
+                    <BadgePill :bg="getAuditColor(props.row.audit.result).bg" :text-color="getAuditColor(props.row.audit.result).text" :label="props.row.audit.result" />
+                  </q-td>
+                  <q-td key="nextInspection" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.audit.nextInspection }}</q-td>
+                  <q-td key="inspector" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.audit.inspector }}</q-td>
+                  <q-td key="notes" :props="props" class="text-muted ellipsis" style="font-size: 12px; max-width: 100%;">{{ props.row.audit.notes }}</q-td>
+                </q-tr>
+              </template>
+            </DataTable>
+          </q-tab-panel>
 
-              <!-- GLOBAL: Landlord Column -->
-              <div v-else-if="col.name === 'landlord'" class="text-grey-8" style="font-size: 13px;">
-                {{ col.value }}
-              </div>
+          <!-- COMPLIANCE -->
+          <q-tab-panel name="compliance" class="q-pa-none">
+            <DataTable :rows="paginatedProperties" :columns="complianceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+              <template #no-data>
+                <div class="full-width row flex-center text-muted q-pa-xl column">
+                  <Icon icon="mdi:file-check-outline" width="48" height="48" class="q-mb-md" />
+                  <div class="text-h6 text-weight-bold">No properties found</div>
+                  <div>No properties matching your criteria.</div>
+                </div>
+              </template>
+              <template #body="{ props }">
+                <q-tr :props="props" class="smart-row">
+                  <q-td key="property" :props="props">
+                    <div class="row items-center no-wrap">
+                      <q-avatar size="40px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">{{ props.row.initials }}</q-avatar>
+                      <div class="column">
+                        <div class="text-weight-bold text-ink" style="font-size: 14px; line-height: 1.25">{{ props.row.name }}</div>
+                        <div class="text-muted" style="font-size: 12px">{{ props.row.id }}</div>
+                      </div>
+                    </div>
+                  </q-td>
+                  <q-td key="landlord" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.landlord }}</q-td>
+                  <q-td v-for="permit in ['business','sanitary','fire','water']" :key="permit" :props="props">
+                    <div class="column items-center justify-center">
+                      <BadgePill :bg="getComplianceColor(props.row.compliance[permit].status).bg" :text-color="getComplianceColor(props.row.compliance[permit].status).text" :label="props.row.compliance[permit].status" />
+                      <div class="text-muted q-mt-xs text-weight-medium" style="font-size: 10px;">{{ props.row.compliance[permit].date }}</div>
+                    </div>
+                  </q-td>
+                  <q-td key="overall" :props="props">
+                    <div class="column items-center justify-center">
+                      <BadgePill :bg="getComplianceColor(props.row.compliance.overall).bg" :text-color="getComplianceColor(props.row.compliance.overall).text" :label="props.row.compliance.overall" />
+                    </div>
+                  </q-td>
+                </q-tr>
+              </template>
+            </DataTable>
+          </q-tab-panel>
 
-              <!-- ============================================== -->
-              <!-- AUDIT TAB CELLS -->
-              <!-- ============================================== -->
-              <div v-else-if="col.name === 'auditResult'">
-                <q-badge :color="getAuditColor(col.value).bg" :text-color="getAuditColor(col.value).text" class="q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px; font-size: 11px;">
-                  {{ col.value }}
-                </q-badge>
-              </div>
-              <div v-else-if="['lastInspected', 'nextInspection', 'inspector'].includes(col.name)" class="text-grey-8" style="font-size: 13px;">
-                {{ col.value }}
-              </div>
-              <div v-else-if="col.name === 'notes'" class="text-grey-6 ellipsis" style="font-size: 12px; max-width: 100%;">
-                {{ col.value }}
-              </div>
+          <!-- ACCREDITATION -->
+          <q-tab-panel name="accreditation" class="q-pa-none">
+            <DataTable :rows="paginatedProperties" :columns="accreditationColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+              <template #no-data>
+                <div class="full-width row flex-center text-muted q-pa-xl column">
+                  <Icon icon="mdi:certificate-outline" width="48" height="48" class="q-mb-md" />
+                  <div class="text-h6 text-weight-bold">No properties found</div>
+                  <div>No properties matching your criteria.</div>
+                </div>
+              </template>
+              <template #body="{ props }">
+                <q-tr :props="props" class="smart-row">
+                  <q-td key="property" :props="props">
+                    <div class="row items-center no-wrap">
+                      <q-avatar size="40px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">{{ props.row.initials }}</q-avatar>
+                      <div class="column">
+                        <div class="text-weight-bold text-ink" style="font-size: 14px; line-height: 1.25">{{ props.row.name }}</div>
+                        <div class="text-muted" style="font-size: 12px">{{ props.row.id }}</div>
+                      </div>
+                    </div>
+                  </q-td>
+                  <q-td key="landlord" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.landlord }}</q-td>
+                  <q-td key="rooms" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accreditation.rooms }}</q-td>
+                  <q-td key="status" :props="props">
+                    <BadgePill :bg="getAccreditationColor(props.row.accreditation.status).bg" :text-color="getAccreditationColor(props.row.accreditation.status).text" :icon="getAccreditationColor(props.row.accreditation.status).icon" :label="props.row.accreditation.status" />
+                  </q-td>
+                  <q-td key="lastRenewed" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accreditation.lastRenewed }}</q-td>
+                  <q-td key="nextRenewal" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accreditation.nextRenewal }}</q-td>
+                  <q-td key="cycle" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accreditation.cycle }}</q-td>
+                  <q-td key="inspector" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accreditation.inspector }}</q-td>
+                </q-tr>
+              </template>
+            </DataTable>
+          </q-tab-panel>
 
-              <!-- ============================================== -->
-              <!-- COMPLIANCE TAB CELLS -->
-              <!-- ============================================== -->
-              <div v-else-if="['business', 'sanitary', 'fire', 'water'].includes(col.name)" class="column items-center justify-center">
-                <q-badge :color="getComplianceColor(col.value.status).bg" :text-color="getComplianceColor(col.value.status).text" class="text-weight-bold" style="border-radius: 6px; padding: 4px 8px; font-size: 10px;">
-                  {{ col.value.status }}
-                </q-badge>
-                <div class="text-grey-5 q-mt-xs text-weight-medium" style="font-size: 10px;">{{ col.value.date }}</div>
-              </div>
-              <div v-else-if="col.name === 'overall'" class="column items-center justify-center">
-                <q-badge :color="getComplianceColor(col.value).bg" :text-color="getComplianceColor(col.value).text" class="text-weight-bold" style="border-radius: 6px; padding: 4px 8px; font-size: 10px;">
-                  {{ col.value }}
-                </q-badge>
-              </div>
+          <!-- PERFORMANCE -->
+          <q-tab-panel name="performance" class="q-pa-none">
+            <DataTable :rows="paginatedProperties" :columns="performanceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+              <template #no-data>
+                <div class="full-width row flex-center text-muted q-pa-xl column">
+                  <Icon icon="mdi:chart-box-outline" width="48" height="48" class="q-mb-md" />
+                  <div class="text-h6 text-weight-bold">No properties found</div>
+                  <div>No properties matching your criteria.</div>
+                </div>
+              </template>
+              <template #body="{ props }">
+                <q-tr :props="props" class="smart-row">
+                  <q-td key="rank" :props="props" class="text-muted text-weight-bold" style="font-size: 13px;">#{{ props.row.performance.rank }}</q-td>
+                  <q-td key="property" :props="props">
+                    <div class="row items-center no-wrap">
+                      <q-avatar size="40px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">{{ props.row.initials }}</q-avatar>
+                      <div class="column">
+                        <div class="text-weight-bold text-ink" style="font-size: 14px; line-height: 1.25">{{ props.row.name }}</div>
+                        <div class="text-muted" style="font-size: 12px">{{ props.row.id }}</div>
+                      </div>
+                    </div>
+                  </q-td>
+                  <q-td key="landlord" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.landlord }}</q-td>
+                  <q-td v-for="metric in ['grievance','inspection','renewal']" :key="metric" :props="props">
+                    <div class="row items-center no-wrap" style="width: 100%;">
+                      <q-linear-progress :value="props.row.performance[metric] / 100" :color="getPerformanceColor(props.row.performance[metric])" class="col q-mr-sm" style="border-radius: 4px;" size="6px" />
+                      <span :class="`text-${getPerformanceColor(props.row.performance[metric])}`" class="text-weight-bold shrink-0" style="font-size: 12px; width: 22px;">{{ props.row.performance[metric] }}</span>
+                    </div>
+                  </q-td>
+                  <q-td key="response" :props="props" class="text-ink text-weight-medium" style="font-size: 12px;">{{ props.row.performance.response }}</q-td>
+                  <q-td key="score" :props="props" :class="`text-${getPerformanceColor(props.row.performance.score)}`" class="text-weight-bold text-center" style="font-size: 14px;">{{ props.row.performance.score }}</q-td>
+                  <q-td key="trend" :props="props" class="text-center">
+                    <Icon :icon="getTrend(props.row.performance.trend).icon" :color="getTrend(props.row.performance.trend).color" width="18" height="18" />
+                  </q-td>
+                </q-tr>
+              </template>
+            </DataTable>
+          </q-tab-panel>
 
-              <!-- ============================================== -->
-              <!-- ACCREDITATION TAB CELLS -->
-              <!-- ============================================== -->
-              <div v-else-if="col.name === 'status'">
-                <q-badge :color="getAccreditationColor(col.value).bg" :text-color="getAccreditationColor(col.value).text" class="q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px; font-size: 11px;">
-                  <Icon :icon="getAccreditationColor(col.value).icon" width="12" height="12" class="q-mr-xs" />
-                  {{ col.value }}
-                </q-badge>
-              </div>
-              <div v-else-if="['rooms', 'lastRenewed', 'nextRenewal', 'cycle'].includes(col.name)" class="text-grey-8" style="font-size: 13px;">
-                {{ col.value }}
-              </div>
-
-              <!-- ============================================== -->
-              <!-- PERFORMANCE TAB CELLS -->
-              <!-- ============================================== -->
-              <div v-else-if="col.name === 'rank'" class="text-grey-6 text-weight-bold" style="font-size: 13px;">
-                #{{ col.value }}
-              </div>
-              <div v-else-if="['grievance', 'inspection', 'renewal'].includes(col.name)" class="row items-center no-wrap" style="width: 100%;">
-                <q-linear-progress :value="col.value / 100" :color="getPerformanceColor(col.value)" class="col q-mr-sm" style="border-radius: 4px;" size="6px" />
-                <span :class="`text-${getPerformanceColor(col.value)}`" class="text-weight-bold shrink-0" style="font-size: 12px; width: 22px;">{{ col.value }}</span>
-              </div>
-              <div v-else-if="col.name === 'response'" class="text-grey-8 text-weight-medium" style="font-size: 12px;">
-                {{ col.value }}
-              </div>
-              <div v-else-if="col.name === 'score'" :class="`text-${getPerformanceColor(col.value)}`" class="text-weight-bold text-center" style="font-size: 14px;">
-                {{ col.value }}
-              </div>
-              <div v-else-if="col.name === 'trend'" class="text-center">
-                <Icon :icon="getTrend(col.value).icon" :color="getTrend(col.value).color" width="18" height="18" class="text-weight-bold" />
-              </div>
-
-            </q-td>
-          </q-tr>
-        </template>
-      </q-table>
-    </q-card>
-
-    <!-- Pagination (Locked to bottom) -->
-    <div class="q-mt-md shrink-0">
-      <TablePagination
-        v-model="currentPage"
-        :totalItems="filteredProperties.length"
-        :rowsPerPage="10"
-        itemName="properties"
-      />
-    </div>
+        </q-tab-panels>
+      </template>
+    </TableCard>
 
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import SearchInput from '@/components/common/SearchInput.vue'
-import FilterDropdown from '@/components/common/FilterDropdown.vue'
-import TablePagination from '@/components/common/TablePagination.vue'
+import { ref, computed, onMounted } from 'vue'
+import TabNav from '@/components/common/TabNav.vue'
+import TableCard from '@/components/common/TableCard.vue'
+import DataTable from '@/components/common/DataTable.vue'
+import BadgePill from '@/components/common/BadgePill.vue'
 
 const search = ref('')
 const activeTab = ref('audit')
 const currentPage = ref(1)
+const loading = ref(true)
+const activeFilters = ref<Record<string, any[]>>({})
+
+const tabs = [
+  { name: 'audit', label: 'Audit' },
+  { name: 'compliance', label: 'Compliance' },
+  { name: 'accreditation', label: 'Accreditation' },
+  { name: 'performance', label: 'Performance' },
+]
+
+const filterConfig = [
+  { label: 'Accreditation', key: 'accr', options: [
+    { label: 'Fully Accredited', value: 'Fully Accredited' },
+    { label: 'Provisional', value: 'Provisional' },
+    { label: 'Under Review', value: 'Under Review' },
+  ]},
+  { label: 'Audit Result', key: 'audit', options: [
+    { label: 'Pass', value: 'Pass' },
+    { label: 'Warning', value: 'Warning' },
+    { label: 'Fail', value: 'Fail' },
+  ]},
+]
+
+function clearFilters() {
+  activeFilters.value = {}
+}
+
+async function fetchProperties() {
+  loading.value = true
+  await new Promise(resolve => setTimeout(resolve, 400))
+  loading.value = false
+}
+
+onMounted(fetchProperties)
 
 const auditColumns = [
   { name: 'property', align: 'left', label: 'Property', field: 'name', headerStyle: 'width: 22%' },
@@ -317,6 +361,16 @@ const properties = ref([
 const filteredProperties = computed(() => {
   let result = [...properties.value]
 
+  // Apply active filters (accreditation / audit result)
+  const accrFilter = activeFilters.value.accr
+  if (accrFilter && accrFilter.length > 0) {
+    result = result.filter(p => accrFilter.includes(p.accreditation.status))
+  }
+  const auditFilter = activeFilters.value.audit
+  if (auditFilter && auditFilter.length > 0) {
+    result = result.filter(p => auditFilter.includes(p.audit.result))
+  }
+
   if (search.value) {
     const query = search.value.toLowerCase()
     result = result.filter(p =>
@@ -375,90 +429,27 @@ function getTrend(trend: string) {
 </script>
 
 <style scoped>
-.folder-tabs {
-  background-color: transparent !important;
-  position: relative;
-  z-index: 2;
-  margin-bottom: -1px !important;
+.users-page {
+  overflow: hidden !important;
+  height: 100% !important;
 }
 
-:deep(.folder-tabs .q-tab) {
-  border-radius: 12px 12px 0 0;
-  background-color: #e8ecef;
-  margin-right: 4px;
-  min-height: 48px;
-  padding: 0 32px;
-  transition: all 0.2s ease;
-  color: #5c6a7a;
-}
-
-:deep(.folder-tabs .q-tab--active) {
-  background-color: #ffffff;
-  color: #0f8b7d !important;
-  z-index: 10;
-  border-bottom: 2px solid #ffffff;
-  padding-bottom: 2px;
-}
-
-:deep(.folder-tabs .q-tab__indicator) {
-  display: none !important;
-}
-
-.table-container {
-  border-radius: 0 12px 12px 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important;
-  position: relative;
-  z-index: 1;
-}
-
-.border-bottom {
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.tracking-wide {
-  letter-spacing: 0.3px;
-}
-
-.shrink-0 {
+.non-shrink {
   flex-shrink: 0;
 }
 
-.custom-table {
-  background: transparent;
-  height: 100%;
+.export-btn {
+  margin-bottom: 10px;
 }
 
-.custom-table :deep(table) {
-  table-layout: fixed;
-  width: 100%;
-}
-
-.custom-table :deep(.q-table__container) {
-  box-shadow: none !important;
-  border: none !important;
-  height: 100%;
-}
-
-/* Enables internal scrolling on small screens, locks table header */
-.custom-table :deep(.q-table__middle) {
-  max-height: 100%;
-}
-.custom-table :deep(thead tr th) {
-  position: sticky;
-  z-index: 1;
-  top: 0;
-  background-color: var(--c-primary-soft);
-}
-
-.table-row {
+/* Row hover + border (cell renderers live here, table chrome lives in TableCard) */
+:deep(.q-table tbody tr) {
   transition: background-color 0.2s ease;
 }
-
-.table-row:hover {
+:deep(.q-table tbody tr:hover) {
   background-color: var(--c-surface-2);
 }
-
-.table-row td {
-  border-bottom: 1px solid #f0f0f0 !important;
+:deep(.q-table tbody td) {
+  border-bottom: 1px solid var(--c-border);
 }
 </style>

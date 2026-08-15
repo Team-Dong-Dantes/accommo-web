@@ -1,14 +1,11 @@
 <template>
-  <q-page class="q-pa-md column no-wrap" style="background-color: var(--c-bg); height: calc(100vh - 60px); overflow: hidden;">
+  <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
 
-    <!-- Top Navigation Row -->
-    <div class="row justify-between items-end q-mb-md shrink-0">
-      <div>
-        <div class="text-h5 text-weight-bold text-dark" style="line-height: 1.2;">Audit Logs</div>
-        <div class="text-grey-6 q-mt-xs text-caption tracking-wide">Track system events, user activity, and data modifications</div>
-      </div>
+    <!-- Top bar: tabs + actions -->
+    <div class="row justify-between items-end non-shrink">
+      <TabNav v-model="activeTab" :tabs="tabs" />
 
-      <div class="row q-gutter-x-sm">
+      <div class="row q-gutter-x-sm export-btn">
         <q-btn
           outline
           color="grey-5"
@@ -31,134 +28,115 @@
       </div>
     </div>
 
-    <!-- Main Table Card -->
-    <q-card flat class="bg-surface table-container col column no-wrap" style="border-radius: 12px; overflow: hidden;">
-
-      <!-- Toolbar -->
-      <div class="row items-center justify-between q-pa-md border-bottom shrink-0">
-        <div class="row items-center q-gutter-x-sm">
-          <SearchInput v-model="searchQuery" placeholder="Search user, action, or target..." style="width: 320px;" />
-          <FilterDropdown />
-          <div class="text-grey-6 text-weight-medium q-ml-sm" style="font-size: 13px;">
-            <q-badge color="grey-2" text-color="grey-7" class="q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px;">
-              {{ filteredLogs.length }} events
-            </q-badge>
-          </div>
+    <TableCard
+      v-model:search="searchQuery"
+      v-model:page="currentPage"
+      :filters="[]"
+      :active-filters="{ }"
+      :search-placeholder="'Search user, action, or target...'"
+      :total-label="`${filteredLogs.length} events`"
+      :rows="paginatedLogs"
+      :columns="columns"
+      row-key="id"
+      :loading="loading"
+      :total-items="filteredLogs.length"
+      item-name="events"
+      @refresh="simulateLoad"
+    >
+      <template #empty>
+        <div class="full-width row flex-center text-muted q-pa-xl column">
+          <Icon icon="mdi:clipboard-text-outline" width="48" height="48" class="q-mb-md" />
+          <div class="text-h6 text-weight-bold">No events found</div>
+          <div>No audit events matching your criteria.</div>
         </div>
-      </div>
+      </template>
 
-      <!-- Dynamic Data Table -->
-      <q-table
-        flat
-        :rows="paginatedLogs"
-        :columns="columns"
-        row-key="id"
-        :rows-per-page-options="[15]"
-        hide-pagination
-        class="col custom-table"
-      >
-        <!-- Header Styling -->
-        <template v-slot:header="props">
-          <q-tr :props="props" class="bg-grey-1 border-bottom">
-            <q-th
-              v-for="col in props.cols"
-              :key="col.name"
-              :props="props"
-              class="text-grey-6 text-weight-bold text-uppercase tracking-wide"
-              :style="[col.headerStyle || '', 'font-size: 11px; padding: 12px 16px;']"
-            >
-              {{ col.label }}
-            </q-th>
-          </q-tr>
-        </template>
+      <template #body="{ props }">
+        <q-tr :props="props">
+          <q-td v-for="col in props.cols" :key="col.name" :props="props" style="white-space: normal; vertical-align: middle;">
 
-        <!-- Body Rows -->
-        <template v-slot:body="props">
-          <q-tr :props="props" class="table-row">
+            <!-- Timestamp -->
+            <div v-if="col.name === 'timestamp'" class="column">
+              <div class="text-weight-bold text-ink" style="font-size: 13px;">{{ props.row.date }}</div>
+              <div class="text-muted" style="font-size: 11px;">{{ props.row.time }}</div>
+            </div>
 
-            <q-td v-for="col in props.cols" :key="col.name" :props="props" style="padding: 12px 16px; white-space: normal;">
-
-              <!-- Timestamp Column -->
-              <div v-if="col.name === 'timestamp'" class="column">
-                <div class="text-weight-bold text-dark" style="font-size: 13px;">{{ props.row.date }}</div>
-                <div class="text-grey-5" style="font-size: 11px;">{{ props.row.time }}</div>
+            <!-- Actor -->
+            <div v-else-if="col.name === 'actor'" class="row items-center no-wrap">
+              <q-avatar size="32px" :color="props.row.actor.color" text-color="white" class="text-weight-bold q-mr-sm shrink-0" style="border-radius: 8px; font-size: 12px;">
+                <Icon v-if="props.row.actor.isSystem" icon="mdi:server" width="16" height="16" />
+                <span v-else>{{ props.row.actor.initials }}</span>
+              </q-avatar>
+              <div class="column">
+                <div class="text-weight-bold text-ink ellipsis" style="font-size: 13px;">{{ props.row.actor.name }}</div>
+                <div class="text-muted ellipsis" style="font-size: 11px;">{{ props.row.actor.role }}</div>
               </div>
+            </div>
 
-              <!-- Actor Column -->
-              <div v-else-if="col.name === 'actor'" class="row items-center no-wrap">
-                <q-avatar size="32px" :color="props.row.actor.color" text-color="white" class="text-weight-bold q-mr-sm shrink-0" style="border-radius: 8px; font-size: 12px;">
-                  <Icon v-if="props.row.actor.isSystem" icon="mdi:server" width="16" height="16" />
-                  <span v-else>{{ props.row.actor.initials }}</span>
-                </q-avatar>
-                <div class="column">
-                  <div class="text-weight-bold text-dark ellipsis" style="font-size: 13px;">{{ props.row.actor.name }}</div>
-                  <div class="text-grey-6 ellipsis" style="font-size: 11px;">{{ props.row.actor.role }}</div>
-                </div>
+            <!-- Action -->
+            <div v-else-if="col.name === 'action'">
+              <q-badge
+                :color="getActionColor(props.row.action).bg"
+                :text-color="getActionColor(props.row.action).text"
+                class="q-px-sm q-py-xs text-weight-bold text-uppercase"
+                style="border-radius: 6px; font-size: 10px; letter-spacing: 0.5px;"
+              >
+                {{ props.row.action }}
+              </q-badge>
+            </div>
+
+            <!-- Target -->
+            <div v-else-if="col.name === 'target'" class="column">
+              <div class="text-weight-bold text-ink ellipsis" style="font-size: 13px;">{{ props.row.target.name }}</div>
+              <div class="text-muted ellipsis" style="font-size: 11px;">{{ props.row.target.type }} • {{ props.row.target.id }}</div>
+            </div>
+
+            <!-- Details -->
+            <div v-else-if="col.name === 'details'" class="text-ink" style="font-size: 13px; line-height: 1.4;">
+              <div v-if="props.row.changes" class="row items-center q-gutter-x-xs no-wrap text-ink">
+                <span>{{ props.row.changes.field }}:</span>
+                <span class="text-weight-bold text-strike text-muted">{{ props.row.changes.old }}</span>
+                <Icon icon="mdi:arrow-right" width="12" height="12" class="text-teal-6" />
+                <span class="text-weight-bold text-teal-7">{{ props.row.changes.new }}</span>
               </div>
-
-              <!-- Action Column -->
-              <div v-else-if="col.name === 'action'">
-                <q-badge
-                  :color="getActionColor(props.row.action).bg"
-                  :text-color="getActionColor(props.row.action).text"
-                  class="q-px-sm q-py-xs text-weight-bold text-uppercase tracking-wide"
-                  style="border-radius: 6px; font-size: 10px;"
-                >
-                  {{ props.row.action }}
-                </q-badge>
+              <div v-else class="text-muted ellipsis">
+                {{ props.row.description }}
               </div>
+            </div>
 
-              <!-- Target Column -->
-              <div v-else-if="col.name === 'target'" class="column">
-                <div class="text-weight-bold text-dark ellipsis" style="font-size: 13px;">{{ props.row.target.name }}</div>
-                <div class="text-grey-6 ellipsis" style="font-size: 11px;">{{ props.row.target.type }} • {{ props.row.target.id }}</div>
-              </div>
+            <!-- IP -->
+            <div v-else-if="col.name === 'ip'" class="text-muted text-weight-medium" style="font-family: var(--font-mono); font-size: 12px;">
+              {{ col.value }}
+            </div>
 
-              <!-- Details Column -->
-              <div v-else-if="col.name === 'details'" class="text-dark" style="font-size: 13px; line-height: 1.4;">
-                <div v-if="props.row.changes" class="row items-center q-gutter-x-xs no-wrap text-grey-8">
-                  <span>{{ props.row.changes.field }}:</span>
-                  <span class="text-weight-bold text-strike text-grey-5">{{ props.row.changes.old }}</span>
-                  <Icon icon="mdi:arrow-right" width="12" height="12" class="text-teal-6" />
-                  <span class="text-weight-bold text-teal-7">{{ props.row.changes.new }}</span>
-                </div>
-                <div v-else class="text-grey-7 ellipsis">
-                  {{ props.row.description }}
-                </div>
-              </div>
-
-              <!-- IP Address Column -->
-              <div v-else-if="col.name === 'ip'" class="text-grey-5 text-weight-medium" style="font-family: monospace; font-size: 12px;">
-                {{ col.value }}
-              </div>
-
-            </q-td>
-          </q-tr>
-        </template>
-      </q-table>
-    </q-card>
-
-    <!-- Pagination -->
-    <div class="q-mt-md shrink-0">
-      <TablePagination
-        v-model="currentPage"
-        :totalItems="filteredLogs.length"
-        :rowsPerPage="15"
-        itemName="events"
-      />
-    </div>
+          </q-td>
+        </q-tr>
+      </template>
+    </TableCard>
 
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import SearchInput from '@/components/common/SearchInput.vue'
-import FilterDropdown from '@/components/common/FilterDropdown.vue'
-import TablePagination from '@/components/common/TablePagination.vue'
+import { ref, computed, onMounted } from 'vue'
+import TabNav from '@/components/common/TabNav.vue'
+import TableCard from '@/components/common/TableCard.vue'
 
 const searchQuery = ref('')
 const currentPage = ref(1)
+const activeTab = ref('audit-logs')
+const loading = ref(true)
+
+const tabs = [
+  { name: 'audit-logs', label: 'Audit Logs' },
+]
+
+function simulateLoad() {
+  loading.value = true
+  setTimeout(() => { loading.value = false }, 400)
+}
+
+onMounted(simulateLoad)
 
 const columns = [
   { name: 'timestamp', align: 'left', label: 'Timestamp', field: 'date', headerStyle: 'width: 12%' },
@@ -169,7 +147,6 @@ const columns = [
   { name: 'ip', align: 'left', label: 'IP Address', field: 'ip', headerStyle: 'width: 12%' }
 ]
 
-// Mock Data representing a hyper-realistic admin log
 const logs = ref([
   {
     id: 1, date: 'Jun 17, 2026', time: '08:30:12 AM', action: 'UPDATE',
@@ -233,11 +210,10 @@ const filteredLogs = computed(() => {
 })
 
 const paginatedLogs = computed(() => {
-  const start = (currentPage.value - 1) * 15
-  return filteredLogs.value.slice(start, start + 15)
+  const start = (currentPage.value - 1) * 10
+  return filteredLogs.value.slice(start, start + 10)
 })
 
-// Smart UI Helpers
 function getActionColor(action: string) {
   switch(action) {
     case 'CREATE': return { bg: 'green-1', text: 'green-7' }
@@ -251,44 +227,11 @@ function getActionColor(action: string) {
 </script>
 
 <style scoped>
-.table-container {
-  border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important;
-  border: 1px solid var(--c-border-strong);
+.users-page {
+  overflow: hidden !important;
+  height: 100% !important;
 }
-
-.border-bottom { border-bottom: 1px solid #f0f0f0; }
-.tracking-wide { letter-spacing: 0.5px; }
-.shrink-0 { flex-shrink: 0; }
-
-.custom-table {
-  background: transparent;
-  height: 100%;
+.export-btn {
+  margin-bottom: 10px;
 }
-
-.custom-table :deep(table) {
-  table-layout: fixed;
-  width: 100%;
-}
-
-.custom-table :deep(.q-table__container) {
-  box-shadow: none !important;
-  border: none !important;
-  height: 100%;
-}
-
-.custom-table :deep(.q-table__middle) {
-  max-height: 100%;
-}
-
-.custom-table :deep(thead tr th) {
-  position: sticky;
-  z-index: 1;
-  top: 0;
-  background-color: var(--c-primary-soft);
-}
-
-.table-row { transition: background-color 0.2s ease; }
-.table-row:hover { background-color: var(--c-surface-2); }
-.table-row td { border-bottom: 1px solid #f0f0f0 !important; }
 </style>

@@ -1,188 +1,175 @@
 <template>
-  <q-page class="q-pa-md column" style="background-color: var(--c-bg)">
+  <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
 
-    <q-tabs
-      v-model="activeEntityTab"
-      dense
-      no-caps
-      align="left"
-      class="folder-tabs text-dark q-mb-none"
-    >
-      <q-tab name="student" label="Student" class="text-weight-bold" />
-      <q-tab name="landlord" label="Landlord" class="text-weight-bold" />
-      <q-tab name="property" label="Property" class="text-weight-bold" />
-    </q-tabs>
+    <div class="row justify-between items-end non-shrink">
+      <TabNav v-model="activeEntityTab" :tabs="tabs" />
+    </div>
 
-    <q-card flat class="bg-surface table-container q-mt-none" style="min-height: 600px;">
+    <div class="table-wrapper">
+      <q-card flat class="table-container">
+        <template v-if="!selectedRequest">
+          <TableToolbar
+            :search="search"
+            :search-placeholder="searchPlaceholder"
+            :filters="[]"
+            :active-filters="{ }"
+            :loading="loading"
+            :total-label="`${filteredRows.length} total ${filteredRows.length === 1 ? 'request' : 'requests'}`"
+            @update:search="search = $event"
+            @refresh="fetchVerifications"
+          />
 
-      <template v-if="!selectedRequest">
+          <q-tab-panels v-model="activeEntityTab" animated style="background: transparent; flex: 1 1 0; min-height: 0; overflow: auto;">
 
-        <div class="row items-center justify-between q-pa-md border-bottom">
-          <SearchInput v-model="search" :placeholder="searchPlaceholder" class="custom-radius" style="width: 300px;" />
-
-          <div class="row items-center q-gutter-x-md">
-            <q-btn flat dense color="grey-6" class="custom-radius" @click="fetchVerifications" :loading="loading">
-              <Icon icon="mdi:refresh" width="18" height="18" />
-              <q-tooltip>Refresh</q-tooltip>
-            </q-btn>
-            <div class="text-grey-6 text-weight-medium" style="font-size: 13px;">
-              <q-badge color="grey-2" text-color="grey-7" class="q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px;">
-                {{ filteredRows.length }} total {{ filteredRows.length === 1 ? 'request' : 'requests' }}
-              </q-badge>
-            </div>
-          </div>
-        </div>
-
-        <q-tab-panels v-model="activeEntityTab" animated style="background: transparent">
-
-          <!-- STUDENT TAB -->
-          <q-tab-panel name="student" class="q-pa-none">
-            <DataTable :rows="paginatedRows" :columns="studentColumns" rowKey="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
-              <template #no-data>
-                <div class="full-width row flex-center text-grey-5 q-pa-xl column">
-                  <Icon icon="mdi:verified" width="48" height="48" class="q-mb-md" />
-                  <div class="text-h6 text-weight-bold">All caught up!</div>
-                  <div>No pending student verifications.</div>
-                </div>
-              </template>
-              <template #body="{ props }">
-                <q-tr :props="props" class="smart-row">
-                  <q-td key="student" :props="props">
-                    <div class="row items-center no-wrap">
-                      <q-avatar size="36px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 13px">{{ props.row.initials }}</q-avatar>
-                      <div class="column">
-                        <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
-                        <div class="text-grey-6" style="font-size: 12px; margin-top: 2px">{{ props.row.email }}</div>
+            <!-- STUDENT TAB -->
+            <q-tab-panel name="student" class="q-pa-none">
+              <DataTable :rows="paginatedRows" :columns="studentColumns" rowKey="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+                <template #no-data>
+                  <div class="full-width row flex-center text-grey-5 q-pa-xl column">
+                    <Icon icon="mdi:verified" width="48" height="48" class="q-mb-md" />
+                    <div class="text-h6 text-weight-bold">All caught up!</div>
+                    <div>No pending student verifications.</div>
+                  </div>
+                </template>
+                <template #body="{ props }">
+                  <q-tr :props="props" class="smart-row">
+                    <q-td key="student" :props="props">
+                      <div class="row items-center no-wrap">
+                        <q-avatar size="36px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 13px">{{ props.row.initials }}</q-avatar>
+                        <div class="column">
+                          <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
+                          <div class="text-grey-6" style="font-size: 12px; margin-top: 2px">{{ props.row.email }}</div>
+                        </div>
                       </div>
-                    </div>
-                  </q-td>
-                  <q-td key="id" :props="props" class="text-grey-6" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
-                  <q-td key="type" :props="props">
-                    <div class="text-dark text-weight-medium" style="font-size: 13px">{{ props.row.type }}</div>
-                    <div class="row items-center text-grey-6" style="font-size: 11px; margin-top: 2px">
-                      <Icon icon="mdi:file-document-outline" width="12" height="12" class="q-mr-xs" />
-                      {{ props.row.files?.length || 0 }} document{{ props.row.files?.length === 1 ? '' : 's' }}
-                    </div>
-                  </q-td>
-                  <q-td key="status" :props="props">
-                    <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
-                  </q-td>
-                  <q-td key="submitted" :props="props" class="text-grey-7" style="font-size: 12px">{{ props.row.submitted }}</q-td>
-                  <q-td key="action" :props="props" class="text-right">
-                    <q-btn unelevated dense color="teal-5" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
-                      Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
-                    </q-btn>
-                  </q-td>
-                </q-tr>
-              </template>
-            </DataTable>
-          </q-tab-panel>
-
-          <!-- LANDLORD TAB -->
-          <q-tab-panel name="landlord" class="q-pa-none">
-            <DataTable :rows="paginatedRows" :columns="landlordColumns" rowKey="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
-              <template #no-data>
-                <div class="full-width row flex-center text-grey-5 q-pa-xl column">
-                  <Icon icon="mdi:verified" width="48" height="48" class="q-mb-md" />
-                  <div class="text-h6 text-weight-bold">All caught up!</div>
-                  <div>No pending landlord verifications.</div>
-                </div>
-              </template>
-              <template #body="{ props }">
-                <q-tr :props="props" class="smart-row">
-                  <q-td key="landlord" :props="props">
-                    <div class="row items-center no-wrap">
-                      <q-avatar size="36px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 13px">{{ props.row.initials }}</q-avatar>
-                      <div class="column">
-                        <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
-                        <div class="text-grey-6" style="font-size: 12px; margin-top: 2px">{{ props.row.email }}</div>
+                    </q-td>
+                    <q-td key="id" :props="props" class="text-grey-6" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
+                    <q-td key="type" :props="props">
+                      <div class="text-dark text-weight-medium" style="font-size: 13px">{{ props.row.type }}</div>
+                      <div class="row items-center text-grey-6" style="font-size: 11px; margin-top: 2px">
+                        <Icon icon="mdi:file-document-outline" width="12" height="12" class="q-mr-xs" />
+                        {{ props.row.files?.length || 0 }} document{{ props.row.files?.length === 1 ? '' : 's' }}
                       </div>
-                    </div>
-                  </q-td>
-                  <q-td key="id" :props="props" class="text-grey-6" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
-                  <q-td key="type" :props="props">
-                    <div class="text-dark text-weight-medium" style="font-size: 13px">{{ props.row.type }}</div>
-                    <div class="row items-center text-grey-6" style="font-size: 11px; margin-top: 2px">
-                      <Icon icon="mdi:file-document-outline" width="12" height="12" class="q-mr-xs" />
-                      {{ props.row.files?.length || 0 }} document{{ props.row.files?.length === 1 ? '' : 's' }}
-                    </div>
-                  </q-td>
-                  <q-td key="status" :props="props">
-                    <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
-                  </q-td>
-                  <q-td key="submitted" :props="props" class="text-grey-7" style="font-size: 12px">{{ props.row.submitted }}</q-td>
-                  <q-td key="action" :props="props" class="text-right">
-                    <q-btn unelevated dense color="teal-5" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
-                      Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
-                    </q-btn>
-                  </q-td>
-                </q-tr>
-              </template>
-            </DataTable>
-          </q-tab-panel>
+                    </q-td>
+                    <q-td key="status" :props="props">
+                      <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
+                    </q-td>
+                    <q-td key="submitted" :props="props" class="text-grey-7" style="font-size: 12px">{{ props.row.submitted }}</q-td>
+                    <q-td key="action" :props="props" class="text-right">
+                      <q-btn unelevated dense color="teal-5" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
+                        Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
+                      </q-btn>
+                    </q-td>
+                  </q-tr>
+                </template>
+              </DataTable>
+            </q-tab-panel>
 
-          <!-- PROPERTY TAB -->
-          <q-tab-panel name="property" class="q-pa-none">
-            <DataTable :rows="paginatedRows" :columns="propertyColumns" rowKey="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
-              <template #no-data>
-                <div class="full-width row flex-center text-grey-5 q-pa-xl column">
-                  <Icon icon="mdi:verified" width="48" height="48" class="q-mb-md" />
-                  <div class="text-h6 text-weight-bold">All caught up!</div>
-                  <div>No pending property accreditations.</div>
-                </div>
-              </template>
-              <template #body="{ props }">
-                <q-tr :props="props" class="smart-row">
-                  <q-td key="property" :props="props">
-                    <div class="row items-center no-wrap">
-                      <q-avatar size="36px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 13px">{{ props.row.initials }}</q-avatar>
-                      <div class="column">
-                        <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
-                        <div class="text-grey-6" style="font-size: 12px; margin-top: 2px">Owned by {{ props.row.owner }}</div>
+            <!-- LANDLORD TAB -->
+            <q-tab-panel name="landlord" class="q-pa-none">
+              <DataTable :rows="paginatedRows" :columns="landlordColumns" rowKey="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+                <template #no-data>
+                  <div class="full-width row flex-center text-grey-5 q-pa-xl column">
+                    <Icon icon="mdi:verified" width="48" height="48" class="q-mb-md" />
+                    <div class="text-h6 text-weight-bold">All caught up!</div>
+                    <div>No pending landlord verifications.</div>
+                  </div>
+                </template>
+                <template #body="{ props }">
+                  <q-tr :props="props" class="smart-row">
+                    <q-td key="landlord" :props="props">
+                      <div class="row items-center no-wrap">
+                        <q-avatar size="36px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 13px">{{ props.row.initials }}</q-avatar>
+                        <div class="column">
+                          <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
+                          <div class="text-grey-6" style="font-size: 12px; margin-top: 2px">{{ props.row.email }}</div>
+                        </div>
                       </div>
-                    </div>
-                  </q-td>
-                  <q-td key="id" :props="props" class="text-grey-6" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
-                  <q-td key="type" :props="props">
-                    <div class="text-dark text-weight-medium" style="font-size: 13px">{{ props.row.type }}</div>
-                    <div class="row items-center text-grey-6" style="font-size: 11px; margin-top: 2px">
-                      <Icon icon="mdi:file-document-outline" width="12" height="12" class="q-mr-xs" />
-                      {{ props.row.files?.length || 0 }} document{{ props.row.files?.length === 1 ? '' : 's' }}
-                    </div>
-                  </q-td>
-                  <q-td key="status" :props="props">
-                    <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
-                  </q-td>
-                  <q-td key="submitted" :props="props" class="text-grey-7" style="font-size: 12px">{{ props.row.submitted }}</q-td>
-                  <q-td key="action" :props="props" class="text-right">
-                    <q-btn unelevated dense color="teal-5" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
-                      Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
-                    </q-btn>
-                  </q-td>
-                </q-tr>
-              </template>
-            </DataTable>
-          </q-tab-panel>
+                    </q-td>
+                    <q-td key="id" :props="props" class="text-grey-6" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
+                    <q-td key="type" :props="props">
+                      <div class="text-dark text-weight-medium" style="font-size: 13px">{{ props.row.type }}</div>
+                      <div class="row items-center text-grey-6" style="font-size: 11px; margin-top: 2px">
+                        <Icon icon="mdi:file-document-outline" width="12" height="12" class="q-mr-xs" />
+                        {{ props.row.files?.length || 0 }} document{{ props.row.files?.length === 1 ? '' : 's' }}
+                      </div>
+                    </q-td>
+                    <q-td key="status" :props="props">
+                      <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
+                    </q-td>
+                    <q-td key="submitted" :props="props" class="text-grey-7" style="font-size: 12px">{{ props.row.submitted }}</q-td>
+                    <q-td key="action" :props="props" class="text-right">
+                      <q-btn unelevated dense color="teal-5" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
+                        Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
+                      </q-btn>
+                    </q-td>
+                  </q-tr>
+                </template>
+              </DataTable>
+            </q-tab-panel>
 
-        </q-tab-panels>
-      </template>
+            <!-- PROPERTY TAB -->
+            <q-tab-panel name="property" class="q-pa-none">
+              <DataTable :rows="paginatedRows" :columns="propertyColumns" rowKey="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+                <template #no-data>
+                  <div class="full-width row flex-center text-grey-5 q-pa-xl column">
+                    <Icon icon="mdi:verified" width="48" height="48" class="q-mb-md" />
+                    <div class="text-h6 text-weight-bold">All caught up!</div>
+                    <div>No pending property accreditations.</div>
+                  </div>
+                </template>
+                <template #body="{ props }">
+                  <q-tr :props="props" class="smart-row">
+                    <q-td key="property" :props="props">
+                      <div class="row items-center no-wrap">
+                        <q-avatar size="36px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 13px">{{ props.row.initials }}</q-avatar>
+                        <div class="column">
+                          <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
+                          <div class="text-grey-6" style="font-size: 12px; margin-top: 2px">Owned by {{ props.row.owner }}</div>
+                        </div>
+                      </div>
+                    </q-td>
+                    <q-td key="id" :props="props" class="text-grey-6" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
+                    <q-td key="type" :props="props">
+                      <div class="text-dark text-weight-medium" style="font-size: 13px">{{ props.row.type }}</div>
+                      <div class="row items-center text-grey-6" style="font-size: 11px; margin-top: 2px">
+                        <Icon icon="mdi:file-document-outline" width="12" height="12" class="q-mr-xs" />
+                        {{ props.row.files?.length || 0 }} document{{ props.row.files?.length === 1 ? '' : 's' }}
+                      </div>
+                    </q-td>
+                    <q-td key="status" :props="props">
+                      <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
+                    </q-td>
+                    <q-td key="submitted" :props="props" class="text-grey-7" style="font-size: 12px">{{ props.row.submitted }}</q-td>
+                    <q-td key="action" :props="props" class="text-right">
+                      <q-btn unelevated dense color="teal-5" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
+                        Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
+                      </q-btn>
+                    </q-td>
+                  </q-tr>
+                </template>
+              </DataTable>
+            </q-tab-panel>
 
-      <template v-else>
-        <VerificationReview
-          :request="selectedRequest"
-          @close="selectedRequest = null"
-          @submit="handleDecision"
-        />
-      </template>
+          </q-tab-panels>
+        </template>
 
-    </q-card>
+        <template v-else>
+          <VerificationReview
+            :request="selectedRequest"
+            @close="selectedRequest = null"
+            @submit="handleDecision"
+          />
+        </template>
+      </q-card>
+    </div>
 
-    <div class="q-mt-md" v-if="!selectedRequest">
+    <div class="non-shrink q-mt-md" v-if="!selectedRequest">
       <TablePagination
-        v-model="currentPage"
-        :totalItems="filteredRows.length"
-        :rowsPerPage="10"
-        itemName="requests"
+        :model-value="currentPage"
+        :total-items="filteredRows.length"
+        :rows-per-page="10"
+        :item-name="'requests'"
+        @update:model-value="currentPage = $event"
       />
     </div>
 
@@ -193,17 +180,25 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from '@/utils/supabase'
 
+import TabNav from '@/components/common/TabNav.vue'
+import TableToolbar from '@/components/common/TableToolbar.vue'
 import SearchInput from '@/components/common/SearchInput.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import TablePagination from '@/components/common/TablePagination.vue'
 import BadgePill from '@/components/common/BadgePill.vue'
 import VerificationReview from '@/components/admin/VerificationReview.vue'
 
-const loading = ref(false)
+const loading = ref(true)
 const activeEntityTab = ref('student')
 const search = ref('')
 const currentPage = ref(1)
 const selectedRequest = ref<any>(null)
+
+const tabs = [
+  { name: 'student', label: 'Student' },
+  { name: 'landlord', label: 'Landlord' },
+  { name: 'property', label: 'Property' },
+]
 
 const studentRequests = ref<any[]>([])
 const landlordRequests = ref<any[]>([])
@@ -471,46 +466,45 @@ async function handleDecision(decisionPayload: any) {
 </script>
 
 <style scoped>
-.folder-tabs {
-  background-color: transparent !important;
-  position: relative;
-  z-index: 2;
-  margin-bottom: -1px !important;
+.users-page {
+  overflow: hidden !important;
+  height: 100% !important;
 }
 
-:deep(.folder-tabs .q-tab) {
-  border-radius: 12px 12px 0 0;
-  background-color: #e8ecef;
-  margin-right: 4px;
-  min-height: 48px;
-  padding: 0 32px;
-  transition: all 0.2s ease;
-  color: #5c6a7a;
-}
-
-:deep(.folder-tabs .q-tab--active) {
-  background-color: #ffffff;
-  color: #0f8b7d !important;
-  z-index: 10;
-  border-bottom: 2px solid #ffffff;
-  padding-bottom: 2px;
-}
-
-:deep(.folder-tabs .q-tab__indicator) {
-  display: none !important;
+.table-wrapper {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .table-container {
+  background: var(--c-surface);
   border-radius: 0 12px 12px 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important;
   border: 1px solid var(--c-border-strong);
-  position: relative;
-  z-index: 1;
+  border-top: none;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important;
   overflow: hidden;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .border-bottom {
   border-bottom: 1px solid #f0f0f0;
+}
+
+/* Consistent row height + padding with other table pages */
+:deep(.q-table tbody tr) {
+  height: 64px !important;
+}
+:deep(.q-table tbody td) {
+  padding: 0 16px !important;
+}
+:deep(.q-table thead th) {
+  padding: 14px 16px !important;
 }
 
 .custom-radius :deep(.q-field__control) {

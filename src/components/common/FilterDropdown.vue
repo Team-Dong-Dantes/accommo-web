@@ -45,8 +45,8 @@ interface FilterGroup {
 }
 
 const props = defineProps({
-  filters: { type: Array as PropType<FilterGroup[]>, required: true },
-  activeFilters: { type: Object as PropType<Record<string, any[]>>, required: true }
+  filters: { type: Array as PropType<FilterGroup[]>, default: () => [] },
+  activeFilters: { type: Object as PropType<Record<string, any[]>>, default: () => ({}) }
 })
 
 const emit = defineEmits(['update:activeFilters', 'clear'])

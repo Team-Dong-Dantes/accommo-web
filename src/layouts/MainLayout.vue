@@ -18,7 +18,7 @@
       </q-toolbar>
     </q-header>
 
-    <q-page-container>
+    <q-page-container class="relative-position">
       <router-view />
     </q-page-container>
 

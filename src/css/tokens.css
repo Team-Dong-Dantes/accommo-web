@@ -25,9 +25,9 @@
   --c-info-soft: #E0EFF3;
 
   /* ----- Color: surfaces & text ----- */
-  --c-bg: #F1F4F8;                       /* pale cool gray app background (lighter) */
-  --c-surface: #F8FAFC;                  /* pale cool gray surface — never white */
-  --c-surface-2: #EDF1F6;                /* pale cool gray inset / hover surface */
+  --c-bg: #F3F6FA;                       /* lighter pale cool gray app background */
+  --c-surface: #FAFCFE;                  /* lighter pale cool gray surface — never white */
+  --c-surface-2: #EEF2F8;                /* lighter pale cool gray inset / hover surface */
   --c-ink: #16211E;            /* headings */
   --c-text: #2B3531;           /* body */
   --c-muted: #6B7770;
@@ -37,7 +37,7 @@
   /* ----- Color: sidebar (always deep teal) ----- */
   --c-sidebar-bg: #0E2E2A;
   --c-sidebar-text: #EAF4F1;
-  --c-sidebar-active-bg: #F1F4F8;
+  --c-sidebar-active-bg: #F3F6FA;
   --c-sidebar-active-text: #0F766E;
 
   /* ----- Dark panels (Quick Actions card) ----- */

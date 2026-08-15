@@ -12,5 +12,6 @@ defineEmits(['export'])
 .rounded-button {
   border-radius: 10px;
   height: 40px;
+  padding: 0 16px;
 }
 </style>
