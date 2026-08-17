@@ -5,23 +5,21 @@
     <div class="row justify-between items-end non-shrink">
       <TabNav v-model="activeTab" :tabs="tabs" />
 
-      <div class="row q-gutter-x-sm export-btn">
+      <div class="row q-gutter-x-sm q-mb-md">
         <q-btn
           outline
           color="grey-5"
           text-color="dark"
           no-caps
-          class="text-weight-bold bg-surface"
-          style="border-radius: 8px; padding: 6px 16px;"
+          class="text-weight-bold bg-surface rounded-button"
         >
           <Icon icon="mdi:calendar-range" class="on-left" width="16" height="16" />Last 30 Days
         </q-btn>
         <q-btn
           unelevated
-          color="teal-7"
+          color="primary"
           no-caps
-          class="text-weight-bold"
-          style="border-radius: 8px; padding: 6px 16px;"
+          class="text-weight-bold rounded-button"
         >
           <Icon icon="mdi:download" class="on-left" width="16" height="16" />Export CSV
         </q-btn>
@@ -63,7 +61,7 @@
 
             <!-- Actor -->
             <div v-else-if="col.name === 'actor'" class="row items-center no-wrap">
-              <q-avatar size="32px" :color="props.row.actor.color" text-color="white" class="text-weight-bold q-mr-sm shrink-0" style="border-radius: 8px; font-size: 12px;">
+              <q-avatar size="48px" :color="props.row.actor.color" text-color="white" class="text-weight-bold q-mr-sm shrink-0" style="border-radius: 8px; font-size: 18px;">
                 <Icon v-if="props.row.actor.isSystem" icon="mdi:server" width="16" height="16" />
                 <span v-else>{{ props.row.actor.initials }}</span>
               </q-avatar>
@@ -230,8 +228,5 @@ function getActionColor(action: string) {
 .users-page {
   overflow: hidden !important;
   height: 100% !important;
-}
-.export-btn {
-  margin-bottom: 10px;
 }
 </style>

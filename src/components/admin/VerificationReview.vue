@@ -5,7 +5,7 @@
       <q-btn
         flat
         dense
-        color="dark"
+        color="primary"
         no-caps
         class="text-weight-bold"
         @click="$emit('close')"
@@ -151,7 +151,7 @@
 
           <q-btn
             unelevated
-            :color="decision ? 'dark' : 'grey-4'"
+            :color="decision ? 'primary' : 'grey-4'"
             :text-color="decision ? 'white' : 'grey-6'"
             :disable="!decision"
             label="Submit Verification"

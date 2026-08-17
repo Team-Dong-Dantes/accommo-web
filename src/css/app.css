@@ -81,6 +81,33 @@ h4,
 .radius-sm { border-radius: var(--radius-sm) !important; }
 .shadow-token { box-shadow: var(--shadow) !important; }
 
+/* ---- Unified button design ----
+   Every Quasar button (except round/fab/circle) shares one corner radius,
+   one font-weight, and one text-transform (no forced uppercase) so CTAs look
+   identical across the app. Brand color stays token-driven (primary == teal-7). */
+.q-btn:not(.q-btn--round):not(.q-btn--circle):not(.q-btn--fab) {
+  border-radius: var(--radius-btn) !important;
+  text-transform: none !important;
+}
+
+.q-btn:not(.q-btn--round):not(.q-btn--circle):not(.q-btn--fab) .q-btn__content {
+  font-weight: 600;
+}
+
+/* Small dense action button used inside data tables (Review / open row).
+   Defined once so it looks identical on every page. */
+.review-btn {
+  padding: 4px 14px;
+  font-size: 12px;
+}
+
+/* Shared primary/secondary action button (header CTAs, Export, Filter).
+   Single source of truth so every page's action button is identical. */
+.rounded-button {
+  height: 40px;
+  padding: 0 16px;
+}
+
 /* Staggered entrance for dashboard tiles (micro-interaction) */
 @keyframes accommo-rise {
   from { opacity: 0; transform: translateY(10px); }

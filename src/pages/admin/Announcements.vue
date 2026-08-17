@@ -7,10 +7,9 @@
 
       <q-btn
         unelevated
-        color="teal-7"
+        color="primary"
         no-caps
-        class="text-weight-bold export-btn"
-        style="border-radius: 8px; padding: 6px 16px;"
+        class="text-weight-bold rounded-button q-mb-md"
       >
         <Icon :icon="activeTab === 'announcements' ? 'mdi:bullhorn' : 'mdi:gavel'" class="on-left" width="18" height="18" />
         {{ activeTab === 'announcements' ? 'New Announcement' : 'New Policy' }}
@@ -221,9 +220,6 @@ function getAudienceColor(audience: string) {
 .users-page {
   overflow: hidden !important;
   height: 100% !important;
-}
-.export-btn {
-  margin-bottom: 10px;
 }
 .custom-radius {
   border-radius: 8px !important;

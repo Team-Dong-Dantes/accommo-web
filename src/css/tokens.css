@@ -36,9 +36,17 @@
 
   /* ----- Color: sidebar (always deep teal) ----- */
   --c-sidebar-bg: #0E2E2A;
+  --c-sidebar-bg-2: #0B2421;       /* subtle gradient stop for depth */
   --c-sidebar-text: #EAF4F1;
+  --c-sidebar-muted: rgba(234, 244, 241, 0.55);
+  --c-sidebar-hover: rgba(255, 255, 255, 0.08);
+  --c-sidebar-border: rgba(255, 255, 255, 0.07);
+  --c-sidebar-accent: #14B8A6;     /* active indicator bar */
   --c-sidebar-active-bg: #F3F6FA;
   --c-sidebar-active-text: #0F766E;
+  --c-sidebar-search-bg: rgba(255, 255, 255, 0.06);
+  --c-sidebar-search-border: rgba(255, 255, 255, 0.10);
+  --c-sidebar-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
 
   /* ----- Dark panels (Quick Actions card) ----- */
   --c-panel-dark: #0E2E2A;
@@ -70,6 +78,7 @@
   --radius-sm: 10px;
   --radius: 16px;
   --radius-lg: 20px;
+  --radius-btn: 8px;            /* unified corner radius for all buttons */
   --shadow-sm: 0 1px 2px rgba(16, 32, 28, 0.06);
   --shadow: 0 6px 20px rgba(16, 32, 28, 0.08);
   --shadow-lg: 0 14px 36px rgba(16, 32, 28, 0.12);

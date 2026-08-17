@@ -28,7 +28,7 @@
             @click="selectedTicket = ticket"
           >
             <q-item-section avatar top class="q-pr-sm" style="min-width: 44px;">
-              <q-avatar size="40px" :color="ticket.avatarColor" text-color="white" class="text-weight-bold relative-position" style="border-radius: 10px;">
+              <q-avatar size="48px" :color="ticket.avatarColor" text-color="white" class="text-weight-bold relative-position" style="border-radius: 10px; font-size: 18px;">
                 {{ ticket.initials }}
               </q-avatar>
             </q-item-section>
@@ -187,7 +187,7 @@
               </div>
             </div>
             <!-- One-click Assign to Me -->
-            <q-btn v-if="selectedTicket.assignee === 'Unassigned'" unelevated size="sm" color="dark" text-color="white" label="Take It" no-caps class="text-weight-bold custom-radius" @click="selectedTicket.assignee = 'Maria Admin'" />
+            <q-btn v-if="selectedTicket.assignee === 'Unassigned'" unelevated size="sm" color="primary" text-color="white" label="Take It" no-caps class="text-weight-bold custom-radius" @click="selectedTicket.assignee = 'Maria Admin'" />
             <!-- Handoff Icon -->
             <q-btn v-else flat dense size="sm" color="grey-6" class="custom-radius">
               <Icon icon="mdi:swap-horizontal-bold" width="18" height="18" />

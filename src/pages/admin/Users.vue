@@ -32,10 +32,10 @@
       </template>
 
       <template #body="{ props }">
-        <q-tr :props="props" :key="props.row.rawId">
+        <q-tr :props="props" :key="props.row.rawId" class="cursor-pointer smart-row" @click="openUser(props.row)">
           <q-td key="user" :props="props">
             <div class="row items-center no-wrap">
-              <q-avatar size="38px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">
+              <q-avatar size="48px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 18px">
                 {{ props.row.initials }}
               </q-avatar>
               <div class="column">
@@ -58,17 +58,173 @@
       </template>
     </TableCard>
 
+    <DetailDrawer v-model="drawerOpen">
+      <template #banner>
+        <ProfileHero
+          :name="selectedUser?.name"
+          :initials="selectedUser?.initials"
+          :avatar-color="selectedUser?.avatarColor"
+          :role-label="cap(selectedUser?.role)"
+          :status-label="selectedUser?.status"
+          :role-style="selectedUser?.roleStyle"
+          :status-style="selectedUser?.statusStyle"
+        />
+      </template>
+
+      <template v-if="selectedUser">
+        <SegmentedToggle v-model="sectionTab" :options="sectionOptions" />
+
+        <transition name="usr-fade" mode="out-in">
+          <div :key="sectionTab" class="usr-section">
+
+            <!-- OVERVIEW -->
+            <template v-if="sectionTab === 'overview'">
+              <InfoCard title="Basic Info">
+                <InfoRow icon="mdi:email-outline" label="Email" :value="selectedUser.email" />
+                <InfoRow icon="mdi:phone-outline" label="Contact" :value="selectedUser.contact" />
+                <InfoRow icon="mdi:calendar-clock" label="Joined" :value="selectedUser.joined" />
+                <InfoRow icon="mdi:identifier" label="User ID" :value="selectedUser.id" :mono="true" :last="true" />
+              </InfoCard>
+
+              <InfoCard :title="isStudent ? 'Student Profile' : isLandlord ? 'Landlord Profile' : 'Profile'">
+                <template v-if="detailLoading">
+                  <InfoRow icon="mdi:school" label="College"><q-skeleton type="text" width="90px" /></InfoRow>
+                  <InfoRow icon="mdi:book-open-variant" label="Program"><q-skeleton type="text" width="90px" /></InfoRow>
+                  <InfoRow icon="mdi:calendar-star" label="Year Level"><q-skeleton type="text" width="90px" /></InfoRow>
+                  <InfoRow icon="mdi:card-account-details" label="Student ID" :last="true"><q-skeleton type="text" width="90px" /></InfoRow>
+                </template>
+
+                <template v-else-if="userDetail && isStudent">
+                  <InfoRow icon="mdi:school" label="College" :value="userDetail.college || '—'" />
+                  <InfoRow icon="mdi:book-open-variant" label="Program" :value="userDetail.program || '—'" />
+                  <InfoRow icon="mdi:calendar-star" label="Year Level" :value="userDetail.year_level ?? '—'" />
+                  <InfoRow icon="mdi:card-account-details" label="Student ID" :value="userDetail.student_id || '—'" />
+                  <InfoRow icon="mdi:check-decagram" label="OSAS Verified" :value="userDetail.osas_verified_at ? 'Yes' : 'No'" :last="true" />
+                </template>
+
+                <template v-else-if="userDetail && isLandlord">
+                  <InfoRow icon="mdi:domain" label="Business Name" :value="userDetail.business_name || '—'" />
+                  <InfoRow icon="mdi:certificate" label="Accreditation" :value="userDetail.accreditation_status || '—'" />
+                  <InfoRow icon="mdi:flash" label="Response Rate" :value="userDetail.response_rate != null ? userDetail.response_rate + '%' : '—'" />
+                  <InfoRow icon="mdi:clock-outline" label="Expires" :value="userDetail.accreditation_expires_at || '—'" :last="true" />
+                </template>
+
+                <EmptyState v-else icon="mdi:account-details" message="No extended profile available." />
+              </InfoCard>
+            </template>
+
+            <!-- HOUSING (students) -->
+            <template v-else-if="sectionTab === 'housing' && isStudent">
+              <InfoCard title="Housing">
+                <template v-if="detailLoading">
+                  <InfoRow icon="mdi:home-city" label="Placement"><q-skeleton type="text" width="90px" /></InfoRow>
+                  <InfoRow icon="mdi:domain" label="Property"><q-skeleton type="text" width="90px" /></InfoRow>
+                  <InfoRow icon="mdi:bed" label="Room Type"><q-skeleton type="text" width="90px" /></InfoRow>
+                  <InfoRow icon="mdi:account-tie" label="Landlord" :last="true"><q-skeleton type="text" width="90px" /></InfoRow>
+                </template>
+                <template v-else-if="housing">
+                  <InfoRow icon="mdi:home-city" label="Placement">
+                    <span v-if="housing.placed" class="usr-pill usr-pill--ok">Housed</span>
+                    <span v-else class="usr-pill usr-pill--muted">Not placed</span>
+                  </InfoRow>
+                  <template v-if="housing.placed">
+                    <InfoRow icon="mdi:domain" label="Property">
+                      <button class="usr-link" type="button" @click="router.push('/map-view')">{{ housing.propertyName }} →</button>
+                    </InfoRow>
+                    <InfoRow icon="mdi:bed" label="Room Type" :value="housing.roomType" />
+                    <InfoRow icon="mdi:account-tie" label="Landlord" :value="housing.landlordName" />
+                    <InfoRow icon="mdi:calendar-clock" label="Move-in" :value="fmtDate(housing.moveIn)" :last="true" />
+                  </template>
+                </template>
+                <EmptyState v-else icon="mdi:home-city-outline" message="No housing data." />
+              </InfoCard>
+
+              <InfoCard title="Boarding History">
+                <template v-if="detailLoading">
+                  <div v-for="n in 2" :key="n" class="usr-skel-block">
+                    <q-skeleton type="text" width="140px" />
+                    <q-skeleton type="text" width="180px" class="q-mt-xs" />
+                  </div>
+                </template>
+                <template v-else-if="boardingHistory.length">
+                  <HistoryItem
+                    v-for="h in boardingHistory"
+                    :key="h.id"
+                    :title="h.propertyName"
+                    :chip="h.roomType"
+                    :subtitle="h.address"
+                    :meta="h.period"
+                    :pin="true"
+                  />
+                </template>
+                <EmptyState v-else icon="mdi:history" message="No boarding history." />
+              </InfoCard>
+            </template>
+
+            <!-- PERFORMANCE (landlords) -->
+            <template v-else-if="sectionTab === 'performance' && isLandlord">
+              <StatGrid>
+                <StatTile icon="mdi:domain" label="Properties Listed" :value="String(landlordProps.length)" accent="teal" />
+                <StatTile icon="mdi:star" label="Avg Rating" :value="avgRating" accent="amber" />
+                <StatTile icon="mdi:flash" label="Response Rate" :value="userDetail?.response_rate != null ? userDetail.response_rate + '%' : '—'" accent="green" />
+                <StatTile icon="mdi:timer-outline" label="Avg Response" :value="respTime" accent="info" />
+              </StatGrid>
+
+              <InfoCard title="Listed Properties">
+                <template v-if="detailLoading">
+                  <div v-for="n in 2" :key="n" class="usr-skel-block">
+                    <q-skeleton type="text" width="150px" />
+                    <q-skeleton type="text" width="170px" class="q-mt-xs" />
+                  </div>
+                </template>
+                <template v-else-if="landlordProps.length">
+                  <HistoryItem
+                    v-for="p in landlordProps"
+                    :key="p.id"
+                    :title="p.name"
+                    :chip="cap(p.room_type)"
+                    :subtitle="`${cap(p.status)} · ${p.rating_avg != null ? p.rating_avg.toFixed(1) + ' ★' : 'No rating'} · ${p.reviews_count || 0} reviews`"
+                    clickable
+                    @click="router.push('/map-view')"
+                  />
+                </template>
+                <EmptyState v-else icon="mdi:domain-off" message="No listed properties." />
+              </InfoCard>
+            </template>
+          </div>
+        </transition>
+      </template>
+
+      <template #footer>
+        <div class="row items-center justify-end">
+          <q-btn unelevated no-caps color="primary" text-color="white" class="text-weight-bold usr-close-btn" @click="drawerOpen = false">
+            Close
+          </q-btn>
+        </div>
+      </template>
+    </DetailDrawer>
+
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { supabase } from '@/utils/supabase'
 
 import TabNav from '@/components/common/TabNav.vue'
 import TableCard from '@/components/common/TableCard.vue'
 import ExportButton from '@/components/common/ExportButton.vue'
 import BadgePill from '@/components/common/BadgePill.vue'
+import DetailDrawer from '@/components/common/DetailDrawer.vue'
+import ProfileHero from '@/components/common/ProfileHero.vue'
+import SegmentedToggle from '@/components/common/SegmentedToggle.vue'
+import InfoCard from '@/components/common/InfoCard.vue'
+import InfoRow from '@/components/common/InfoRow.vue'
+import StatGrid from '@/components/common/StatGrid.vue'
+import StatTile from '@/components/common/StatTile.vue'
+import HistoryItem from '@/components/common/HistoryItem.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 
 const loading = ref(true)
 const fetchError = ref('')
@@ -77,6 +233,18 @@ const search = ref('')
 const currentPage = ref(1)
 const activeTab = ref('users')
 const activeFilters = ref({ role: [] as string[], status: [] as string[] })
+
+const drawerOpen = ref(false)
+const selectedUser = ref<any | null>(null)
+const userDetail = ref<any | null>(null)
+const detailLoading = ref(false)
+
+const sectionTab = ref<string>('overview')
+const housing = ref<any | null>(null)
+const boardingHistory = ref<any[]>([])
+const landlordProps = ref<any[]>([])
+
+const router = useRouter()
 
 const tabs = [
   { name: 'users', label: 'Users' },
@@ -132,6 +300,89 @@ async function fetchUsers() {
 onMounted(() => {
   fetchUsers()
 })
+
+async function openUser(row: any) {
+  selectedUser.value = row
+  userDetail.value = null
+  housing.value = null
+  boardingHistory.value = []
+  landlordProps.value = []
+  sectionTab.value = 'overview'
+  drawerOpen.value = true
+  await fetchDetail(row.rawId, row.role)
+}
+
+async function fetchDetail(userId: string, role: string) {
+  detailLoading.value = true
+  try {
+    const normalized = (role || '').toLowerCase()
+    let detail: any = null
+
+    if (normalized === 'student') {
+      const { data } = await supabase
+        .from('student_profiles')
+        .select('college, program, year_level, student_id, osas_verified_at, emergency_contact_json')
+        .eq('user_id', userId)
+        .maybeSingle()
+      detail = data
+
+      // Active placement
+      const { data: lease } = await supabase
+        .from('leases')
+        .select('start_date, status, landlord:landlord_id(full_name), room:room_id(property:properties(id, name, room_type, address, barangay, city))')
+        .eq('student_id', userId)
+        .eq('status', 'active')
+        .maybeSingle()
+      housing.value = lease
+        ? {
+            placed: true,
+            propertyId: lease.room?.property?.id,
+            propertyName: lease.room?.property?.name || '—',
+            roomType: cap(lease.room?.property?.room_type),
+            landlordName: lease.landlord?.full_name || '—',
+            moveIn: lease.start_date,
+          }
+        : { placed: false }
+
+      // Boarding history
+      const { data: hist } = await supabase
+        .from('boarding_history')
+        .select('id, property_name, room_type, period_start, period_end, property:properties(id, address, barangay, city)')
+        .eq('student_id', userId)
+        .order('period_start', { ascending: false })
+      boardingHistory.value = (hist || []).map((h: any) => ({
+        id: h.id,
+        propertyId: h.property?.id,
+        propertyName: h.property_name || h.property?.name || '—',
+        roomType: cap(h.room_type),
+        address: composeAddress(h.property),
+        period: periodLabel(h.period_start, h.period_end),
+      }))
+    } else if (normalized === 'landlord') {
+      const { data } = await supabase
+        .from('landlord_profiles')
+        .select('business_name, accreditation_status, response_rate, accreditation_expires_at, avg_response_minutes')
+        .eq('user_id', userId)
+        .maybeSingle()
+      detail = data
+
+      // Listed properties
+      const { data: props } = await supabase
+        .from('properties')
+        .select('id, name, status, room_type, rating_avg, reviews_count')
+        .eq('landlord_id', userId)
+        .order('name', { ascending: true })
+      landlordProps.value = props || []
+    }
+
+    userDetail.value = detail
+  } catch (err) {
+    console.error('Failed to load user detail:', err)
+    userDetail.value = null
+  } finally {
+    detailLoading.value = false
+  }
+}
 
 function mapUserData(user: any) {
   const displayName = user.full_name || 'Unknown User'
@@ -208,11 +459,108 @@ const paginatedRows = computed(() => {
 })
 
 watch([search, activeFilters], () => { currentPage.value = 1 }, { deep: true })
+
+function cap(s: string | null | undefined) {
+  if (!s) return '—'
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+function composeAddress(p: any) {
+  if (!p) return '—'
+  const parts = [p.address, p.barangay, p.city].filter(Boolean)
+  return parts.length ? parts.join(', ') : '—'
+}
+function fmtDate(d: string | null | undefined) {
+  if (!d) return '—'
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return '—'
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+function periodLabel(start: string | null, end: string | null) {
+  const s = fmtDate(start)
+  return end ? `${s} – ${fmtDate(end)}` : `${s} – Present`
+}
+function fmtMinutes(m: number | null | undefined) {
+  if (m == null) return '—'
+  const h = Math.floor(m / 60)
+  const min = Math.round(m % 60)
+  return h > 0 ? `${h}h ${min}m` : `${min}m`
+}
+
+const isStudent = computed(() => (selectedUser.value?.role || '').toLowerCase() === 'student')
+const isLandlord = computed(() => (selectedUser.value?.role || '').toLowerCase() === 'landlord')
+const sectionOptions = computed(() =>
+  isStudent.value
+    ? [ { value: 'overview', label: 'Overview' }, { value: 'housing', label: 'Housing' } ]
+    : [ { value: 'overview', label: 'Overview' }, { value: 'performance', label: 'Performance' } ]
+)
+const avgRating = computed(() => {
+  const vals = landlordProps.value.map(p => p.rating_avg).filter((v: any) => v != null) as number[]
+  if (!vals.length) return '—'
+  return (vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1) + ' ★'
+})
+const respTime = computed(() => fmtMinutes(userDetail.value?.avg_response_minutes))
 </script>
 
 <style scoped>
 .users-page {
   overflow: hidden !important;
   height: 100% !important;
+}
+
+/* Pills (used inside InfoRow value slots) */
+.usr-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.usr-pill--ok {
+  background: var(--c-success-soft);
+  color: var(--c-success);
+}
+.usr-pill--muted {
+  background: var(--c-surface-2);
+  color: var(--c-muted);
+  border: 1px solid var(--c-border);
+}
+
+/* Link button (used inside InfoRow value slots) */
+.usr-link {
+  border: none;
+  background: transparent;
+  color: var(--c-primary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+.usr-link:hover {
+  text-decoration: underline;
+}
+
+/* Section transition */
+.usr-fade-enter-active,
+.usr-fade-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.usr-fade-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.usr-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* Skeleton blocks (loading states) */
+.usr-skel-block {
+  padding: 8px 0;
+}
+
+.usr-close-btn {
+  border-radius: var(--radius-btn);
+  padding: 8px 22px;
 }
 </style>

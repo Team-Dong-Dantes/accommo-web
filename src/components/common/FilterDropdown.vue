@@ -57,10 +57,6 @@ function updateFilter(key: string, values: any[]) {
 </script>
 
 <style scoped>
-.rounded-button {
-  border-radius: 10px;
-  height: 40px;
-}
 .custom-border {
   border: 1px solid #cbcbcb;
 }

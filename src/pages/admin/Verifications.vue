@@ -5,21 +5,21 @@
       <TabNav v-model="activeEntityTab" :tabs="tabs" />
     </div>
 
-    <div class="table-wrapper">
-      <q-card flat class="table-container">
-        <template v-if="!selectedRequest">
-          <TableToolbar
-            :search="search"
-            :search-placeholder="searchPlaceholder"
-            :filters="[]"
-            :active-filters="{ }"
-            :loading="loading"
-            :total-label="`${filteredRows.length} total ${filteredRows.length === 1 ? 'request' : 'requests'}`"
-            @update:search="search = $event"
-            @refresh="fetchVerifications"
-          />
-
-          <q-tab-panels v-model="activeEntityTab" animated style="background: transparent; flex: 1 1 0; min-height: 0; overflow: auto;">
+    <TableCard
+      v-if="!selectedRequest"
+      v-model:search="search"
+      v-model:page="currentPage"
+      :filters="[]"
+      :active-filters="{ }"
+      :search-placeholder="searchPlaceholder"
+      :total-label="`${filteredRows.length} total ${filteredRows.length === 1 ? 'request' : 'requests'}`"
+      :total-items="filteredRows.length"
+      item-name="requests"
+      :loading="loading"
+      @refresh="fetchVerifications"
+    >
+      <template #panels>
+        <q-tab-panels v-model="activeEntityTab" animated style="background: transparent; height: 100%;">
 
             <!-- STUDENT TAB -->
             <q-tab-panel name="student" class="q-pa-none">
@@ -35,7 +35,7 @@
                   <q-tr :props="props" class="smart-row">
                     <q-td key="student" :props="props">
                       <div class="row items-center no-wrap">
-                        <q-avatar size="36px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 13px">{{ props.row.initials }}</q-avatar>
+                        <q-avatar size="48px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 18px">{{ props.row.initials }}</q-avatar>
                         <div class="column">
                           <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
                           <div class="text-grey-6" style="font-size: 12px; margin-top: 2px">{{ props.row.email }}</div>
@@ -55,7 +55,7 @@
                     </q-td>
                     <q-td key="submitted" :props="props" class="text-grey-7" style="font-size: 12px">{{ props.row.submitted }}</q-td>
                     <q-td key="action" :props="props" class="text-right">
-                      <q-btn unelevated dense color="teal-5" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
+                      <q-btn unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
                         Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
                       </q-btn>
                     </q-td>
@@ -78,7 +78,7 @@
                   <q-tr :props="props" class="smart-row">
                     <q-td key="landlord" :props="props">
                       <div class="row items-center no-wrap">
-                        <q-avatar size="36px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 13px">{{ props.row.initials }}</q-avatar>
+                        <q-avatar size="48px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 18px">{{ props.row.initials }}</q-avatar>
                         <div class="column">
                           <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
                           <div class="text-grey-6" style="font-size: 12px; margin-top: 2px">{{ props.row.email }}</div>
@@ -98,7 +98,7 @@
                     </q-td>
                     <q-td key="submitted" :props="props" class="text-grey-7" style="font-size: 12px">{{ props.row.submitted }}</q-td>
                     <q-td key="action" :props="props" class="text-right">
-                      <q-btn unelevated dense color="teal-5" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
+                      <q-btn unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
                         Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
                       </q-btn>
                     </q-td>
@@ -121,7 +121,7 @@
                   <q-tr :props="props" class="smart-row">
                     <q-td key="property" :props="props">
                       <div class="row items-center no-wrap">
-                        <q-avatar size="36px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 13px">{{ props.row.initials }}</q-avatar>
+                        <q-avatar size="48px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 18px">{{ props.row.initials }}</q-avatar>
                         <div class="column">
                           <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
                           <div class="text-grey-6" style="font-size: 12px; margin-top: 2px">Owned by {{ props.row.owner }}</div>
@@ -141,7 +141,7 @@
                     </q-td>
                     <q-td key="submitted" :props="props" class="text-grey-7" style="font-size: 12px">{{ props.row.submitted }}</q-td>
                     <q-td key="action" :props="props" class="text-right">
-                      <q-btn unelevated dense color="teal-5" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
+                      <q-btn unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
                         Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
                       </q-btn>
                     </q-td>
@@ -151,27 +151,16 @@
             </q-tab-panel>
 
           </q-tab-panels>
-        </template>
+      </template>
+    </TableCard>
 
-        <template v-else>
-          <VerificationReview
-            :request="selectedRequest"
-            @close="selectedRequest = null"
-            @submit="handleDecision"
-          />
-        </template>
-      </q-card>
-    </div>
-
-    <div class="non-shrink q-mt-md" v-if="!selectedRequest">
-      <TablePagination
-        :model-value="currentPage"
-        :total-items="filteredRows.length"
-        :rows-per-page="10"
-        :item-name="'requests'"
-        @update:model-value="currentPage = $event"
+    <q-card v-else flat class="detail-card">
+      <VerificationReview
+        :request="selectedRequest"
+        @close="selectedRequest = null"
+        @submit="handleDecision"
       />
-    </div>
+    </q-card>
 
   </q-page>
 </template>
@@ -181,10 +170,8 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from '@/utils/supabase'
 
 import TabNav from '@/components/common/TabNav.vue'
-import TableToolbar from '@/components/common/TableToolbar.vue'
-import SearchInput from '@/components/common/SearchInput.vue'
+import TableCard from '@/components/common/TableCard.vue'
 import DataTable from '@/components/common/DataTable.vue'
-import TablePagination from '@/components/common/TablePagination.vue'
 import BadgePill from '@/components/common/BadgePill.vue'
 import VerificationReview from '@/components/admin/VerificationReview.vue'
 
@@ -471,40 +458,14 @@ async function handleDecision(decisionPayload: any) {
   height: 100% !important;
 }
 
-.table-wrapper {
+.detail-card {
   flex: 1 1 0;
   min-height: 0;
   overflow: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.table-container {
   background: var(--c-surface);
-  border-radius: 0 12px 12px 12px;
-  border: 1px solid var(--c-border-strong);
-  border-top: none;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important;
-  overflow: hidden;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.border-bottom {
-  border-bottom: 1px solid #f0f0f0;
-}
-
-/* Consistent row height + padding with other table pages */
-:deep(.q-table tbody tr) {
-  height: 64px !important;
-}
-:deep(.q-table tbody td) {
-  padding: 0 16px !important;
-}
-:deep(.q-table thead th) {
-  padding: 14px 16px !important;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
 }
 
 .custom-radius :deep(.q-field__control) {
@@ -518,13 +479,4 @@ async function handleDecision(decisionPayload: any) {
   background-color: var(--c-surface-2) !important;
 }
 
-.review-btn {
-  border-radius: 8px;
-  padding: 4px 16px;
-  font-size: 12px;
-  transition: transform 0.1s ease;
-}
-.review-btn:active {
-  transform: scale(0.96);
-}
 </style>

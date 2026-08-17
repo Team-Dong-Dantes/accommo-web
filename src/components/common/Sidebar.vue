@@ -1,215 +1,281 @@
 <template>
   <q-drawer :model-value="true" :mini="miniState" @mouseenter="miniState = false" @mouseleave="miniState = true"
-    :width="200" :mini-width="60" :breakpoint="0" mini-to-overlay class="sidebar-bg">
+    :width="248" :mini-width="68" :breakpoint="0" mini-to-overlay class="sidebar-bg">
     <div class="column full-height no-wrap">
 
-      <div class="header-container row items-center no-wrap">
-              <img class="sidebar-logo" src="/accommo-logo.svg" alt="Accommo">
-        <div class="q-ml-sm column justify-center hide-on-mini" style="transition: opacity 0.2s;">
-          <div class="text-white text-weight-bold" style="font-size: 15px; line-height: 1.1">accommo</div>
-          <div class="text-light-teal" style="font-size: 11px;">OSAS Admin</div>
+      <!-- Brand header -->
+      <div class="sb-header row items-center no-wrap">
+        <img class="sb-logo" src="/accommo-logo.svg" alt="Accommo">
+        <div class="sb-brand hide-on-mini">
+          <div class="sb-brand-name">accommo</div>
+          <div class="sb-brand-sub">OSAS Admin</div>
         </div>
+      </div>
+
+      <!-- Search / command trigger -->
+      <div class="sb-search-wrap q-px-sm">
+        <button class="sb-search hide-on-mini" type="button" @click="paletteOpen = true">
+          <Icon icon="mdi:magnify" width="18" height="18" class="sb-search-magnify" />
+          <span class="sb-search-text">Search…</span>
+          <kbd class="sb-kbd">{{ kbdHint }}</kbd>
+        </button>
+        <button class="sb-search-fab show-on-mini" type="button" title="Search (⌘K)" @click="paletteOpen = true">
+          <Icon icon="mdi:magnify" width="20" height="20" />
+        </button>
       </div>
 
       <q-scroll-area class="col">
         <div class="column justify-center" style="min-height: 100%;">
           <q-list class="menu-list q-py-md">
 
+            <!-- Standalone: Dashboard -->
             <q-item clickable v-ripple exact to="/dashboard" active-class="active-menu" class="nav-item">
-              <q-item-section avatar class="item-icon"><Icon icon="mdi:view-dashboard-outline" width="22" height="22" /></q-item-section>
+              <q-item-section avatar class="item-icon">
+                <Icon icon="mdi:view-dashboard-outline" width="22" height="22" />
+              </q-item-section>
               <q-item-section class="nav-text text-weight-bold hide-on-mini">Dashboard</q-item-section>
             </q-item>
 
-            <q-item clickable v-ripple class="nav-item q-mt-sm"
-              :class="{ 'active-menu': (miniState || !expanded.users) && isParentActive(['/users', '/verifications']) }"
-              @click="toggle('users')">
-              <q-item-section avatar class="item-icon"><Icon icon="mdi:account-supervisor-outline" width="22" height="22" /></q-item-section>
-              <q-item-section class="nav-text text-weight-bold hide-on-mini">Users</q-item-section>
-              <q-item-section side class="hide-on-mini q-pr-sm">
-                <Icon :icon="expanded.users ? 'mdi:chevron-up' : 'mdi:chevron-down'" color="white" width="18" height="18" />
-              </q-item-section>
-            </q-item>
+            <!-- Expandable groups -->
+            <template v-for="group in navGroups" :key="group.id">
+              <q-item clickable v-ripple class="nav-item q-mt-sm"
+                :class="{ 'active-menu': (miniState || !expanded[group.id]) && isParentActive(group.children.map(c => c.to)) }"
+                @click="toggle(group.id)">
+                <q-item-section avatar class="item-icon">
+                  <Icon :icon="group.icon" width="22" height="22" />
+                </q-item-section>
+                <q-item-section class="nav-text text-weight-bold hide-on-mini">{{ group.label }}</q-item-section>
+                <q-item-section side class="hide-on-mini q-pr-sm">
+                  <Icon :icon="expanded[group.id] ? 'mdi:chevron-up' : 'mdi:chevron-down'" color="white" width="18"
+                    height="18" />
+                </q-item-section>
+              </q-item>
 
-            <div class="hide-on-mini">
-              <q-slide-transition>
-                <div v-show="expanded.users">
-                  <q-item clickable v-ripple exact to="/users" active-class="active-menu" class="nav-item child-item">
-                    <q-item-section avatar class="item-icon"><Icon icon="mdi:account-outline" width="22" height="22" /></q-item-section>
-                    <q-item-section class="nav-text text-weight-bold">Users List</q-item-section>
-                  </q-item>
-                  <q-item clickable v-ripple exact to="/verifications" active-class="active-menu"
-                    class="nav-item child-item">
-                    <q-item-section avatar class="item-icon"><Icon icon="mdi:how-to-reg" width="22" height="22" /></q-item-section>
-                    <q-item-section class="nav-text text-weight-bold">Verification</q-item-section>
-                  </q-item>
-                </div>
-              </q-slide-transition>
-            </div>
-
-            <q-item clickable v-ripple class="nav-item q-mt-sm"
-              :class="{ 'active-menu': (miniState || !expanded.properties) && isParentActive(['/map-view', '/property-hub']) }"
-              @click="toggle('properties')">
-              <q-item-section avatar class="item-icon"><Icon icon="mdi:home-city-outline" width="22" height="22" /></q-item-section>
-              <q-item-section class="nav-text text-weight-bold hide-on-mini">Properties</q-item-section>
-              <q-item-section side class="hide-on-mini q-pr-sm">
-                <Icon :icon="expanded.properties ? 'mdi:chevron-up' : 'mdi:chevron-down'" color="white" width="18" height="18" />
-              </q-item-section>
-            </q-item>
-
-            <div class="hide-on-mini">
-              <q-slide-transition>
-                <div v-show="expanded.properties">
-                  <q-item clickable v-ripple exact to="/map-view" active-class="active-menu"
-                    class="nav-item child-item">
-                    <q-item-section avatar class="item-icon"><Icon icon="mdi:map-outline" width="22" height="22" /></q-item-section>
-                    <q-item-section class="nav-text text-weight-bold">Map View</q-item-section>
-                  </q-item>
-                  <q-item clickable v-ripple exact to="/property-hub" active-class="active-menu"
-                    class="nav-item child-item">
-                    <q-item-section avatar class="item-icon"><Icon icon="mdi:home-city-outline" width="22" height="22" /></q-item-section>
-                    <q-item-section class="nav-text text-weight-bold">Property Hub</q-item-section>
-                  </q-item>
-                </div>
-              </q-slide-transition>
-            </div>
-
-            <q-item clickable v-ripple class="nav-item q-mt-sm"
-              :class="{ 'active-menu': (miniState || !expanded.operations) && isParentActive(['/concerns', '/announcements']) }"
-              @click="toggle('operations')">
-              <q-item-section avatar class="item-icon"><Icon icon="mdi:briefcase-outline" width="22" height="22" /></q-item-section>
-              <q-item-section class="nav-text text-weight-bold hide-on-mini">Operations</q-item-section>
-              <q-item-section side class="hide-on-mini q-pr-sm">
-                <Icon :icon="expanded.operations ? 'mdi:chevron-up' : 'mdi:chevron-down'" color="white" width="18" height="18" />
-              </q-item-section>
-            </q-item>
-
-            <div class="hide-on-mini">
-              <q-slide-transition>
-                <div v-show="expanded.operations">
-                  <q-item clickable v-ripple exact to="/concerns" active-class="active-menu"
-                    class="nav-item child-item">
-                    <q-item-section avatar class="item-icon"><Icon icon="mdi:forum-outline" width="22" height="22" /></q-item-section>
-                    <q-item-section class="nav-text text-weight-bold">Concerns</q-item-section>
-                  </q-item>
-                  <q-item clickable v-ripple exact to="/announcements" active-class="active-menu"
-                    class="nav-item child-item">
-                    <q-item-section avatar class="item-icon"><Icon icon="mdi:bullhorn-outline" width="22" height="22" /></q-item-section>
-                    <q-item-section class="nav-text text-weight-bold">Announcements</q-item-section>
-                  </q-item>
-                </div>
-              </q-slide-transition>
-            </div>
-
-            <q-item clickable v-ripple class="nav-item q-mt-sm"
-              :class="{ 'active-menu': (miniState || !expanded.system) && isParentActive(['/audit-logs', '/settings']) }"
-              @click="toggle('system')">
-              <q-item-section avatar class="item-icon"><Icon icon="mdi:monitor-cog" width="22" height="22" /></q-item-section>
-              <q-item-section class="nav-text text-weight-bold hide-on-mini">System</q-item-section>
-              <q-item-section side class="hide-on-mini q-pr-sm">
-                <Icon :icon="expanded.system ? 'mdi:chevron-up' : 'mdi:chevron-down'" color="white" width="18" height="18" />
-              </q-item-section>
-            </q-item>
-
-            <div class="hide-on-mini">
-              <q-slide-transition>
-                <div v-show="expanded.system">
-                  <q-item clickable v-ripple exact to="/audit-logs" active-class="active-menu"
-                    class="nav-item child-item">
-                    <q-item-section avatar class="item-icon"><Icon icon="mdi:clipboard-list-outline" width="22" height="22" /></q-item-section>
-                    <q-item-section class="nav-text text-weight-bold">Audit Logs</q-item-section>
-                  </q-item>
-                  <q-item clickable v-ripple exact to="/settings" active-class="active-menu"
-                    class="nav-item child-item">
-                    <q-item-section avatar class="item-icon"><Icon icon="mdi:cog-outline" width="22" height="22" /></q-item-section>
-                    <q-item-section class="nav-text text-weight-bold">Settings</q-item-section>
-                  </q-item>
-                </div>
-              </q-slide-transition>
-            </div>
+              <div class="hide-on-mini">
+                <q-slide-transition>
+                  <div v-show="expanded[group.id]">
+                    <q-item v-for="child in group.children" :key="child.id" clickable v-ripple exact :to="child.to"
+                      active-class="active-menu" class="nav-item child-item">
+                      <q-item-section avatar class="item-icon">
+                        <Icon :icon="child.icon" width="20" height="20" />
+                      </q-item-section>
+                      <q-item-section class="nav-text text-weight-bold">{{ child.label }}</q-item-section>
+                    </q-item>
+                  </div>
+                </q-slide-transition>
+              </div>
+            </template>
 
           </q-list>
         </div>
       </q-scroll-area>
     </div>
+
+    <CommandPalette v-model="paletteOpen" />
   </q-drawer>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
+import { navGroups } from './nav-config';
+import CommandPalette from './CommandPalette.vue';
 
 const miniState = ref(true);
 const route = useRoute();
+const paletteOpen = ref(false);
 
-const expanded = reactive({
-  users: false,
-  properties: false,
-  operations: false,
-  system: false
-});
+const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+const kbdHint = isMac ? '⌘K' : 'Ctrl K';
 
-function toggle(section: keyof typeof expanded) {
+const expanded = reactive<Record<string, boolean>>(
+  Object.fromEntries(navGroups.map(g => [g.id, false]))
+);
+
+function toggle(section: string) {
   const wasOpen = expanded[section];
-
-  expanded.users = false;
-  expanded.properties = false;
-  expanded.operations = false;
-  expanded.system = false;
-
-  if (!wasOpen) {
-    expanded[section] = true;
-  }
+  for (const g of navGroups) expanded[g.id] = false;
+  if (!wasOpen) expanded[section] = true;
 }
 
 function isParentActive(paths: string[]) {
   return paths.includes(route.path);
 }
+
+function onKeydown(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    paletteOpen.value = true;
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown));
+onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 </script>
 
 <style>
 .sidebar-bg {
-  background-color: var(--c-sidebar-bg) !important;
+  background: linear-gradient(180deg, var(--c-sidebar-bg) 0%, var(--c-sidebar-bg-2) 100%) !important;
   color: var(--c-sidebar-text) !important;
   overflow-x: hidden;
+  box-shadow: none !important;
 }
 
-.text-light-teal {
-  color: rgba(234, 244, 241, 0.6);
+/* Quasar renders its own drawer shadow inside the drawer (.q-layout__shadow);
+   hide it so we control the shadow ourselves below */
+.q-drawer .q-layout__shadow {
+  display: none !important;
 }
 
-.shrink-0 {
-  flex-shrink: 0;
+/* Custom shadow only when the drawer ROOT is expanded (not in mini state).
+   NOTE: `sidebar-bg` lands on the inner content div, while `q-drawer--mini`
+   is on the root <aside>, so we must key off the root element. */
+.q-drawer:not(.q-drawer--mini) .sidebar-bg {
+  box-shadow: var(--c-sidebar-shadow) !important;
 }
 
-.header-container {
-  padding: 24px 0 16px 14px;
+.sb-header {
+  padding: 22px 0 14px 18px;
+  gap: 12px;
 }
 
-.sidebar-logo {
-  height: 28px;
+.sb-logo {
+  height: 30px;
   width: auto;
   color: #ffffff;
 }
 
+.sb-brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.15;
+}
+
+.sb-brand-name {
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  font-family: var(--font-display);
+}
+
+.sb-brand-sub {
+  color: var(--c-sidebar-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ----- Search trigger ----- */
+.sb-search-wrap {
+  padding-bottom: 10px;
+}
+
+.sb-search {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: var(--c-sidebar-search-bg);
+  border: 1px solid var(--c-sidebar-search-border);
+  color: var(--c-sidebar-muted);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+  font-family: var(--font-body);
+}
+
+.sb-search:hover {
+  background: var(--c-sidebar-hover);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.sb-search-magnify {
+  flex-shrink: 0;
+}
+
+.sb-search-text {
+  flex: 1;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sb-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--c-sidebar-muted);
+  line-height: 1;
+}
+
+/* In mini mode, show only the icon button */
+.show-on-mini {
+  display: none;
+}
+
+.q-drawer--mini .hide-on-mini {
+  display: none !important;
+}
+
+.q-drawer--mini .show-on-mini {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.q-drawer--mini .sb-search-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 0 0 10px;
+}
+
+.q-drawer--mini .sb-search-fab {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--c-sidebar-search-bg);
+  border: 1px solid var(--c-sidebar-search-border);
+  color: var(--c-sidebar-text);
+  align-items: center;
+  justify-content: center;
+}
+
+.q-drawer--mini .sb-search-fab:hover {
+  background: var(--c-sidebar-hover);
+}
+
+/* ----- Nav items ----- */
 .menu-list {
   padding: 0;
 }
 
 .nav-item {
-  border-radius: 16px !important;
+  border-radius: 14px !important;
   margin: 4px 10px !important;
   padding: 0 0 0 8px !important;
-  height: 48px !important;
-  min-height: 48px !important;
-  color: white;
+  height: 46px !important;
+  min-height: 46px !important;
+  color: var(--c-sidebar-text);
   display: flex !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  transition: all 0.2s ease;
+  transition: background 0.18s ease, color 0.18s ease;
 }
 
 .nav-item:not(.active-menu):hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--c-sidebar-hover);
 }
 
 .item-icon {
@@ -234,18 +300,22 @@ function isParentActive(paths: string[]) {
   transition: opacity 0.2s ease;
 }
 
+/* ----- Active state: pill + left accent bar ----- */
 .active-menu {
+  position: relative;
   background-color: var(--c-sidebar-active-bg) !important;
   color: var(--c-sidebar-active-text) !important;
-  border-radius: 16px !important;
+  border-radius: 14px !important;
   margin-right: 10px !important;
+  font-weight: 700;
 }
 
 .q-drawer--mini .active-menu {
-  border-radius: 16px 0 0 16px !important;
+  border-radius: 14px 0 0 14px !important;
   margin-right: 0 !important;
 }
 
+/* ----- Child items ----- */
 .child-item {
   margin-left: 28px !important;
   height: 40px !important;
@@ -258,18 +328,7 @@ function isParentActive(paths: string[]) {
 
 .child-item .nav-text {
   font-size: 12px;
-}
-
-.q-drawer--mini .hide-on-mini {
-  display: none !important;
-}
-
-.show-on-mini {
-  display: none;
-}
-
-.q-drawer--mini .show-on-mini {
-  display: flex !important;
+  font-weight: 600;
 }
 
 .q-drawer--mini .nav-item {

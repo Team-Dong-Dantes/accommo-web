@@ -6,10 +6,9 @@
 
       <q-btn
         unelevated
-        color="teal-7"
+        color="primary"
         no-caps
-        class="text-weight-bold export-btn"
-        style="border-radius: 8px; padding: 6px 16px;"
+        class="text-weight-bold rounded-button q-mb-md"
       >
         <Icon icon="mdi:download" class="on-left" width="18" height="18" />Export
       </q-btn>
@@ -44,7 +43,7 @@
                 <q-tr :props="props" class="smart-row">
                   <q-td key="property" :props="props">
                     <div class="row items-center no-wrap">
-                      <q-avatar size="40px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">{{ props.row.initials }}</q-avatar>
+                      <q-avatar size="48px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 18px">{{ props.row.initials }}</q-avatar>
                       <div class="column">
                         <div class="text-weight-bold text-ink" style="font-size: 14px; line-height: 1.25">{{ props.row.name }}</div>
                         <div class="text-muted" style="font-size: 12px">{{ props.row.id }}</div>
@@ -78,7 +77,7 @@
                 <q-tr :props="props" class="smart-row">
                   <q-td key="property" :props="props">
                     <div class="row items-center no-wrap">
-                      <q-avatar size="40px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">{{ props.row.initials }}</q-avatar>
+                      <q-avatar size="48px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 18px">{{ props.row.initials }}</q-avatar>
                       <div class="column">
                         <div class="text-weight-bold text-ink" style="font-size: 14px; line-height: 1.25">{{ props.row.name }}</div>
                         <div class="text-muted" style="font-size: 12px">{{ props.row.id }}</div>
@@ -116,7 +115,7 @@
                 <q-tr :props="props" class="smart-row">
                   <q-td key="property" :props="props">
                     <div class="row items-center no-wrap">
-                      <q-avatar size="40px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">{{ props.row.initials }}</q-avatar>
+                      <q-avatar size="48px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 18px">{{ props.row.initials }}</q-avatar>
                       <div class="column">
                         <div class="text-weight-bold text-ink" style="font-size: 14px; line-height: 1.25">{{ props.row.name }}</div>
                         <div class="text-muted" style="font-size: 12px">{{ props.row.id }}</div>
@@ -152,7 +151,7 @@
                   <q-td key="rank" :props="props" class="text-muted text-weight-bold" style="font-size: 13px;">#{{ props.row.performance.rank }}</q-td>
                   <q-td key="property" :props="props">
                     <div class="row items-center no-wrap">
-                      <q-avatar size="40px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 14px">{{ props.row.initials }}</q-avatar>
+                      <q-avatar size="48px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 18px">{{ props.row.initials }}</q-avatar>
                       <div class="column">
                         <div class="text-weight-bold text-ink" style="font-size: 14px; line-height: 1.25">{{ props.row.name }}</div>
                         <div class="text-muted" style="font-size: 12px">{{ props.row.id }}</div>
@@ -436,20 +435,5 @@ function getTrend(trend: string) {
 
 .non-shrink {
   flex-shrink: 0;
-}
-
-.export-btn {
-  margin-bottom: 10px;
-}
-
-/* Row hover + border (cell renderers live here, table chrome lives in TableCard) */
-:deep(.q-table tbody tr) {
-  transition: background-color 0.2s ease;
-}
-:deep(.q-table tbody tr:hover) {
-  background-color: var(--c-surface-2);
-}
-:deep(.q-table tbody td) {
-  border-bottom: 1px solid var(--c-border);
 }
 </style>

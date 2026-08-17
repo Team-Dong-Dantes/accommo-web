@@ -39,7 +39,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Users.vue'),
-        meta: { title: 'Users', subtitle: 'All registered accounts — click any user to see placement, welfare, compliance & more' },
+        meta: { title: 'Account Management', subtitle: 'All registered accounts — click any user to see placement, welfare, compliance & more' },
       },
     ],
   },
@@ -112,6 +112,18 @@ const routes: RouteRecordRaw[] = [
         path: '',
         component: () => import('@/pages/admin/AuditLogs.vue'),
         meta: { title: 'Audit Logs', subtitle: 'Track system events, user activity, and data modifications' },
+      },
+    ],
+  },
+  {
+    path: '/settings',
+    component: () => import('@/layouts/MainLayout.vue'),
+    meta: { requiresAuth: true, role: 'admin' },
+    children: [
+      {
+        path: '',
+        component: () => import('@/pages/admin/Settings.vue'),
+        meta: { title: 'Settings', subtitle: 'Manage your account, notifications, appearance, and security' },
       },
     ],
   },

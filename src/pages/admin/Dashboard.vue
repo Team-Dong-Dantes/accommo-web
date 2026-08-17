@@ -8,7 +8,7 @@
       </div>
       <div class="row items-center no-wrap header-actions">
         <q-btn flat round color="primary" icon="mdi:refresh" @click="refresh" aria-label="Refresh data" />
-        <q-btn unelevated color="primary" text-color="white" no-caps class="export-btn text-weight-bold" @click="window.print()" style="border-radius:10px;">
+        <q-btn unelevated color="primary" text-color="white" no-caps class="rounded-button text-weight-bold" @click="window.print()">
           <Icon icon="mdi:download" :width="16" :height="16" class="q-mr-xs" /> Export Report
         </q-btn>
       </div>
@@ -90,7 +90,7 @@
             <tbody>
               <tr v-for="user in filteredPending" :key="user.name + user.time">
                 <td>
-                  <q-avatar size="26px" :color="user.color" text-color="white" class="text-weight-bold" style="font-size:9px;border-radius:8px;">{{ user.initials }}</q-avatar>
+                  <q-avatar size="40px" :color="user.color" text-color="white" class="text-weight-bold" style="font-size:15px;border-radius:8px;">{{ user.initials }}</q-avatar>
                 </td>
                 <td class="text-ink text-weight-medium" style="max-width:150px;"><span class="ellipsis" style="display:inline-block;">{{ user.name }}</span></td>
                 <td>
@@ -392,10 +392,6 @@ const topSeries = computed(() => [
   font-weight: 500;
 }
 .header-actions { gap: 10px; }
-.export-btn {
-  padding: 8px 16px;
-  box-shadow: var(--shadow-sm);
-}
 
 /* ---- KPI row ---- */
 .kpi-row {
@@ -581,7 +577,6 @@ const topSeries = computed(() => [
 .dashboard-table tbody td { padding: 7px 10px; border-bottom: 1px solid var(--c-surface-2); color: var(--c-ink); }
 .dashboard-table tbody tr { transition: background var(--t-fast); }
 .dashboard-table tbody tr:hover td { background: var(--c-surface-2); }
-.review-btn { border-radius: 8px; font-size: 11px; padding: 4px 10px; }
 
 /* ---- Alerts ---- */
 .alerts-list { overflow: hidden; }
