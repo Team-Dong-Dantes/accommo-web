@@ -50,9 +50,9 @@
 </template>
 
 <script setup lang="ts">
-import TableToolbar from '@/components/common/TableToolbar.vue'
-import TablePagination from '@/components/common/TablePagination.vue'
-import DataTable from '@/components/common/DataTable.vue'
+import TableToolbar from '@/components/table/TableToolbar.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import DataTable from '@/components/table/DataTable.vue'
 
 withDefaults(defineProps<{
   search: string
@@ -91,7 +91,7 @@ defineEmits<{
 
 .table-container {
   background: var(--c-surface);
-  border-radius: 0 0 12px 12px;
+  border-radius: 0 12px 12px 12px;
   border: 1px solid var(--c-border);
   border-top: none;
   box-shadow: var(--shadow-sm);

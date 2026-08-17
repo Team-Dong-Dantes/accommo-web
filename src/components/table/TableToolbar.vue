@@ -23,8 +23,8 @@
 </template>
 
 <script setup lang="ts">
-import SearchInput from '@/components/common/SearchInput.vue'
-import FilterDropdown from '@/components/common/FilterDropdown.vue'
+import SearchInput from '@/components/ui/SearchInput.vue'
+import FilterDropdown from '@/components/ui/FilterDropdown.vue'
 
 defineProps<{
   search: string

@@ -85,8 +85,8 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import SearchInput from '@/components/common/SearchInput.vue'
-import FilterDropdown from '@/components/common/FilterDropdown.vue'
+import SearchInput from '@/components/ui/SearchInput.vue'
+import FilterDropdown from '@/components/ui/FilterDropdown.vue'
 
 defineProps({
   properties: { type: Array, required: true }

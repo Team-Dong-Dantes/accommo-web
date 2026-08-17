@@ -1,5 +1,5 @@
 <template>
-  <q-page class="dashboard-page">
+  <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
     <!-- Page header -->
     <header class="dash-header rise-in">
       <div class="col">
@@ -8,7 +8,7 @@
       </div>
       <div class="row items-center no-wrap header-actions">
         <q-btn flat round color="primary" icon="mdi:refresh" @click="refresh" aria-label="Refresh data" />
-        <q-btn unelevated color="primary" text-color="white" no-caps class="rounded-button text-weight-bold" @click="window.print()">
+        <q-btn unelevated color="teal-7" text-color="white" no-caps class="rounded-button text-weight-bold" @click="window.print()">
           <Icon icon="mdi:download" :width="16" :height="16" class="q-mr-xs" /> Export Report
         </q-btn>
       </div>
@@ -360,14 +360,14 @@ const topSeries = computed(() => [
 </script>
 
 <style scoped>
-.dashboard-page {
+.users-page {
   background-color: var(--c-bg);
-  min-height: 100%;
+  height: 100% !important;
+  overflow: hidden !important;
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
-  padding: var(--sp-5);
   box-sizing: border-box;
 }
 
@@ -468,7 +468,8 @@ const topSeries = computed(() => [
 
 /* ---- Main grid ---- */
 .main-grid {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   grid-template-areas:
@@ -591,7 +592,7 @@ const topSeries = computed(() => [
 
 /* ---- Responsive ---- */
 @media (max-width: 1100px) {
-  .dashboard-page { padding: var(--sp-4); }
+  .users-page { padding: 0; }
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
   .main-grid {
     grid-template-columns: 1fr;

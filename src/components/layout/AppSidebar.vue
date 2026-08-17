@@ -79,7 +79,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { navGroups } from './nav-config';
-import CommandPalette from './CommandPalette.vue';
+import CommandPalette from '@/components/ui/CommandPalette.vue';
 
 const miniState = ref(true);
 const route = useRoute();

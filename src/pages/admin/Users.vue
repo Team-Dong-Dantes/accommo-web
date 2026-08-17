@@ -33,17 +33,14 @@
 
       <template #body="{ props }">
         <q-tr :props="props" :key="props.row.rawId" class="cursor-pointer smart-row" @click="openUser(props.row)">
-          <q-td key="user" :props="props">
-            <div class="row items-center no-wrap">
-              <q-avatar size="48px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md" style="font-size: 18px">
-                {{ props.row.initials }}
-              </q-avatar>
-              <div class="column">
-                <div class="text-weight-bold text-ink" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
-                <div class="text-muted" style="font-size: 12px">{{ props.row.email }}</div>
-              </div>
-            </div>
-          </q-td>
+            <q-td key="user" :props="props">
+              <UserInfoCell
+                :initials="props.row.initials"
+                :name="props.row.name"
+                :email="props.row.email"
+                :avatar-color="props.row.avatarColor"
+              />
+            </q-td>
           <q-td key="id" :props="props" class="text-muted text-weight-medium" style="font-family: var(--font-mono)">{{ props.row.id }}</q-td>
           <q-td key="contact" :props="props" class="text-ink">{{ props.row.contact }}</q-td>
           <q-td key="role" :props="props">
@@ -53,7 +50,7 @@
             <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
           </q-td>
           <q-td key="joined" :props="props" class="text-muted">{{ props.row.joined }}</q-td>
-          <q-td key="details" :props="props" class="text-muted ellipsis" style="max-width: 200px">{{ props.row.details }}</q-td>
+          <q-td key="details" :props="props" class="text-muted ellipsis">{{ props.row.details }}</q-td>
         </q-tr>
       </template>
     </TableCard>
@@ -212,19 +209,20 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/utils/supabase'
 
-import TabNav from '@/components/common/TabNav.vue'
-import TableCard from '@/components/common/TableCard.vue'
-import ExportButton from '@/components/common/ExportButton.vue'
-import BadgePill from '@/components/common/BadgePill.vue'
-import DetailDrawer from '@/components/common/DetailDrawer.vue'
-import ProfileHero from '@/components/common/ProfileHero.vue'
-import SegmentedToggle from '@/components/common/SegmentedToggle.vue'
-import InfoCard from '@/components/common/InfoCard.vue'
-import InfoRow from '@/components/common/InfoRow.vue'
-import StatGrid from '@/components/common/StatGrid.vue'
-import StatTile from '@/components/common/StatTile.vue'
-import HistoryItem from '@/components/common/HistoryItem.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
+import TabNav from '@/components/ui/TabNav.vue'
+import TableCard from '@/components/table/TableCard.vue'
+import ExportButton from '@/components/ui/ExportButton.vue'
+import BadgePill from '@/components/user/BadgePill.vue'
+import DetailDrawer from '@/components/ui/DetailDrawer.vue'
+import UserInfoCell from '@/components/user/UserInfoCell.vue'
+import ProfileHero from '@/components/user/ProfileHero.vue'
+import SegmentedToggle from '@/components/ui/SegmentedToggle.vue'
+import InfoCard from '@/components/ui/InfoCard.vue'
+import InfoRow from '@/components/ui/InfoRow.vue'
+import StatGrid from '@/components/ui/StatGrid.vue'
+import StatTile from '@/components/ui/StatTile.vue'
+import HistoryItem from '@/components/ui/HistoryItem.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
 
 const loading = ref(true)
 const fetchError = ref('')

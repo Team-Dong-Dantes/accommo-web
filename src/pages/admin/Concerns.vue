@@ -1,5 +1,6 @@
 <template>
-  <q-page class="q-pa-md row no-wrap q-gutter-x-md" style="height: calc(100vh - 60px); overflow: hidden; background-color: var(--c-bg);">
+  <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
+    <div class="concerns-split row no-wrap q-gutter-x-md" style="flex: 1 1 0; min-height: 0; overflow: hidden;">
 
     <!-- LEFT SIDEBAR: Inbox -->
     <q-card flat class="bg-surface custom-shadow column no-wrap shrink-0" style="border-radius: 12px; width: 340px;">
@@ -250,12 +251,13 @@
       <div class="text-h6 text-grey-5 text-weight-bold">Select a ticket to begin</div>
     </q-card>
 
+    </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import SearchInput from '@/components/common/SearchInput.vue'
+import SearchInput from '@/components/ui/SearchInput.vue'
 
 const searchQuery = ref('')
 const activeStatus = ref('Open')
@@ -338,6 +340,10 @@ function getStatusBgColor(status: string) {
 </script>
 
 <style scoped>
+.users-page {
+  overflow: hidden !important;
+  height: 100% !important;
+}
 .custom-shadow { box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important; border: 1px solid var(--c-border-strong); }
 .border-bottom { border-bottom: 1px solid #f0f0f0; }
 .border-top { border-top: 1px solid #f0f0f0; }

@@ -34,13 +34,7 @@
                 <template #body="{ props }">
                   <q-tr :props="props" class="smart-row">
                     <q-td key="student" :props="props">
-                      <div class="row items-center no-wrap">
-                        <q-avatar size="48px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 18px">{{ props.row.initials }}</q-avatar>
-                        <div class="column">
-                          <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
-                          <div class="text-grey-6" style="font-size: 12px; margin-top: 2px">{{ props.row.email }}</div>
-                        </div>
-                      </div>
+                      <UserInfoCell :initials="props.row.initials" :name="props.row.name" :email="props.row.email" :avatar-color="props.row.avatarColor" />
                     </q-td>
                     <q-td key="id" :props="props" class="text-grey-6" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
                     <q-td key="type" :props="props">
@@ -54,7 +48,7 @@
                       <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
                     </q-td>
                     <q-td key="submitted" :props="props" class="text-grey-7" style="font-size: 12px">{{ props.row.submitted }}</q-td>
-                    <q-td key="action" :props="props" class="text-right">
+                    <q-td key="action" :props="props" class="text-right justify-end">
                       <q-btn unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
                         Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
                       </q-btn>
@@ -77,13 +71,7 @@
                 <template #body="{ props }">
                   <q-tr :props="props" class="smart-row">
                     <q-td key="landlord" :props="props">
-                      <div class="row items-center no-wrap">
-                        <q-avatar size="48px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 18px">{{ props.row.initials }}</q-avatar>
-                        <div class="column">
-                          <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
-                          <div class="text-grey-6" style="font-size: 12px; margin-top: 2px">{{ props.row.email }}</div>
-                        </div>
-                      </div>
+                      <UserInfoCell :initials="props.row.initials" :name="props.row.name" :email="props.row.email" :avatar-color="props.row.avatarColor" />
                     </q-td>
                     <q-td key="id" :props="props" class="text-grey-6" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
                     <q-td key="type" :props="props">
@@ -97,7 +85,7 @@
                       <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
                     </q-td>
                     <q-td key="submitted" :props="props" class="text-grey-7" style="font-size: 12px">{{ props.row.submitted }}</q-td>
-                    <q-td key="action" :props="props" class="text-right">
+                    <q-td key="action" :props="props" class="text-right justify-end">
                       <q-btn unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
                         Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
                       </q-btn>
@@ -120,13 +108,7 @@
                 <template #body="{ props }">
                   <q-tr :props="props" class="smart-row">
                     <q-td key="property" :props="props">
-                      <div class="row items-center no-wrap">
-                        <q-avatar size="48px" :color="props.row.avatarColor" text-color="white" class="text-weight-bold q-mr-md shadow-1" style="font-size: 18px">{{ props.row.initials }}</q-avatar>
-                        <div class="column">
-                          <div class="text-weight-bold text-dark" style="font-size: 14px; line-height: 1.2">{{ props.row.name }}</div>
-                          <div class="text-grey-6" style="font-size: 12px; margin-top: 2px">Owned by {{ props.row.owner }}</div>
-                        </div>
-                      </div>
+                      <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="props.row.avatarColor" :subtitle="`Owned by ${props.row.owner}`" />
                     </q-td>
                     <q-td key="id" :props="props" class="text-grey-6" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
                     <q-td key="type" :props="props">
@@ -140,7 +122,7 @@
                       <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
                     </q-td>
                     <q-td key="submitted" :props="props" class="text-grey-7" style="font-size: 12px">{{ props.row.submitted }}</q-td>
-                    <q-td key="action" :props="props" class="text-right">
+                    <q-td key="action" :props="props" class="text-right justify-end">
                       <q-btn unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectedRequest = props.row">
                         Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
                       </q-btn>
@@ -169,11 +151,12 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from '@/utils/supabase'
 
-import TabNav from '@/components/common/TabNav.vue'
-import TableCard from '@/components/common/TableCard.vue'
-import DataTable from '@/components/common/DataTable.vue'
-import BadgePill from '@/components/common/BadgePill.vue'
-import VerificationReview from '@/components/admin/VerificationReview.vue'
+import TabNav from '@/components/ui/TabNav.vue'
+import TableCard from '@/components/table/TableCard.vue'
+import DataTable from '@/components/table/DataTable.vue'
+import BadgePill from '@/components/user/BadgePill.vue'
+import UserInfoCell from '@/components/user/UserInfoCell.vue'
+import VerificationReview from '@/components/verification/VerificationReview.vue'
 
 const loading = ref(true)
 const activeEntityTab = ref('student')
@@ -441,6 +424,10 @@ async function handleDecision(decisionPayload: any) {
     } else {
       console.log(`Successfully updated ${targetTable} status to ${newStatus}`);
     }
+
+    // Audit trail is handled automatically by the database trigger
+    // trg_audit_users / trg_audit_properties (see docs/migrations/audit_logs_trigger.sql),
+    // so no client-side audit_logs insert is needed here anymore.
 
     await fetchVerifications();
   } catch (error: any) {

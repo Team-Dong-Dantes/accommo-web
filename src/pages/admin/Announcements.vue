@@ -48,15 +48,10 @@
                     </div>
                   </q-td>
                   <q-td key="status" :props="props">
-                    <q-badge :color="getStatusColor(props.row.status).bg" :text-color="getStatusColor(props.row.status).text" class="q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px; font-size: 11px;">
-                      <Icon v-if="props.row.status === 'Draft'" icon="mdi:note-edit-outline" width="12" height="12" class="q-mr-xs" />
-                      <Icon v-else-if="props.row.status === 'Published'" icon="mdi:check-circle" width="12" height="12" class="q-mr-xs" />
-                      <Icon v-else icon="mdi:archive-outline" width="12" height="12" class="q-mr-xs" />
-                      {{ props.row.status }}
-                    </q-badge>
+                    <BadgePill :bg="getStatusColor(props.row.status).bg" :text-color="getStatusColor(props.row.status).text" :icon="getStatusIcon(props.row.status)" :label="props.row.status" />
                   </q-td>
-                  <q-td key="audience" :props="props" class="row q-gutter-x-xs">
-                    <q-badge v-for="target in props.row.audience" :key="target" :color="getAudienceColor(target)" class="text-weight-bold q-px-sm" style="border-radius: 4px; font-size: 10px; padding: 2px 6px;">{{ target }}</q-badge>
+                  <q-td key="audience" :props="props" class="row items-center q-gutter-x-xs">
+                    <BadgePill v-for="target in props.row.audience" :key="target" :bg="getAudienceColor(target).bg" :text-color="getAudienceColor(target).text" :label="target" />
                   </q-td>
                   <q-td key="author" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.author }}</q-td>
                   <q-td key="date" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.date }}</q-td>
@@ -92,12 +87,7 @@
                     <q-badge color="grey-2" text-color="dark" class="text-weight-bold q-px-sm" style="border-radius: 6px; font-size: 11px;">{{ props.row.version }}</q-badge>
                   </q-td>
                   <q-td key="status" :props="props">
-                    <q-badge :color="getStatusColor(props.row.status).bg" :text-color="getStatusColor(props.row.status).text" class="q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px; font-size: 11px;">
-                      <Icon v-if="props.row.status === 'Draft'" icon="mdi:note-edit-outline" width="12" height="12" class="q-mr-xs" />
-                      <Icon v-else-if="props.row.status === 'Active'" icon="mdi:check-circle" width="12" height="12" class="q-mr-xs" />
-                      <Icon v-else icon="mdi:archive-outline" width="12" height="12" class="q-mr-xs" />
-                      {{ props.row.status }}
-                    </q-badge>
+                    <BadgePill :bg="getStatusColor(props.row.status).bg" :text-color="getStatusColor(props.row.status).text" :icon="getStatusIcon(props.row.status)" :label="props.row.status" />
                   </q-td>
                   <q-td key="updatedAt" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.updatedAt }}</q-td>
                   <q-td key="author" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.author }}</q-td>
@@ -119,9 +109,10 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import TabNav from '@/components/common/TabNav.vue'
-import TableCard from '@/components/common/TableCard.vue'
-import DataTable from '@/components/common/DataTable.vue'
+import TabNav from '@/components/ui/TabNav.vue'
+import TableCard from '@/components/table/TableCard.vue'
+import DataTable from '@/components/table/DataTable.vue'
+import BadgePill from '@/components/user/BadgePill.vue'
 
 const activeTab = ref('announcements')
 const searchQuery = ref('')
@@ -208,11 +199,17 @@ function getStatusColor(status: string) {
   return { bg: 'grey-2', text: 'grey-7' }
 }
 
+function getStatusIcon(status: string) {
+  if (status === 'Draft') return 'mdi:note-edit-outline'
+  if (status === 'Published' || status === 'Active') return 'mdi:check-circle'
+  return 'mdi:archive-outline'
+}
+
 function getAudienceColor(audience: string) {
-  if (audience === 'All Users') return 'dark'
-  if (audience === 'Students') return 'blue-6'
-  if (audience === 'Landlords') return 'purple-5'
-  return 'grey-6'
+  if (audience === 'All Users') return { bg: 'blue-grey-1', text: 'blue-grey-6' }
+  if (audience === 'Students') return { bg: 'blue-1', text: 'blue-6' }
+  if (audience === 'Landlords') return { bg: 'teal-1', text: 'teal-6' }
+  return { bg: 'grey-2', text: 'grey-7' }
 }
 </script>
 

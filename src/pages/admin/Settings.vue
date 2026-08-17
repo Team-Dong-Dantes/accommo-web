@@ -1,5 +1,5 @@
 <template>
-  <q-page class="settings-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
+  <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
 
     <!-- Body: section nav + content -->
     <div class="settings-layout row q-mt-md q-gutter-md">
@@ -174,7 +174,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
-import BadgePill from '@/components/common/BadgePill.vue'
+import BadgePill from '@/components/user/BadgePill.vue'
 
 const $q = useQuasar()
 const active = ref('profile')
@@ -325,7 +325,7 @@ function confirmDelete() {
 </script>
 
 <style scoped>
-.settings-page {
+.users-page {
   overflow: hidden !important;
   height: 100% !important;
 }

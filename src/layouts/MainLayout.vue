@@ -27,9 +27,9 @@
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
-import Sidebar from '@/components/common/Sidebar.vue'
-import HeaderNotification from '@/components/common/Notification.vue'
-import HeaderProfile from '@/components/common/Profile.vue'
+import Sidebar from '@/components/layout/AppSidebar.vue'
+import HeaderNotification from '@/components/ui/Notification.vue'
+import HeaderProfile from '@/components/layout/UserMenu.vue'
 
 const route = useRoute()
 </script>

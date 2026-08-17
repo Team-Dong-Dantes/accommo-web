@@ -24,7 +24,12 @@ node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+dev.log
+typecheck.log
 .vercel
+
+# Supabase local CLI state
+supabase/
 
 # Dev-only style guide (not shipped)
 src/pages/admin/UIBible.vue

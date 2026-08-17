@@ -17,13 +17,18 @@
         </q-btn>
         <q-btn
           unelevated
-          color="primary"
+          color="teal-7"
           no-caps
           class="text-weight-bold rounded-button"
         >
-          <Icon icon="mdi:download" class="on-left" width="16" height="16" />Export CSV
+          <Icon icon="mdi:download" class="on-left" width="16" height="16" />Export
         </q-btn>
       </div>
+    </div>
+
+    <div v-if="fetchError" class="text-white bg-negative q-pa-sm q-px-md q-mb-md" style="border-radius: 12px; font-size: 13px;">
+      <Icon icon="mdi:alert-circle-outline" class="q-mr-xs" width="16" height="16" style="vertical-align: middle;" />
+      Could not load audit logs: {{ fetchError }}
     </div>
 
     <TableCard
@@ -39,7 +44,7 @@
       :loading="loading"
       :total-items="filteredLogs.length"
       item-name="events"
-      @refresh="simulateLoad"
+      @refresh="fetchLogs"
     >
       <template #empty>
         <div class="full-width row flex-center text-muted q-pa-xl column">
@@ -73,14 +78,11 @@
 
             <!-- Action -->
             <div v-else-if="col.name === 'action'">
-              <q-badge
-                :color="getActionColor(props.row.action).bg"
+              <BadgePill
+                :bg="getActionColor(props.row.action).bg"
                 :text-color="getActionColor(props.row.action).text"
-                class="q-px-sm q-py-xs text-weight-bold text-uppercase"
-                style="border-radius: 6px; font-size: 10px; letter-spacing: 0.5px;"
-              >
-                {{ props.row.action }}
-              </q-badge>
+                :label="props.row.action"
+              />
             </div>
 
             <!-- Target -->
@@ -91,11 +93,16 @@
 
             <!-- Details -->
             <div v-else-if="col.name === 'details'" class="text-ink" style="font-size: 13px; line-height: 1.4;">
-              <div v-if="props.row.changes" class="row items-center q-gutter-x-xs no-wrap text-ink">
-                <span>{{ props.row.changes.field }}:</span>
-                <span class="text-weight-bold text-strike text-muted">{{ props.row.changes.old }}</span>
-                <Icon icon="mdi:arrow-right" width="12" height="12" class="text-teal-6" />
-                <span class="text-weight-bold text-teal-7">{{ props.row.changes.new }}</span>
+              <div v-if="props.row.changes">
+                <div class="row items-center q-gutter-x-xs no-wrap text-ink">
+                  <span>{{ props.row.changes.field }}:</span>
+                  <span class="text-weight-bold text-strike text-muted">{{ props.row.changes.old }}</span>
+                  <Icon icon="mdi:arrow-right" width="12" height="12" class="text-teal-6" />
+                  <span class="text-weight-bold text-teal-7">{{ props.row.changes.new }}</span>
+                </div>
+                <div v-if="props.row.changes.more" class="text-muted" style="font-size: 11px; margin-top: 2px;">
+                  {{ props.row.changes.more }}
+                </div>
               </div>
               <div v-else class="text-muted ellipsis">
                 {{ props.row.description }}
@@ -116,25 +123,92 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import TabNav from '@/components/common/TabNav.vue'
-import TableCard from '@/components/common/TableCard.vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { supabase } from '@/utils/supabase'
+import TabNav from '@/components/ui/TabNav.vue'
+import TableCard from '@/components/table/TableCard.vue'
+import BadgePill from '@/components/user/BadgePill.vue'
 
 const searchQuery = ref('')
 const currentPage = ref(1)
 const activeTab = ref('audit-logs')
 const loading = ref(true)
+const fetchError = ref('')
 
 const tabs = [
   { name: 'audit-logs', label: 'Audit Logs' },
 ]
 
-function simulateLoad() {
+async function fetchLogs() {
   loading.value = true
-  setTimeout(() => { loading.value = false }, 400)
+  fetchError.value = ''
+
+  try {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        id, action, created_at, entity_id, entity_type, ip_address,
+        before_json, after_json,
+        actor:users ( full_name, initials, role, avatar_color )
+      `)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      fetchError.value = error.message
+      console.error('Supabase Query Error:', error.message)
+    } else if (data) {
+      logs.value = (data as any[]).map(mapLog)
+    }
+  } catch (err) {
+    fetchError.value = err instanceof Error ? err.message : String(err)
+    console.error('Unexpected error fetching audit logs:', err)
+  } finally {
+    loading.value = false
+  }
 }
 
-onMounted(simulateLoad)
+onMounted(() => {
+  fetchLogs()
+  subscribeToLogs()
+})
+
+let logsChannel: ReturnType<typeof supabase.channel> | null = null
+
+function subscribeToLogs() {
+  // Live updates: new audit_logs rows appear the moment they're written
+  // (e.g. after approving/rejecting in Verifications) without a manual refresh.
+  logsChannel = supabase
+    .channel('audit_logs_live')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload) => {
+      const newRow = payload.new
+      if (newRow && newRow.id) void upsertLog(newRow.id)
+    })
+    .subscribe()
+}
+
+// The realtime INSERT payload carries only the raw audit_logs columns — it does
+// NOT include the joined `actor:users(...)` relation. Fetch that single row
+// (with its actor) and prepend it, deduping by id.
+async function upsertLog(id: string) {
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select(`
+      id, action, created_at, entity_id, entity_type, ip_address,
+      before_json, after_json,
+      actor:users ( full_name, initials, role, avatar_color )
+    `)
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error || !data) return
+
+  const mapped = mapLog(data as any)
+  logs.value = [mapped, ...logs.value.filter((l) => l.id !== id)]
+}
+
+onUnmounted(() => {
+  if (logsChannel) supabase.removeChannel(logsChannel)
+})
 
 const columns = [
   { name: 'timestamp', align: 'left', label: 'Timestamp', field: 'date', headerStyle: 'width: 12%' },
@@ -145,53 +219,119 @@ const columns = [
   { name: 'ip', align: 'left', label: 'IP Address', field: 'ip', headerStyle: 'width: 12%' }
 ]
 
-const logs = ref([
-  {
-    id: 1, date: 'Jun 17, 2026', time: '08:30:12 AM', action: 'UPDATE',
-    actor: { name: 'Maria Admin', initials: 'MA', role: 'Super Admin', color: 'teal-7', isSystem: false },
-    target: { type: 'Property', name: 'Pinzon Student Hub', id: 'HSE-001' },
-    changes: { field: 'Status', old: 'Pending', new: 'Fully Accredited' },
-    description: null, ip: '192.168.1.45'
-  },
-  {
-    id: 2, date: 'Jun 17, 2026', time: '08:15:00 AM', action: 'CREATE',
-    actor: { name: 'Officer Reyes', initials: 'OR', role: 'Compliance Officer', color: 'indigo-5', isSystem: false },
-    target: { type: 'Announcement', name: 'Updated Dormitory Curfew Rules', id: 'ANN-102' },
-    changes: null, description: 'Created a new announcement for Students and Landlords.', ip: '192.168.1.88'
-  },
-  {
-    id: 3, date: 'Jun 16, 2026', time: '11:45:22 PM', action: 'SYSTEM',
-    actor: { name: 'System Automator', initials: '', role: 'Automated Process', color: 'grey-8', isSystem: true },
-    target: { type: 'Ticket', name: 'Water heater repair request', id: 'TKT-0045' },
-    changes: { field: 'Priority', old: 'Medium', new: 'High' },
-    description: 'SLA threshold breached. Auto-escalated priority.', ip: '127.0.0.1'
-  },
-  {
-    id: 4, date: 'Jun 16, 2026', time: '04:20:10 PM', action: 'AUTH',
-    actor: { name: 'Juan Dela Cruz', initials: 'JD', role: 'Landlord', color: 'orange-6', isSystem: false },
-    target: { type: 'Session', name: 'User Login', id: 'SES-9982' },
-    changes: null, description: 'Successful login via mobile application.', ip: '112.198.45.22'
-  },
-  {
-    id: 5, date: 'Jun 16, 2026', time: '02:10:05 PM', action: 'DELETE',
-    actor: { name: 'Maria Admin', initials: 'MA', role: 'Super Admin', color: 'teal-7', isSystem: false },
-    target: { type: 'User Account', name: 'Fake Account Test', id: 'USR-9901' },
-    changes: null, description: 'Permanently deleted spam registration account.', ip: '192.168.1.45'
-  },
-  {
-    id: 6, date: 'Jun 15, 2026', time: '09:00:00 AM', action: 'UPDATE',
-    actor: { name: 'Maria Admin', initials: 'MA', role: 'Super Admin', color: 'teal-7', isSystem: false },
-    target: { type: 'Property', name: 'Magsaysay Inn', id: 'HSE-004' },
-    changes: { field: 'Verification', old: 'Verified', new: 'Flagged' },
-    description: null, ip: '192.168.1.45'
-  },
-  {
-    id: 7, date: 'Jun 14, 2026', time: '01:15:30 PM', action: 'CREATE',
-    actor: { name: 'System Automator', initials: '', role: 'Automated Process', color: 'grey-8', isSystem: true },
-    target: { type: 'Report', name: 'Weekly Occupancy Digest', id: 'RPT-009' },
-    changes: null, description: 'Generated weekly compliance and occupancy report.', ip: '127.0.0.1'
-  }
+const logs = ref<any[]>([])
+
+function label(s: string) {
+  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function fmtDate(iso: string) {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function fmtTime(iso: string) {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+}
+
+function formatVal(v: unknown) {
+  if (v === null || v === undefined) return '—'
+  if (typeof v === 'object') return JSON.stringify(v)
+  return String(v)
+}
+
+// Columns that change on *every* write (timestamps/sync bookkeeping) and would
+// produce noisy diffs. Skipped so the first meaningful change is surfaced.
+const IGNORED_DIFF_KEYS = new Set([
+  'updated_at', 'last_login_at', 'created_at', 'email_verified_at',
+  'accredited_at', 'verified_at', 'uploaded_at', 'issued_at', 'expires_at'
 ])
+
+// Full-row snapshot → a single human-readable change line (first meaningful diff).
+// Aggregate diffs (beyond the first) are summarized as "+N more fields".
+function diffJson(before: any, after: any, entityType: string): any {
+  if (!before || !after || typeof before !== 'object' || typeof after !== 'object') return null
+  const keys = Object.keys({ ...before, ...after }).filter(k => !IGNORED_DIFF_KEYS.has(k))
+
+  if (keys.length === 0) return null
+
+  const changed = keys.filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
+  if (changed.length === 0) return null
+
+  // Prefer a semantic "status" field if it changed, else the first changed field.
+  const preferred = changed.find(k => k === 'status') ?? changed[0]!
+  const first = {
+    field: label(preferred),
+    old: formatVal(before[preferred]),
+    new: formatVal(after[preferred])
+  }
+  return changed.length > 1
+    ? { ...first, more: `${changed.length - 1} more field${changed.length > 2 ? 's' : ''}` }
+    : first
+}
+
+// Derive a human-readable name for the affected entity from the full-row snapshot.
+function entityDisplayName(entityType: string, row: any): string {
+  const json = row && typeof row === 'object' ? row : {}
+  const pick = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = json[k]
+      if (v !== null && v !== undefined && v !== '') return String(v)
+    }
+    return ''
+  }
+  switch (entityType) {
+    case 'users': return pick('full_name', 'email', 'phone')
+    case 'student_profiles':
+    case 'landlord_profiles':
+    case 'admin_profiles': return pick('business_name', 'full_name', 'user_id')
+    case 'properties': return pick('name', 'address', 'city')
+    case 'rooms': return pick('label', 'room_number', 'room_id')
+    case 'leases': return pick('id', 'room_id', 'student_id')
+    case 'payments': return pick('description', 'txn_reference', 'id')
+    case 'complaints': return pick('subject', 'category', 'id')
+    case 'concerns': return pick('description', 'category', 'id')
+    case 'announcements': return pick('title', 'id')
+    case 'policies': return pick('title', 'version', 'id')
+    case 'verification_documents': return pick('filename', 'doc_type', 'id')
+    default: return pick('name', 'title', 'label', 'subject', 'id')
+  }
+}
+
+function mapLog(row: any) {
+  const actor = row.actor
+  const isSystem = !actor
+  const entityType = row.entity_type || 'record'
+  const entityTypeLabel = label(entityType)
+  const sourceJson = row.after_json || row.before_json || {}
+  const entityName = entityDisplayName(entityType, sourceJson) || row.entity_id
+  const changes = diffJson(row.before_json, row.after_json, entityType)
+
+  return {
+    id: row.id,
+    date: fmtDate(row.created_at),
+    time: fmtTime(row.created_at),
+    action: row.action,
+    actor: {
+      name: isSystem ? 'System Automator' : (actor.full_name || 'Unknown User'),
+      initials: isSystem ? '' : (actor.initials || ''),
+      role: isSystem ? 'Automated Process' : label(String(actor.role || '')),
+      color: isSystem ? 'grey-8' : (actor.avatar_color || 'teal-7'),
+      isSystem
+    },
+    target: {
+      type: entityTypeLabel,
+      name: entityName,
+      id: row.entity_id
+    },
+    changes,
+    description: changes ? null : `${row.action} on ${entityTypeLabel}`,
+    ip: row.ip_address || '—'
+  }
+}
 
 const filteredLogs = computed(() => {
   let result = [...logs.value]
@@ -215,8 +355,10 @@ const paginatedLogs = computed(() => {
 function getActionColor(action: string) {
   switch(action) {
     case 'CREATE': return { bg: 'green-1', text: 'green-7' }
+    case 'APPROVE': return { bg: 'green-1', text: 'green-7' }
     case 'UPDATE': return { bg: 'blue-1', text: 'blue-7' }
     case 'DELETE': return { bg: 'red-1', text: 'red-6' }
+    case 'REJECT': return { bg: 'red-1', text: 'red-6' }
     case 'AUTH': return { bg: 'orange-1', text: 'orange-7' }
     case 'SYSTEM': return { bg: 'deep-purple-1', text: 'deep-purple-6' }
     default: return { bg: 'grey-2', text: 'grey-7' }
