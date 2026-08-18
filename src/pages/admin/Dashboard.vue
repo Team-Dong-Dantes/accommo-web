@@ -222,13 +222,9 @@ const hour = now.getHours()
 const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 const today = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
-const quickActions = [
-  { icon: 'mdi:bullhorn-outline', label: 'Announcement', to: '/announcements' },
-  { icon: 'mdi:history', label: 'Audit Logs', to: '/audit-logs' },
-  { icon: 'mdi:map-outline', label: 'Property Map', to: '/map-view' },
-  { icon: 'mdi:account-group-outline', label: 'Users', to: '/users' },
-  { icon: 'mdi:download', label: 'Export', action: () => window.print() },
-]
+function refresh() {
+  load()
+}
 
 const kpis = computed(() => [
   { label: 'Total Students', value: data.students.total.toLocaleString(), delta: `+${data.students.newThisMonth}`, deltaLabel: 'new this month', trend: 'up' as const, icon: 'mdi:account-group-outline', feature: true },

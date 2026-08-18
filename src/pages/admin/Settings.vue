@@ -20,10 +20,7 @@
 
         <!-- Profile -->
         <q-card flat class="section-card" v-show="active === 'profile'">
-          <div class="card-head">
-            <div class="card-title">Profile</div>
-            <div class="card-sub">Your personal information and contact details.</div>
-          </div>
+          <PanelHeader title="Profile" subtitle="Your personal information and contact details." />
 
           <div class="row items-center q-mb-lg profile-row">
             <q-avatar size="64px" color="primary" text-color="white" class="text-weight-bold profile-avatar" style="font-size: 24px">
@@ -46,10 +43,7 @@
 
         <!-- Notifications -->
         <q-card flat class="section-card" v-show="active === 'notifications'">
-          <div class="card-head">
-            <div class="card-title">Notifications</div>
-            <div class="card-sub">Choose how Accommo keeps you informed.</div>
-          </div>
+          <PanelHeader title="Notifications" subtitle="Choose how Accommo keeps you informed." />
 
           <q-list class="toggle-list">
             <q-item v-for="n in notificationOptions" :key="n.key" class="toggle-item">
@@ -66,10 +60,7 @@
 
         <!-- Appearance -->
         <q-card flat class="section-card" v-show="active === 'appearance'">
-          <div class="card-head">
-            <div class="card-title">Appearance</div>
-            <div class="card-sub">Personalize the look and feel of your workspace.</div>
-          </div>
+          <PanelHeader title="Appearance" subtitle="Personalize the look and feel of your workspace." />
 
           <div class="field-block">
             <div class="field-label">Theme</div>
@@ -96,10 +87,7 @@
 
         <!-- Security -->
         <q-card flat class="section-card" v-show="active === 'security'">
-          <div class="card-head">
-            <div class="card-title">Security</div>
-            <div class="card-sub">Protect your account and review access.</div>
-          </div>
+          <PanelHeader title="Security" subtitle="Protect your account and review access." />
 
           <q-list class="toggle-list q-mb-md">
             <q-item class="toggle-item">
@@ -135,10 +123,7 @@
 
         <!-- Danger zone -->
         <q-card flat class="section-card danger-card" v-show="active === 'danger'">
-          <div class="card-head">
-            <div class="card-title text-negative">Danger zone</div>
-            <div class="card-sub">Irreversible and destructive actions.</div>
-          </div>
+          <PanelHeader title="Danger zone" subtitle="Irreversible and destructive actions." title-class="text-negative" />
 
           <div class="row items-center justify-between danger-row">
             <div>
@@ -175,6 +160,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import BadgePill from '@/components/user/BadgePill.vue'
+import PanelHeader from '@/components/ui/PanelHeader.vue'
 import { useNotify } from '@/utils/notify'
 
 const $q = useQuasar()
@@ -404,23 +390,6 @@ function confirmDelete() {
   box-shadow: var(--shadow-sm);
   padding: 24px;
   margin-bottom: 16px;
-}
-
-.card-head {
-  margin-bottom: 20px;
-}
-
-.card-title {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 18px;
-  color: var(--c-ink);
-}
-
-.card-sub {
-  font-size: 13px;
-  color: var(--c-muted);
-  margin-top: 2px;
 }
 
 .profile-row {

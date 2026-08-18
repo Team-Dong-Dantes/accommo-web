@@ -4,12 +4,10 @@
     <Sidebar />
 
     <q-header class="bg-transparent text-ink app-header" :class="{ 'is-scrolled': scrolled }">
-      <q-toolbar class="q-py-xs q-px-sm">
-        <div class="text-h5 text-weight-bold q-ml-sm" style="line-height: 1.2; font-family: var(--font-display);">
-          {{ route.meta.title || 'Accommo' }}
-        </div>
+        <q-toolbar class="q-py-xs q-px-sm">
+          <PageHeader variant="bar" />
 
-        <q-space />
+          <q-space />
 
         <div class="row items-center q-gutter-x-md q-pr-sm">
           <HeaderNotification />
@@ -31,6 +29,7 @@ import { useRoute } from 'vue-router'
 import Sidebar from '@/components/layout/AppSidebar.vue'
 import HeaderNotification from '@/components/ui/Notification.vue'
 import HeaderProfile from '@/components/layout/UserMenu.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
 
 const route = useRoute()
 
