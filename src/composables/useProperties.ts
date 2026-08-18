@@ -5,6 +5,16 @@ import { supabase } from '@/utils/supabase'
 // (audit results, inspectors, compliance permits, performance scores) are
 // deliberately absent/empty — the UI renders '—' for them instead of inventing data.
 
+export interface RealPermit {
+  id: string
+  type: string
+  version: number | null
+  fileUrl: string | null
+  issuedAt: string | null
+  expiresAt: string | null
+  uploadedAt: string | null
+}
+
 export interface RealProperty {
   id: string
   name: string
@@ -14,11 +24,11 @@ export interface RealProperty {
   contact: string
   verified: boolean
   status: string
-  price: string
   rating: string
   totalRooms: number
   occupiedRooms: number
   totalStudents: number
+  totalCapacity: number
   occupancyRate: number
   femaleCount: number
   maleCount: number
@@ -27,21 +37,29 @@ export interface RealProperty {
   floors: number
   lat: number | null
   lng: number | null
+  // hierarchy: Property → Property Type; Room → Room Type
+  propertyType: string
   roomType: string
   description: string
   // landlord profile (for PropertyHub accreditation/performance tabs)
   businessName: string | null
   accreditationStatus: string | null
+  accreditedAt: string | null
   accreditationExpiresAt: string | null
   responseRate: number | null
   rooms: RealRoom[]
+  permits: RealPermit[]
 }
 
 export interface RealRoom {
   id: string
   name: string
+  number: string | null
   floor: number | null
   capacity: number | null
+  currentPax: number | null
+  status: string
+  monthlyRent: number | null
   occupants: RealOccupant[]
 }
 
@@ -74,11 +92,6 @@ function initialsOf(name: string | null | undefined): string {
   return first.slice(0, 2).toUpperCase()
 }
 
-function fmtPeso(n: number | null): string {
-  if (n == null) return '—'
-  return `₱${n.toLocaleString('en-PH')}/mo`
-}
-
 function titleCase(s: string | null | undefined): string {
   if (!s) return '—'
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -93,23 +106,27 @@ export function useProperties() {
     loading.value = true
     error.value = null
     try {
-      const [propsRes, roomsRes, leasesRes, profilesRes] = await Promise.all([
+      const [propsRes, roomsRes, leasesRes, profilesRes, permitsRes] = await Promise.all([
         supabase.from('properties').select(
           `id, name, address, city, barangay, lat, lng, room_type, property_type,
-           total_rooms, total_floors, monthly_rent, description, status, rating_avg,
-           reviews_count, landlord_id,
+           total_rooms, total_floors, description, status, rating_avg,
+           reviews_count, landlord_id, business_name, accreditation_status,
+           accredited_at, accreditation_expires_at,
            landlord:users(id, full_name, phone, initials)`
         ),
         supabase.from('rooms').select(
-          `id, room_number, label, floor, capacity, current_pax, status, property_id`
+          `id, room_number, label, floor, capacity, current_pax, status, monthly_rent, property_id`
         ),
         supabase.from('leases').select(
           `id, status, room_id, student_id, start_date,
            student:users!leases_student_id_fkey(id, full_name, initials, sex)`
         ).in('status', ['active', 'leave_requested']),
         supabase.from('landlord_profiles').select(
-          `user_id, business_name, accreditation_status, accreditation_expires_at, response_rate`
+          `user_id, response_rate`
         ),
+        supabase.from('property_documents').select(
+          `id, property_id, doc_type, file_url, version, issued_at, expires_at, uploaded_at`
+        ).order('version', { ascending: false }),
       ])
 
       if (propsRes.error) throw propsRes.error
@@ -118,6 +135,7 @@ export function useProperties() {
       const rooms = (roomsRes.data ?? []) as any[]
       const leases = (leasesRes.data ?? []) as any[]
       const landlordProfiles = (profilesRes.data ?? []) as any[]
+      const permits = (permitsRes.data ?? []) as any[]
 
       // Index landlord profiles by user_id
       const profileByUserId = new Map<string, any>()
@@ -131,6 +149,14 @@ export function useProperties() {
         const pid = r.property_id
         if (!roomsByProperty.has(pid)) roomsByProperty.set(pid, [])
         roomsByProperty.get(pid)!.push(r)
+      }
+
+      // Index permits by property id
+      const permitsByProperty = new Map<string, any[]>()
+      for (const pm of permits) {
+        const pid = pm.property_id
+        if (!permitsByProperty.has(pid)) permitsByProperty.set(pid, [])
+        permitsByProperty.get(pid)!.push(pm)
       }
 
       // Index active occupants by room id
@@ -153,10 +179,14 @@ export function useProperties() {
         const totalCapacity = roomList.reduce((s, r) => s + (r.capacity ?? 0), 0)
         const totalPax = roomList.reduce((s, r) => s + (r.current_pax ?? 0), 0)
 
-        // Gender split from active lease occupants
+        // Gender split from THIS property's active lease occupants (filtered by
+        // the property's room ids — previously counted ALL leases for every
+        // property, making every row share the same global male/female total).
+        const roomIdSet = new Set(roomList.map((r) => r.id))
         let femaleCount = 0
         let maleCount = 0
         for (const l of leases) {
+          if (!roomIdSet.has(l.room_id)) continue
           if (!l.student?.sex) continue
           if (l.student.sex === 'F' || l.student.sex === 'Female') femaleCount += 1
           else if (l.student.sex === 'M' || l.student.sex === 'Male') maleCount += 1
@@ -165,8 +195,12 @@ export function useProperties() {
         const mappedRooms: RealRoom[] = roomList.map((r) => ({
           id: r.id,
           name: r.room_number || r.label || `Room ${String(r.id).slice(0, 4)}`,
+          number: r.room_number ?? null,
           floor: r.floor,
-          capacity: r.capacity ?? 0,
+          capacity: r.capacity ?? null,
+          currentPax: r.current_pax ?? null,
+          status: r.status ?? 'available',
+          monthlyRent: r.monthly_rent ?? null,
           occupants: (occupantsByRoom.get(r.id) ?? []).map((l): RealOccupant => {
             const st = l.student ?? {}
             const sex = st.sex === 'F' || st.sex === 'Female' ? 'female' : 'male'
@@ -184,17 +218,17 @@ export function useProperties() {
         return {
           id: p.id,
           name: p.name ?? 'Unnamed Property',
-          type: titleCase(p.room_type),
+          type: titleCase(p.property_type),
           landlord: landlordName,
           landlordInitials: landlord?.initials ?? initialsOf(landlordName),
           contact: landlord?.phone ?? '—',
           verified,
           status: p.status ?? 'unknown',
-          price: fmtPeso(p.monthly_rent),
           rating: p.rating_avg != null ? p.rating_avg.toFixed(1) : '—',
           totalRooms,
           occupiedRooms,
           totalStudents: totalPax,
+          totalCapacity,
           occupancyRate: totalCapacity > 0 ? Math.round((totalPax / totalCapacity) * 100) : 0,
           femaleCount,
           maleCount,
@@ -203,13 +237,24 @@ export function useProperties() {
           floors: p.total_floors ?? 0,
           lat: p.lat,
           lng: p.lng,
+          propertyType: titleCase(p.property_type),
           roomType: p.room_type ?? '—',
           description: p.description ?? '',
-          businessName: profile?.business_name ?? null,
-          accreditationStatus: profile?.accreditation_status ?? null,
-          accreditationExpiresAt: profile?.accreditation_expires_at ?? null,
+          businessName: p.business_name ?? null,
+          accreditationStatus: p.accreditation_status ?? null,
+          accreditedAt: p.accredited_at ?? null,
+          accreditationExpiresAt: p.accreditation_expires_at ?? null,
           responseRate: profile?.response_rate ?? null,
           rooms: mappedRooms,
+          permits: (permitsByProperty.get(p.id) ?? []).map((dm): RealPermit => ({
+            id: dm.id,
+            type: dm.doc_type ?? '—',
+            version: dm.version ?? null,
+            fileUrl: dm.file_url ?? null,
+            issuedAt: dm.issued_at ?? null,
+            expiresAt: dm.expires_at ?? null,
+            uploadedAt: dm.uploaded_at ?? null,
+          })),
         }
       })
     } catch (e) {

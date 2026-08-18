@@ -6,8 +6,8 @@
     </q-avatar>
 
     <div class="column q-ml-sm q-mr-xs">
-      <div class="text-weight-bold text-dark" style="font-size: 15px; line-height: 1.1;">Maria Admin</div>
-      <div class="text-grey-6" style="font-size: 12px; font-weight: 600;">Administrator</div>
+      <div class="text-weight-bold text-ink" style="font-size: 15px; line-height: 1.1;">Maria Admin</div>
+      <div class="text-muted" style="font-size: 12px; font-weight: 600;">Administrator</div>
     </div>
 
     <q-menu anchor="bottom right" self="top right" :offset="[0, 10]"
@@ -18,7 +18,7 @@
           <q-item-section avatar style="min-width: 0; padding-right: 14px;">
             <Icon icon="mdi:account-outline" width="22" height="22" color="#424242" />
           </q-item-section>
-          <q-item-section class="text-weight-bold text-grey-8" style="font-size: 13px;">My Profile</q-item-section>
+          <q-item-section class="text-weight-bold text-ink" style="font-size: 13px;">My Profile</q-item-section>
         </q-item>
 
         <q-separator class="q-my-xs" inset />

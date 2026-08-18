@@ -151,8 +151,8 @@ export function useDashboardStats() {
         expAccRes,
         complaintsRes,
       ] = await Promise.all([
-        supabase.from('properties').select('id, status, capacity, total_rooms, room_type, name, monthly_rent'),
-        supabase.from('rooms').select('capacity, current_pax, status, property:properties(name, room_type)'),
+        supabase.from('properties').select('id, status, capacity, total_rooms, room_type, name'),
+        supabase.from('rooms').select('capacity, current_pax, status, monthly_rent, property:properties(name, room_type)'),
         supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'student'),
         supabase
           .from('users')
@@ -215,12 +215,12 @@ export function useDashboardStats() {
         total_rooms: number | null
         room_type: string
         name: string
-        monthly_rent: number | null
       }>
       const rooms = (roomsRes.data ?? []) as Array<{
         capacity: number | null
         current_pax: number | null
         status: string
+        monthly_rent: number | null
         property: { name: string | null; room_type: string } | null
       }>
       const colleges = (collegeRes.data ?? []) as Array<{ college: string | null }>
@@ -242,7 +242,8 @@ export function useDashboardStats() {
       // Properties
       data.properties.total = props.length
       data.properties.accredited = props.filter((p) => p.status === 'accredited').length
-      const rents = props.map((p) => p.monthly_rent).filter((r): r is number => r != null)
+      // Rent is per-room (rooms.monthly_rent), not per-property.
+      const rents = rooms.map((r) => r.monthly_rent).filter((r): r is number => r != null)
       data.properties.avgRent = rents.length
         ? Math.round(rents.reduce((s, r) => s + r, 0) / rents.length)
         : 0

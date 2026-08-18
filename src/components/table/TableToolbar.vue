@@ -15,7 +15,7 @@
         <Icon icon="mdi:refresh" width="18" height="18" />
         <q-tooltip>Refresh</q-tooltip>
       </q-btn>
-      <q-badge color="grey-2" text-color="grey-7" class="q-px-sm q-py-xs text-weight-bold total-badge">
+      <q-badge color="grey-2" text-color="muted" class="q-px-sm q-py-xs text-weight-bold total-badge">
         {{ totalLabel }}
       </q-badge>
     </div>
@@ -45,5 +45,5 @@ defineEmits<{
 <style scoped>
 .table-bar { border-bottom: 1px solid var(--c-border); }
 .refresh-btn { border-radius: 8px; }
-.total-badge { border-radius: 6px; }
+.total-badge { border-radius: var(--radius-sm); }
 </style>

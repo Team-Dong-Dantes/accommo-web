@@ -17,7 +17,7 @@ defineProps({
   border-radius: 20px;
   padding: 4px 14px;
   font-size: 13px;
-  color: #757575;
+  color: var(--c-muted);
   background-color: white;
   font-weight: 600;
   white-space: nowrap;

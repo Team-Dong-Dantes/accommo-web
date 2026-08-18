@@ -2,14 +2,14 @@
   <q-card flat class="pagination-card q-pa-sm q-px-md">
     <div class="row items-center justify-between">
 
-      <div class="text-grey-6 text-caption text-weight-medium">
+      <div class="text-muted text-caption text-weight-medium">
         Showing {{ startItem }}–{{ endItem }} of {{ totalItems }} {{ itemName }}
       </div>
 
       <div class="row items-center q-gutter-x-lg">
 
         <div class="row items-center no-wrap q-gutter-x-sm">
-          <span class="text-caption text-grey-6 text-weight-medium">Go to page:</span>
+          <span class="text-caption text-muted text-weight-medium">Go to page:</span>
           <q-input
             outlined
             dense
@@ -34,7 +34,7 @@
             unelevated
             dense
             :label="page"
-            :color="page === modelValue ? 'teal-7' : 'grey-7'"
+            :color="page === modelValue ? 'primary' : 'grey-7'"
             :flat="page !== modelValue"
             class="pagination-number"
             :class="{ 'active': page === modelValue }"

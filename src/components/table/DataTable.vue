@@ -12,8 +12,8 @@
   >
 
     <template v-slot:header="props">
-      <q-tr :props="props" :key="'header'" class="bg-grey-1 border-bottom">
-        <q-th v-for="col in props.cols" :key="col.name" :props="props" class="text-grey-6 text-weight-bold text-uppercase custom-th">
+      <q-tr :props="props" :key="'header'" class="bg-surface-2 border-bottom">
+        <q-th v-for="col in props.cols" :key="col.name" :props="props" class="text-muted text-weight-bold text-uppercase custom-th">
           {{ col.label }}
         </q-th>
       </q-tr>
@@ -230,7 +230,7 @@ const paddedRows = computed(() => {
 /* Visible skeleton bars (Quasar default is a faint near-white separator) */
 .custom-data-table :deep(tbody tr.skeleton-row .cell-skeleton) {
   background: var(--c-surface-2);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   height: 14px;
   width: 100%;
   max-width: 85%;

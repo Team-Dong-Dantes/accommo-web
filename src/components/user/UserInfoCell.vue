@@ -6,8 +6,8 @@
     </q-avatar>
 
     <div class="column justify-center" style="min-width: 0;">
-      <div class="text-weight-bold text-dark ellipsis" style="font-size: 15px; line-height: 1.2">{{ name }}</div>
-      <div class="text-grey-5 q-mt-xs ellipsis" style="font-size: 12px">{{ subtitle || email }}</div>
+      <div class="text-weight-bold text-ink ellipsis" style="font-size: 15px; line-height: 1.2">{{ name }}</div>
+      <div class="text-muted q-mt-xs ellipsis" style="font-size: 12px">{{ subtitle || email }}</div>
     </div>
 
   </div>

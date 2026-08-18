@@ -107,11 +107,11 @@
         </p>
 
         <div style="display:flex; justify-content:center; gap:14px; flex-wrap:wrap;">
-          <q-btn unelevated color="teal-7" class="text-weight-bold" size="lg" href="/accommo.apk" download style="border-radius:12px; padding:14px 28px;">
+          <q-btn unelevated color="primary" class="text-weight-bold" size="lg" href="/accommo.apk" download style="border-radius:12px; padding:14px 28px;">
             <Icon icon="mdi:android" width="20" height="20" class="q-mr-sm" />
             Download APK
           </q-btn>
-          <q-btn flat color="teal-7" class="text-weight-bold" size="lg" style="border-radius:12px; padding:14px 20px;">
+          <q-btn flat color="primary" class="text-weight-bold" size="lg" style="border-radius:12px; padding:14px 20px;">
             <Icon icon="mdi:apple" width="20" height="20" class="q-mr-sm" />
             iOS Coming Soon
           </q-btn>
@@ -177,7 +177,7 @@
     </footer>
 
     <transition name="fade">
-      <q-btn v-show="showTop" round color="teal-8" class="totop" @click="scrollTop">
+      <q-btn v-show="showTop" round color="primary" class="totop" @click="scrollTop">
         <Icon icon="mdi:arrow-up" width="20" height="20" />
       </q-btn>
     </transition>

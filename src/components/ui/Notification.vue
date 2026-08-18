@@ -26,9 +26,9 @@
           <q-item-section>
             <q-item-label class="text-weight-bold" style="font-size: 13px; line-height: 1.3;">{{ notif.title
               }}</q-item-label>
-            <q-item-label caption class="text-grey-8 q-mt-xs" style="font-size: 11px; line-height: 1.4;">{{
+            <q-item-label caption class="text-ink q-mt-xs" style="font-size: 11px; line-height: 1.4;">{{
               notif.message }}</q-item-label>
-            <q-item-label caption class="text-grey-5 q-mt-xs" style="font-size: 10px; font-weight: 600;">{{ notif.time
+            <q-item-label caption class="text-muted q-mt-xs" style="font-size: 10px; font-weight: 600;">{{ notif.time
               }}</q-item-label>
           </q-item-section>
 
@@ -38,7 +38,7 @@
         </q-item>
 
         <q-item v-if="notifications.length === 0" class="q-pa-lg flex flex-center">
-          <div class="text-grey-5 text-center">
+          <div class="text-muted text-center">
             <Icon icon="mdi:bell-off-outline" width="40" height="40" class="q-mb-sm" />
             <div style="font-size: 12px; font-weight: 600;">You're all caught up!</div>
           </div>
@@ -74,11 +74,11 @@ function markAllRead() {
 
 <style scoped>
 .border-bottom {
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--c-border);
 }
 
 .border-top {
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--c-border);
 }
 
 .unread-dot {

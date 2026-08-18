@@ -9,7 +9,7 @@
         <q-btn
           outline
           color="grey-5"
-          text-color="dark"
+          text-color="ink"
           no-caps
           class="text-weight-bold bg-surface rounded-button"
         >
@@ -17,7 +17,7 @@
         </q-btn>
         <q-btn
           unelevated
-          color="teal-7"
+          color="primary"
           no-caps
           class="text-weight-bold rounded-button"
         >
@@ -79,8 +79,7 @@
             <!-- Action -->
             <div v-else-if="col.name === 'action'">
               <BadgePill
-                :bg="getActionColor(props.row.action).bg"
-                :text-color="getActionColor(props.row.action).text"
+                :tone="getActionColor(props.row.action).tone"
                 :label="props.row.action"
               />
             </div>
@@ -97,8 +96,8 @@
                 <div class="row items-center q-gutter-x-xs no-wrap text-ink">
                   <span>{{ props.row.changes.field }}:</span>
                   <span class="text-weight-bold text-strike text-muted">{{ props.row.changes.old }}</span>
-                  <Icon icon="mdi:arrow-right" width="12" height="12" class="text-teal-6" />
-                  <span class="text-weight-bold text-teal-7">{{ props.row.changes.new }}</span>
+                  <Icon icon="mdi:arrow-right" width="12" height="12" class="text-primary" />
+                  <span class="text-weight-bold text-primary">{{ props.row.changes.new }}</span>
                 </div>
                 <div v-if="props.row.changes.more" class="text-muted" style="font-size: 11px; margin-top: 2px;">
                   {{ props.row.changes.more }}
@@ -354,14 +353,14 @@ const paginatedLogs = computed(() => {
 
 function getActionColor(action: string) {
   switch(action) {
-    case 'CREATE': return { bg: 'green-1', text: 'green-7' }
-    case 'APPROVE': return { bg: 'green-1', text: 'green-7' }
-    case 'UPDATE': return { bg: 'blue-1', text: 'blue-7' }
-    case 'DELETE': return { bg: 'red-1', text: 'red-6' }
-    case 'REJECT': return { bg: 'red-1', text: 'red-6' }
-    case 'AUTH': return { bg: 'orange-1', text: 'orange-7' }
-    case 'SYSTEM': return { bg: 'deep-purple-1', text: 'deep-purple-6' }
-    default: return { bg: 'grey-2', text: 'grey-7' }
+    case 'CREATE': return { tone: 'success' }
+    case 'APPROVE': return { tone: 'success' }
+    case 'UPDATE': return { tone: 'info' }
+    case 'DELETE': return { tone: 'danger' }
+    case 'REJECT': return { tone: 'danger' }
+    case 'AUTH': return { tone: 'warning' }
+    case 'SYSTEM': return { tone: 'primary' }
+    default: return { tone: 'neutral' }
   }
 }
 </script>

@@ -27,4 +27,10 @@ defineEmits(['update:modelValue'])
 .rounded-input :deep(.q-field__control) {
   border-radius: 12px;
 }
+.rounded-input :deep(.q-field__control::before) {
+  border-color: var(--c-border-strong) !important;
+}
+.rounded-input.q-field--focused :deep(.q-field__control::after) {
+  border-color: var(--c-primary) !important;
+}
 </style>

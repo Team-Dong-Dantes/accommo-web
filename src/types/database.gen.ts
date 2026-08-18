@@ -378,31 +378,19 @@ export type Database = {
       }
       landlord_profiles: {
         Row: {
-          accreditation_expires_at: string | null
-          accreditation_status: string | null
-          accredited_at: string | null
           avg_response_minutes: number | null
-          business_name: string | null
           government_id_url: string | null
           response_rate: number | null
           user_id: string
         }
         Insert: {
-          accreditation_expires_at?: string | null
-          accreditation_status?: string | null
-          accredited_at?: string | null
           avg_response_minutes?: number | null
-          business_name?: string | null
           government_id_url?: string | null
           response_rate?: number | null
           user_id: string
         }
         Update: {
-          accreditation_expires_at?: string | null
-          accreditation_status?: string | null
-          accredited_at?: string | null
           avg_response_minutes?: number | null
-          business_name?: string | null
           government_id_url?: string | null
           response_rate?: number | null
           user_id?: string
@@ -710,8 +698,12 @@ export type Database = {
       }
       properties: {
         Row: {
+          accredited_at: string | null
+          accreditation_expires_at: string | null
+          accreditation_status: string | null
           address: string | null
           barangay: string | null
+          business_name: string | null
           capacity: number | null
           city: string | null
           description: string | null
@@ -719,7 +711,6 @@ export type Database = {
           landlord_id: string
           lat: number | null
           lng: number | null
-          monthly_rent: number | null
           name: string
           property_type: string | null
           rating_avg: number | null
@@ -732,6 +723,7 @@ export type Database = {
         Insert: {
           address?: string | null
           barangay?: string | null
+          business_name?: string | null
           capacity?: number | null
           city?: string | null
           description?: string | null
@@ -739,7 +731,6 @@ export type Database = {
           landlord_id: string
           lat?: number | null
           lng?: number | null
-          monthly_rent?: number | null
           name: string
           property_type?: string | null
           rating_avg?: number | null
@@ -750,8 +741,12 @@ export type Database = {
           total_rooms?: number | null
         }
         Update: {
+          accredited_at?: string | null
+          accreditation_expires_at?: string | null
+          accreditation_status?: string | null
           address?: string | null
           barangay?: string | null
+          business_name?: string | null
           capacity?: number | null
           city?: string | null
           description?: string | null
@@ -759,7 +754,6 @@ export type Database = {
           landlord_id?: string
           lat?: number | null
           lng?: number | null
-          monthly_rent?: number | null
           name?: string
           property_type?: string | null
           rating_avg?: number | null

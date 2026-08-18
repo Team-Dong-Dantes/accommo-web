@@ -7,21 +7,22 @@
       <ExportButton class="q-mb-md" @click="handleExport" />
     </div>
 
-    <TableCard
-      v-model:search="search"
-      v-model:active-filters="activeFilters"
-      v-model:page="currentPage"
-      :filters="filterConfig"
-      :loading="loading"
-      :total-label="`${filteredRows.length} total ${filteredRows.length === 1 ? 'user' : 'users'}`"
-      :rows="paginatedRows"
-      :columns="columns"
-      row-key="rawId"
-      :total-items="filteredRows.length"
-      item-name="users"
-      @clear-filters="clearFilters"
-      @refresh="fetchUsers"
-    >
+    <div class="users-body">
+      <TableCard
+        v-model:search="search"
+        v-model:active-filters="activeFilters"
+        v-model:page="currentPage"
+        :filters="filterConfig"
+        :loading="loading"
+        :total-label="`${filteredRows.length} total ${filteredRows.length === 1 ? 'user' : 'users'}`"
+        :rows="paginatedRows"
+        :columns="columns"
+        row-key="rawId"
+        :total-items="filteredRows.length"
+        item-name="users"
+        @clear-filters="clearFilters"
+        @refresh="fetchUsers"
+      >
       <template #empty>
         <div class="full-width row flex-center text-muted q-pa-xl column">
           <Icon :icon="fetchError ? 'mdi:alert-circle-outline' : 'mdi:account-group-off-outline'" width="48" height="48" class="q-mb-md" />
@@ -44,10 +45,10 @@
           <q-td key="id" :props="props" class="text-muted text-weight-medium" style="font-family: var(--font-mono)">{{ props.row.id }}</q-td>
           <q-td key="contact" :props="props" class="text-ink">{{ props.row.contact }}</q-td>
           <q-td key="role" :props="props">
-            <BadgePill :bg="props.row.roleStyle.bg" :text-color="props.row.roleStyle.text" :icon="props.row.roleStyle.icon" :label="props.row.role" />
+            <BadgePill :tone="props.row.roleStyle.tone" :icon="props.row.roleStyle.icon" :label="props.row.role" />
           </q-td>
           <q-td key="status" :props="props">
-            <BadgePill :bg="props.row.statusStyle.bg" :text-color="props.row.statusStyle.text" :icon="props.row.statusStyle.icon" :label="props.row.status" />
+            <BadgePill :tone="props.row.statusStyle.tone" :icon="props.row.statusStyle.icon" :label="props.row.status" />
           </q-td>
           <q-td key="joined" :props="props" class="text-muted">{{ props.row.joined }}</q-td>
           <q-td key="details" :props="props" class="text-muted ellipsis">{{ props.row.details }}</q-td>
@@ -55,7 +56,7 @@
       </template>
     </TableCard>
 
-    <DetailDrawer v-model="drawerOpen">
+    <DetailDrawer v-model="drawerOpen" expandable v-model:expanded="drawerExpanded" anchored position="right" close-on-backdrop>
       <template #banner>
         <ProfileHero
           :name="selectedUser?.name"
@@ -69,13 +70,11 @@
       </template>
 
       <template v-if="selectedUser">
-        <SegmentedToggle v-model="sectionTab" :options="sectionOptions" />
+        <SegmentedToggle v-if="!drawerExpanded" v-model="sectionTab" :options="sectionOptions" />
 
-        <transition name="usr-fade" mode="out-in">
-          <div :key="sectionTab" class="usr-section">
-
-            <!-- OVERVIEW -->
-            <template v-if="sectionTab === 'overview'">
+        <div class="usr-section">
+          <!-- OVERVIEW -->
+          <template v-if="drawerExpanded || sectionTab === 'overview'">
               <InfoCard title="Basic Info">
                 <InfoRow icon="mdi:email-outline" label="Email" :value="selectedUser.email" />
                 <InfoRow icon="mdi:phone-outline" label="Contact" :value="selectedUser.contact" />
@@ -111,7 +110,7 @@
             </template>
 
             <!-- HOUSING (students) -->
-            <template v-else-if="sectionTab === 'housing' && isStudent">
+            <template v-if="(drawerExpanded && isStudent) || (sectionTab === 'housing' && isStudent)">
               <InfoCard title="Housing">
                 <template v-if="detailLoading">
                   <InfoRow icon="mdi:home-city" label="Placement"><q-skeleton type="text" width="90px" /></InfoRow>
@@ -159,7 +158,7 @@
             </template>
 
             <!-- PERFORMANCE (landlords) -->
-            <template v-else-if="sectionTab === 'performance' && isLandlord">
+            <template v-if="(drawerExpanded && isLandlord) || (sectionTab === 'performance' && isLandlord)">
               <StatGrid>
                 <StatTile icon="mdi:domain" label="Properties Listed" :value="String(landlordProps.length)" accent="teal" />
                 <StatTile icon="mdi:star" label="Avg Rating" :value="avgRating" accent="amber" />
@@ -189,17 +188,10 @@
               </InfoCard>
             </template>
           </div>
-        </transition>
-      </template>
-
-      <template #footer>
-        <div class="row items-center justify-end">
-          <q-btn unelevated no-caps color="primary" text-color="white" class="text-weight-bold usr-close-btn" @click="drawerOpen = false">
-            Close
-          </q-btn>
-        </div>
       </template>
     </DetailDrawer>
+
+    </div><!-- /users-body -->
 
   </q-page>
 </template>
@@ -213,6 +205,7 @@ import TabNav from '@/components/ui/TabNav.vue'
 import TableCard from '@/components/table/TableCard.vue'
 import ExportButton from '@/components/ui/ExportButton.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
+import { getStatus, getTone, type StatusTone } from '@/utils/status.config'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
 import ProfileHero from '@/components/user/ProfileHero.vue'
@@ -233,6 +226,7 @@ const activeTab = ref('users')
 const activeFilters = ref({ role: [] as string[], status: [] as string[] })
 
 const drawerOpen = ref(false)
+const drawerExpanded = ref(false)
 const selectedUser = ref<any | null>(null)
 const userDetail = ref<any | null>(null)
 const detailLoading = ref(false)
@@ -306,6 +300,7 @@ async function openUser(row: any) {
   boardingHistory.value = []
   landlordProps.value = []
   sectionTab.value = 'overview'
+  drawerExpanded.value = false
   drawerOpen.value = true
   await fetchDetail(row.rawId, row.role)
 }
@@ -400,21 +395,18 @@ function mapUserData(user: any) {
     : `${nameParts[0][0]}`.toUpperCase()
 
   const isStudent = (user.role || '').toLowerCase() === 'student'
-  const roleStyle = isStudent
-    ? { bg: 'blue-1', text: 'blue-6', icon: 'mdi:school' }
-    : { bg: 'teal-1', text: 'teal-6', icon: 'mdi:domain' }
+  const roleStyle = {
+    tone: (isStudent ? 'neutral' : 'primary') as StatusTone,
+    icon: isStudent ? 'mdi:school' : 'mdi:domain'
+  }
   const avatarColor = isStudent ? 'indigo-5' : 'teal-7'
 
-  let statusStyle = { bg: 'grey-2', text: 'grey-7', icon: 'mdi:help-circle-outline' }
   const status = (user.status || 'unverified').toLowerCase()
   const statusLabel = status.charAt(0).toUpperCase() + status.slice(1)
-
-  if (status === 'verified') statusStyle = { bg: 'green-1', text: 'green-6', icon: 'mdi:check-circle' }
-  else if (status === 'pending') statusStyle = { bg: 'orange-1', text: 'orange-6', icon: 'mdi:clock-outline' }
-  else if (status === 'reviewing') statusStyle = { bg: 'indigo-1', text: 'indigo-5', icon: 'mdi:eye' }
-  else if (status === 'rejected') statusStyle = { bg: 'red-1', text: 'red-5', icon: 'mdi:close-circle' }
-  else if (status === 'suspended') statusStyle = { bg: 'red-1', text: 'red-7', icon: 'mdi:cancel' }
-  else if (status === 'unverified') statusStyle = { bg: 'grey-2', text: 'grey-7', icon: 'mdi:help-circle-outline' }
+  const statusStyle = {
+    tone: getTone(status),
+    icon: getStatus(status).icon || 'mdi:help-circle-outline'
+  }
 
   return {
     id: user.id.length > 10 ? `USR-${user.id.substring(0, 4).toUpperCase()}` : user.id,
@@ -505,6 +497,16 @@ const respTime = computed(() => fmtMinutes(userDetail.value?.avg_response_minute
   height: 100% !important;
 }
 
+/* Holds the table + the right-docked detail drawer together so the drawer
+   anchors flush to the table's right edge (no margin, inside the card area). */
+.users-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Pills (used inside InfoRow value slots) */
 .usr-pill {
   display: inline-flex;
@@ -555,10 +557,5 @@ const respTime = computed(() => fmtMinutes(userDetail.value?.avg_response_minute
 /* Skeleton blocks (loading states) */
 .usr-skel-block {
   padding: 8px 0;
-}
-
-.usr-close-btn {
-  border-radius: var(--radius-btn);
-  padding: 8px 22px;
 }
 </style>

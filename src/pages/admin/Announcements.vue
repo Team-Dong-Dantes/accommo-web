@@ -54,20 +54,20 @@
                     </div>
                   </q-td>
                   <q-td key="status" :props="props">
-                    <BadgePill :bg="statusColor(props.row.status).bg" :text-color="statusColor(props.row.status).text" :icon="statusIcon(props.row.status)" :label="statusLabel(props.row.status)" />
+                    <BadgePill :tone="statusColor(props.row.status).tone" :icon="statusIcon(props.row.status)" :label="statusLabel(props.row.status)" />
                   </q-td>
                   <q-td key="audience" :props="props">
-                    <BadgePill :bg="audienceColor(props.row.audience).bg" :text-color="audienceColor(props.row.audience).text" :label="audienceLabel(props.row.audience)" />
+                    <BadgePill :tone="audienceColor(props.row.audience).tone" :label="audienceLabel(props.row.audience)" />
                   </q-td>
                   <q-td key="author" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.authorName }}</q-td>
                   <q-td key="date" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.dateLabel }}</q-td>
                   <q-td key="actions" :props="props" class="row items-center justify-end q-gutter-x-sm no-wrap">
                     <q-btn flat dense color="grey-6" size="sm" class="custom-radius" @click="openView(props.row)"><Icon icon="mdi:eye" width="18" height="18" /><q-tooltip>View</q-tooltip></q-btn>
-                    <q-btn flat dense color="teal-7" size="sm" class="custom-radius" @click="togglePublish(props.row)">
+                    <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="togglePublish(props.row)">
                       <Icon :icon="props.row.status === 'published' ? 'mdi:eye-off-outline' : 'mdi:send-outline'" width="18" height="18" />
                       <q-tooltip>{{ props.row.status === 'published' ? 'Unpublish' : 'Publish' }}</q-tooltip>
                     </q-btn>
-                    <q-btn flat dense color="teal-7" size="sm" class="custom-radius" @click="openEdit(props.row)"><Icon icon="mdi:pencil" width="18" height="18" /><q-tooltip>Edit</q-tooltip></q-btn>
+                    <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="openEdit(props.row)"><Icon icon="mdi:pencil" width="18" height="18" /><q-tooltip>Edit</q-tooltip></q-btn>
                     <q-btn flat dense color="red-5" size="sm" class="custom-radius" @click="remove(props.row)"><Icon icon="mdi:delete" width="18" height="18" /><q-tooltip>Delete</q-tooltip></q-btn>
                   </q-td>
                 </q-tr>
@@ -94,16 +94,16 @@
                     </div>
                   </q-td>
                   <q-td key="version" :props="props">
-                    <q-badge color="grey-2" text-color="dark" class="text-weight-bold q-px-sm" style="border-radius: 6px; font-size: 11px;">{{ props.row.version || '—' }}</q-badge>
+                    <q-badge color="grey-2" text-color="ink" class="text-weight-bold q-px-sm" style="border-radius: var(--radius-sm); font-size: 11px;">{{ props.row.version || '—' }}</q-badge>
                   </q-td>
                   <q-td key="status" :props="props">
-                    <BadgePill :bg="policyStatusColor(props.row).bg" :text-color="policyStatusColor(props.row).text" :label="policyStatusLabel(props.row)" />
+                    <BadgePill :tone="policyStatusColor(props.row).tone" :label="policyStatusLabel(props.row)" />
                   </q-td>
                   <q-td key="updatedAt" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.effectiveLabel }}</q-td>
                   <q-td key="author" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.authorName }}</q-td>
                   <q-td key="actions" :props="props" class="row items-center justify-end q-gutter-x-sm no-wrap">
                     <q-btn flat dense color="grey-6" size="sm" class="custom-radius" @click="openView(props.row)"><Icon icon="mdi:eye" width="18" height="18" /><q-tooltip>View</q-tooltip></q-btn>
-                    <q-btn flat dense color="teal-7" size="sm" class="custom-radius" @click="openEdit(props.row)"><Icon icon="mdi:pencil" width="18" height="18" /><q-tooltip>Edit</q-tooltip></q-btn>
+                    <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="openEdit(props.row)"><Icon icon="mdi:pencil" width="18" height="18" /><q-tooltip>Edit</q-tooltip></q-btn>
                     <q-btn flat dense color="red-5" size="sm" class="custom-radius" @click="remove(props.row)"><Icon icon="mdi:delete" width="18" height="18" /><q-tooltip>Delete</q-tooltip></q-btn>
                   </q-td>
                 </q-tr>
@@ -211,18 +211,16 @@
           <div class="row items-center q-gutter-x-sm">
             <BadgePill
               v-if="view.kind === 'announcement'"
-              :bg="statusColor(view.status).bg"
-              :text-color="statusColor(view.status).text"
+              :tone="statusColor(view.status).tone"
               :icon="statusIcon(view.status)"
               :label="statusLabel(view.status)"
             />
             <BadgePill
               v-if="view.kind === 'announcement'"
-              :bg="audienceColor(view.audience).bg"
-              :text-color="audienceColor(view.audience).text"
+              :tone="audienceColor(view.audience).tone"
               :label="audienceLabel(view.audience)"
             />
-            <q-badge v-if="view.kind === 'policy'" color="grey-2" text-color="dark" class="text-weight-bold q-px-sm" style="border-radius: 6px; font-size: 11px;">
+            <q-badge v-if="view.kind === 'policy'" color="grey-2" text-color="ink" class="text-weight-bold q-px-sm" style="border-radius: var(--radius-sm); font-size: 11px;">
               {{ view.version || 'No version' }}
             </q-badge>
           </div>
@@ -570,9 +568,9 @@ const policyColumns = [
 ]
 
 function statusColor(status: string) {
-  if (status === 'published') return { bg: 'green-1', text: 'green-7' }
-  if (status === 'draft') return { bg: 'orange-1', text: 'orange-7' }
-  return { bg: 'grey-2', text: 'grey-7' }
+  if (status === 'published') return { tone: 'success' }
+  if (status === 'draft') return { tone: 'warning' }
+  return { tone: 'neutral' }
 }
 
 function statusIcon(status: string) {
@@ -595,16 +593,16 @@ function audienceLabel(audience: string) {
 }
 
 function audienceColor(audience: string) {
-  if (audience === 'all') return { bg: 'blue-grey-1', text: 'blue-grey-6' }
-  if (audience === 'students') return { bg: 'blue-1', text: 'blue-6' }
-  if (audience === 'landlords') return { bg: 'teal-1', text: 'teal-6' }
-  return { bg: 'grey-2', text: 'grey-7' }
+  if (audience === 'all') return { tone: 'neutral' }
+  if (audience === 'students') return { tone: 'info' }
+  if (audience === 'landlords') return { tone: 'primary' }
+  return { tone: 'neutral' }
 }
 
 function policyStatusColor(row: any) {
   const eff = row.effective_date
   const active = eff && new Date(eff).getTime() <= Date.now()
-  return active ? { bg: 'green-1', text: 'green-7' } : { bg: 'orange-1', text: 'orange-7' }
+  return active ? { tone: 'success' } : { tone: 'warning' }
 }
 
 function policyStatusLabel(row: any) {

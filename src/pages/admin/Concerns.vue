@@ -6,11 +6,11 @@
     <q-card flat class="bg-surface custom-shadow column no-wrap shrink-0" style="border-radius: 12px; width: 340px;">
 
       <div class="q-pa-md border-bottom shrink-0 bg-surface" style="border-radius: 12px 12px 0 0; z-index: 10;">
-        <div class="text-h6 text-weight-bold text-dark q-mb-md" style="line-height: 1;">Tickets</div>
+        <div class="text-h6 text-weight-bold text-ink q-mb-md" style="line-height: 1;">Tickets</div>
 
         <SearchInput v-model="searchQuery" placeholder="Search tickets..." class="q-mb-md custom-radius" />
 
-        <q-tabs v-model="activeStatus" dense no-caps class="text-grey-6" active-color="teal-7" indicator-color="teal-7" align="justify">
+        <q-tabs v-model="activeStatus" dense no-caps class="text-muted" active-color="primary" indicator-color="primary" align="justify">
           <q-tab name="Open" label="Open" class="text-weight-bold" />
           <q-tab name="Pending" label="Pending" class="text-weight-bold" />
           <q-tab name="Resolved" label="Resolved" class="text-weight-bold" />
@@ -36,22 +36,22 @@
 
             <q-item-section style="min-width: 0;">
               <div class="row justify-between items-center no-wrap q-mb-xs">
-                <div class="text-weight-bold text-dark ellipsis" style="font-size: 13px;">{{ ticket.name }}</div>
-                <div class="text-grey-5 shrink-0" style="font-size: 11px;">{{ ticket.timeAgo }}</div>
+                <div class="text-weight-bold text-ink ellipsis" style="font-size: 13px;">{{ ticket.name }}</div>
+                <div class="text-muted shrink-0" style="font-size: 11px;">{{ ticket.timeAgo }}</div>
               </div>
 
-              <div class="text-dark text-weight-medium ellipsis q-mb-xs" style="font-size: 13px;">{{ ticket.subject }}</div>
+              <div class="text-ink text-weight-medium ellipsis q-mb-xs" style="font-size: 13px;">{{ ticket.subject }}</div>
 
-              <div class="text-grey-6 ellipsis q-mb-sm" style="font-size: 12px;">
+              <div class="text-muted ellipsis q-mb-sm" style="font-size: 12px;">
                 {{ ticket.preview }}
               </div>
 
               <div class="row items-center justify-between no-wrap">
                 <div class="row items-center q-gutter-x-xs">
                   <Icon :icon="getPriorityIcon(ticket.priority)" :color="getPriorityColor(ticket.priority)" width="14" height="14" />
-                  <span class="text-grey-7 text-weight-medium" style="font-size: 11px;">#{{ ticket.ticketId }}</span>
+                  <span class="text-muted text-weight-medium" style="font-size: 11px;">#{{ ticket.ticketId }}</span>
                 </div>
-                <q-badge v-if="ticket.unread > 0" color="teal-6" class="text-weight-bold shrink-0 q-px-sm" style="border-radius: 4px; font-size: 10px;">
+                <q-badge v-if="ticket.unread > 0" color="primary" class="text-weight-bold shrink-0 q-px-sm" style="border-radius: var(--radius-sm); font-size: 10px;">
                   {{ ticket.unread }} New
                 </q-badge>
               </div>
@@ -66,14 +66,14 @@
 
       <div class="q-pa-md border-bottom shrink-0 bg-surface z-top row justify-between items-center">
         <div class="row items-center q-gutter-x-sm">
-            <q-badge :color="getStatusBgColor(selectedTicket.status)" :text-color="getStatusColor(selectedTicket.status)" class="text-weight-bold q-px-sm q-py-xs" style="border-radius: 6px; font-size: 11px;">
+            <q-badge :color="getStatusBgColor(selectedTicket.status)" :text-color="getStatusColor(selectedTicket.status)" class="text-weight-bold q-px-sm q-py-xs" style="border-radius: var(--radius-sm); font-size: 11px;">
             <Icon icon="mdi:circle" width="6" height="6" class="q-mr-xs" /> {{ selectedTicket.status }}
           </q-badge>
-          <div class="text-h6 text-weight-bold text-dark ellipsis" style="line-height: 1.2;">{{ selectedTicket.subject }}</div>
+          <div class="text-h6 text-weight-bold text-ink ellipsis" style="line-height: 1.2;">{{ selectedTicket.subject }}</div>
         </div>
       </div>
 
-      <q-scroll-area class="col bg-grey-1 q-pa-md">
+      <q-scroll-area class="col bg-surface-2 q-pa-md">
         <div class="column q-gutter-y-md q-pb-xl" style="max-width: 800px; margin: 0 auto;">
 
           <div v-for="(msg, index) in selectedTicket.messages" :key="index">
@@ -85,15 +85,15 @@
 
               <div class="column" :style="msg.isAgent && !msg.isInternal ? 'align-items: flex-end; max-width: 75%;' : 'max-width: 75%;'">
                 <div class="row items-center q-mb-xs q-gutter-x-sm" :class="msg.isAgent && !msg.isInternal ? 'justify-end' : ''">
-                  <span class="text-weight-bold text-dark" style="font-size: 13px;">{{ msg.isAgent ? 'Maria Admin' : selectedTicket.name }}</span>
-                  <span class="text-grey-5" style="font-size: 11px;">{{ msg.time }}</span>
+                  <span class="text-weight-bold text-ink" style="font-size: 13px;">{{ msg.isAgent ? 'Maria Admin' : selectedTicket.name }}</span>
+                  <span class="text-muted" style="font-size: 11px;">{{ msg.time }}</span>
                 </div>
 
                 <div
-                  class="q-pa-md shadow-1 text-dark"
+                  class="q-pa-md shadow-1 text-ink"
                   :class="[
                     msg.isInternal ? 'bg-amber-1 border-amber' :
-                    (msg.isAgent ? 'bg-teal-1 border-teal' : 'bg-surface border-all')
+                    (msg.isAgent ? 'bg-primary-1 border-teal' : 'bg-surface border-all')
                   ]"
                   :style="[
                     'font-size: 14px; line-height: 1.5;',
@@ -107,13 +107,13 @@
                 </div>
               </div>
 
-              <q-avatar v-if="msg.isAgent && !msg.isInternal" size="36px" color="teal-7" text-color="white" class="text-weight-bold q-ml-md shrink-0 shadow-1" style="border-radius: 10px;">
+              <q-avatar v-if="msg.isAgent && !msg.isInternal" size="36px" color="primary" text-color="white" class="text-weight-bold q-ml-md shrink-0 shadow-1" style="border-radius: 10px;">
                 MA
               </q-avatar>
             </div>
 
             <div v-else class="row justify-center q-my-md">
-              <div class="bg-grey-3 text-grey-7 q-px-md q-py-xs text-weight-medium" style="border-radius: 20px; font-size: 11px;">
+              <div class="bg-grey-3 text-muted q-px-md q-py-xs text-weight-medium" style="border-radius: 20px; font-size: 11px;">
                 <Icon :icon="msg.icon" width="14" height="14" class="q-mr-xs" style="margin-top: -2px;"/>
                 <span v-html="msg.text"></span> &bull; {{ msg.time }}
               </div>
@@ -129,7 +129,7 @@
           <q-card flat class="composer-card overflow-hidden" :class="replyMode === 'internal' ? 'border-amber' : 'border-all'">
             <q-tabs
               v-model="replyMode" dense align="left" class="border-bottom"
-              :class="replyMode === 'internal' ? 'bg-amber-1 text-amber-9' : 'bg-grey-1 text-grey-7'"
+              :class="replyMode === 'internal' ? 'bg-amber-1 text-amber-9' : 'bg-surface-2 text-muted'"
               active-color="dark" indicator-color="transparent"
             >
               <q-tab name="public" no-caps class="text-weight-bold q-px-md">
@@ -147,7 +147,7 @@
             />
 
             <div class="row justify-between items-center q-pa-sm border-top" :class="replyMode === 'internal' ? 'bg-amber-1' : 'bg-surface'">
-              <div class="row q-gutter-x-sm text-grey-6">
+              <div class="row q-gutter-x-sm text-muted">
                 <q-btn flat dense size="sm" class="custom-radius"><Icon icon="mdi:format-bold" width="18" height="18" /></q-btn>
                 <q-btn flat dense size="sm" class="custom-radius"><Icon icon="mdi:paperclip" width="18" height="18" /></q-btn>
               </div>
@@ -173,18 +173,18 @@
     <q-card v-if="selectedTicket" flat class="sidebar-container bg-surface custom-shadow column no-wrap shrink-0" style="border-radius: 12px; width: 300px; overflow-y: auto;">
 
       <div class="q-pa-md border-bottom">
-        <div class="text-caption text-grey-5 text-weight-bold text-uppercase q-mb-md tracking-wide">Ticket Info</div>
+        <div class="text-caption text-muted text-weight-bold text-uppercase q-mb-md tracking-wide">Ticket Info</div>
         <div class="column q-gutter-y-md">
 
           <!-- Smart Assignee UI instead of dropdown -->
-          <div class="row items-center justify-between q-pa-sm bg-grey-1 custom-radius border-all">
+          <div class="row items-center justify-between q-pa-sm bg-surface-2 custom-radius border-all">
             <div class="row items-center q-gutter-x-sm">
               <q-avatar size="28px" :color="selectedTicket.assignee === 'Unassigned' ? 'grey-4' : 'teal-7'" text-color="white" class="text-weight-bold" style="font-size: 11px;">
                 {{ selectedTicket.assignee === 'Unassigned' ? '?' : selectedTicket.assignee.charAt(0) }}
               </q-avatar>
               <div class="column">
-                <span class="text-grey-6 text-weight-medium" style="font-size: 10px; line-height: 1;">Assignee</span>
-                <span class="text-dark text-weight-bold" style="font-size: 13px; line-height: 1.2;">{{ selectedTicket.assignee }}</span>
+                <span class="text-muted text-weight-medium" style="font-size: 10px; line-height: 1;">Assignee</span>
+                <span class="text-ink text-weight-bold" style="font-size: 13px; line-height: 1.2;">{{ selectedTicket.assignee }}</span>
               </div>
             </div>
             <!-- One-click Assign to Me -->
@@ -197,13 +197,13 @@
           </div>
 
           <div>
-            <div class="text-grey-6 text-caption q-mb-xs">Status</div>
+            <div class="text-muted text-caption q-mb-xs">Status</div>
             <q-select v-model="selectedTicket.status" :options="['Open', 'Pending', 'Resolved']" outlined dense class="custom-radius text-weight-bold">
               <template v-slot:prepend><Icon icon="mdi:circle" width="10" height="10" :color="getStatusColor(selectedTicket.status)" /></template>
             </q-select>
           </div>
           <div>
-            <div class="text-grey-6 text-caption q-mb-xs">Priority</div>
+            <div class="text-muted text-caption q-mb-xs">Priority</div>
             <q-select v-model="selectedTicket.priority" :options="['High', 'Medium', 'Low']" outlined dense class="custom-radius text-weight-bold">
               <template v-slot:prepend><Icon :icon="getPriorityIcon(selectedTicket.priority)" :color="getPriorityColor(selectedTicket.priority)" width="18" height="18" /></template>
             </q-select>
@@ -212,33 +212,33 @@
       </div>
 
       <div class="q-pa-md border-bottom">
-        <div class="text-caption text-grey-5 text-weight-bold text-uppercase q-mb-md tracking-wide">Student Details</div>
+        <div class="text-caption text-muted text-weight-bold text-uppercase q-mb-md tracking-wide">Student Details</div>
         <div class="row items-center no-wrap q-mb-md">
           <q-avatar size="40px" :color="selectedTicket.avatarColor" text-color="white" class="text-weight-bold q-mr-sm custom-radius">
             {{ selectedTicket.initials }}
           </q-avatar>
           <div>
-            <div class="text-weight-bold text-dark" style="font-size: 14px;">{{ selectedTicket.name }}</div>
-            <div class="text-grey-6" style="font-size: 12px;">{{ selectedTicket.courseId }}</div>
+            <div class="text-weight-bold text-ink" style="font-size: 14px;">{{ selectedTicket.name }}</div>
+            <div class="text-muted" style="font-size: 12px;">{{ selectedTicket.courseId }}</div>
           </div>
         </div>
-        <div class="row items-center q-mb-sm text-dark" style="font-size: 13px;">
+        <div class="row items-center q-mb-sm text-ink" style="font-size: 13px;">
           <Icon icon="mdi:email-outline" color="#9e9e9e" width="16" height="16" class="q-mr-sm"/> {{ selectedTicket.student.email }}
         </div>
-        <div class="row items-center text-dark" style="font-size: 13px;">
+        <div class="row items-center text-ink" style="font-size: 13px;">
           <Icon icon="mdi:phone-outline" color="#9e9e9e" width="16" height="16" class="q-mr-sm"/> {{ selectedTicket.student.phone }}
         </div>
       </div>
 
-      <div class="q-pa-md bg-grey-1" style="flex-grow: 1;">
-        <div class="text-caption text-grey-5 text-weight-bold text-uppercase q-mb-md tracking-wide">Property Context</div>
+      <div class="q-pa-md bg-surface-2" style="flex-grow: 1;">
+        <div class="text-caption text-muted text-weight-bold text-uppercase q-mb-md tracking-wide">Property Context</div>
         <q-card flat bordered class="bg-surface q-pa-sm custom-radius q-mb-md">
-          <div class="text-weight-bold text-dark q-mb-xs" style="font-size: 13px;">{{ selectedTicket.property.name }}</div>
-          <div class="text-grey-6 q-mb-sm" style="font-size: 11px;">Landlord: {{ selectedTicket.property.landlord }}</div>
+          <div class="text-weight-bold text-ink q-mb-xs" style="font-size: 13px;">{{ selectedTicket.property.name }}</div>
+          <div class="text-muted q-mb-sm" style="font-size: 11px;">Landlord: {{ selectedTicket.property.landlord }}</div>
         </q-card>
 
         <div class="column q-gutter-y-sm">
-          <q-btn outline color="teal-7" no-caps class="text-weight-bold full-width custom-radius bg-surface" align="left">
+          <q-btn outline color="primary" no-caps class="text-weight-bold full-width custom-radius bg-surface" align="left">
             <Icon icon="mdi:open-in-new" class="on-left" width="18" height="18" />Open Property Profile
           </q-btn>
         </div>
@@ -248,7 +248,7 @@
 
     <q-card v-else flat class="col bg-surface custom-shadow column flex-center" style="border-radius: 12px;">
       <Icon icon="mdi:forum-outline" width="64" height="64" color="var(--c-border-strong)" class="q-mb-md" />
-      <div class="text-h6 text-grey-5 text-weight-bold">Select a ticket to begin</div>
+      <div class="text-h6 text-muted text-weight-bold">Select a ticket to begin</div>
     </q-card>
 
     </div>
@@ -345,8 +345,8 @@ function getStatusBgColor(status: string) {
   height: 100% !important;
 }
 .custom-shadow { box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important; border: 1px solid var(--c-border-strong); }
-.border-bottom { border-bottom: 1px solid #f0f0f0; }
-.border-top { border-top: 1px solid #f0f0f0; }
+.border-bottom { border-bottom: 1px solid var(--c-border); }
+.border-top { border-top: 1px solid var(--c-border); }
 .border-all { border: 1px solid var(--c-border-strong); }
 .border-amber { border: 1px solid #ffca28; }
 .border-teal { border: 1px solid #b2dfdb; }

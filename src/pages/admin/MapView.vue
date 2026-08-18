@@ -1,68 +1,91 @@
 <template>
-  <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
-    <div class="map-split row no-wrap q-gutter-x-md" style="flex: 1 1 0; min-height: 0; overflow: hidden;">
+  <q-page class="users-page full-map-page relative-position">
 
-    <!-- LEFT SIDEBAR -->
-    <div class="sidebar-container bg-surface custom-shadow column no-wrap relative-position">
-      <div class="col absolute-full">
-        <transition name="slide-fade" mode="out-in">
-          <PropertyList
-            v-if="!selectedProperty"
-            :properties="properties"
-            @select="selectProperty"
-            class="absolute-full"
-          />
-          <PropertyDetail
-            v-else
-            :property="selectedProperty"
-            @back="selectedProperty = null"
-            class="absolute-full"
-          />
-        </transition>
+    <!-- MAPBOX CANVAS -->
+    <div ref="mapContainer" class="map-container"></div>
+
+    <!-- SEARCH + FILTER + FLOATING PANEL (top-left): toolbar, then list ⇄ detail -->
+    <div class="map-toolbar" style="position: absolute; top: 24px; left: 32px; bottom: 32px; z-index: 10; width: 440px; display: flex; flex-direction: column;">
+
+      <!-- Search + Filter (outside the table) -->
+      <div class="toolbar-row row no-wrap items-center q-mb-md non-shrink">
+        <q-input
+          v-model="search"
+          outlined
+          dense
+          bg-color="surface"
+          placeholder="Search property, landlord..."
+          class="search-input col"
+          clearable
+        >
+          <template v-slot:prepend>
+            <Icon icon="mdi:magnify" width="20" height="20" color="var(--c-muted)" />
+          </template>
+        </q-input>
+
+        <FilterDropdown
+          class="filter-drop"
+          :filters="filters"
+          :active-filters="activeFilters"
+          @update:active-filters="activeFilters = $event"
+          @clear="clearFilters"
+        />
+      </div>
+
+      <!-- LIST STATE -->
+      <div v-if="!selectedProperty" class="property-panel bg-surface shadow-2">
+        <PropertyList
+          :properties="filteredForList"
+          @select="onSelectProperty"
+        />
+      </div>
+
+      <!-- DETAIL STATE: the panel becomes the property detail -->
+      <div v-else class="property-panel bg-surface shadow-2">
+        <PropertyDetail
+          :key="selectedProperty?.id"
+          :property="selectedProperty"
+          @back="selectedProperty = null"
+        />
       </div>
     </div>
 
-    <!-- RIGHT MAP AREA -->
-    <div class="col relative-position map-area custom-shadow">
-      <!-- Mapbox canvas -->
-      <div ref="mapContainer" class="map-container"></div>
-
-      <div class="absolute-top-left q-pa-md" style="z-index: 2;">
-        <q-btn-group outline rounded class="bg-surface shadow-1" style="border-radius: 12px;">
-          <q-btn flat color="dark" dense class="q-px-sm" @click="zoomIn"><Icon icon="mdi:plus" width="18" height="18" /></q-btn>
-          <q-btn flat color="dark" dense class="q-px-sm" @click="zoomOut"><Icon icon="mdi:minus" width="18" height="18" /></q-btn>
-        </q-btn-group>
-      </div>
-
-      <div class="absolute-top-right q-pa-md" style="z-index: 2;">
-        <div class="bg-surface shadow-1 q-px-sm q-py-xs row items-center text-grey-7 text-caption text-weight-bold" style="border-radius: 12px; border: 1px solid var(--c-border-strong);">
-          <Icon icon="mdi:school" width="16" height="16" class="q-mr-xs" /> ISU Echague, Isabela
-        </div>
-      </div>
-
-      <div class="absolute-bottom-left q-pa-md row q-gutter-x-sm" style="z-index: 2;">
-        <q-badge color="grey-2" text-color="teal-7" class="shadow-1 q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px; border: 1px solid var(--c-border-strong);">
-          <span class="legend-dot bg-teal-7" /> {{ verifiedCount }} Verified
-        </q-badge>
-        <q-badge color="grey-2" text-color="orange-6" class="shadow-1 q-px-sm q-py-xs text-weight-bold" style="border-radius: 6px; border: 1px solid var(--c-border-strong);">
-          <span class="legend-dot bg-orange-6" /> {{ pendingCount }} Pending
-        </q-badge>
-      </div>
-
-      <div class="absolute-bottom-right q-pa-xs text-grey-6 text-weight-medium" style="font-size: 10px; z-index: 2; background: rgba(255,255,255,0.7); border-radius: 4px;">
-        &copy; Mapbox
-      </div>
+    <!-- MAP STYLE TOGGLE (top-right) -->
+    <div class="style-toggle bg-surface shadow-1" style="position: absolute; top: 32px; right: 32px; z-index: 10;">
+      <q-btn-group rounded flat>
+        <q-btn
+          unelevated
+          no-caps
+          dense
+          :class="mapStyle === 'satellite' ? 'active-style' : 'inactive-style'"
+          class="q-px-sm"
+          @click="setStyle('satellite')"
+        >
+          <Icon icon="mdi:satellite-variant" width="18" height="18" class="q-mr-xs" /> Realistic
+        </q-btn>
+        <q-btn
+          unelevated
+          no-caps
+          dense
+          :class="mapStyle === 'plain' ? 'active-style' : 'inactive-style'"
+          class="q-px-sm"
+          @click="setStyle('plain')"
+        >
+          <Icon icon="mdi:map-outline" width="18" height="18" class="q-mr-xs" /> Plain
+        </q-btn>
+      </q-btn-group>
     </div>
-    </div>
+
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import PropertyList from '@/components/properties/PropertyList.vue'
 import PropertyDetail from '@/components/properties/PropertyDetail.vue'
+import FilterDropdown from '@/components/ui/FilterDropdown.vue'
 import { useProperties } from '@/composables/useProperties'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
@@ -74,40 +97,122 @@ try {
   Object.defineProperty(mapboxgl.config, 'EVENTS_URL', { get: () => null, configurable: true })
 } catch {}
 
-const { loading: loadingProps, error: propsError, properties, load: loadProperties } = useProperties()
+const { properties, load: loadProperties } = useProperties()
 
-const selectedProperty = ref<any>(null)
 const mapContainer = ref<HTMLElement | null>(null)
 let map: mapboxgl.Map | null = null
 let markers: mapboxgl.Marker[] = []
 
-const verifiedCount = computed(() => properties.value.filter(p => p.verified).length)
-const pendingCount = computed(() => properties.value.filter(p => !p.verified).length)
+const selectedProperty = ref<any>(null)
+const search = ref('')
+const activeFilters = ref<Record<string, any[]>>({})
 
-function zoomIn() { map?.zoomIn() }
-function zoomOut() { map?.zoomOut() }
+// Filters (property type / room type / status) — applied by MapView, so the
+// search + filter toolbar can sit OUTSIDE the PropertyList table.
+const filters = [
+  {
+    key: 'propertyType',
+    label: 'Property Type',
+    options: [
+      { label: 'Dormitory', value: 'Dormitory' },
+      { label: 'Bedspace', value: 'Bedspace' },
+      { label: 'Apartment', value: 'Apartment' },
+      { label: 'Boarding House', value: 'Boarding House' },
+    ],
+  },
+  {
+    key: 'roomType',
+    label: 'Room Type',
+    options: [
+      { label: 'Solo', value: 'solo' },
+      { label: 'Duo', value: 'duo' },
+      { label: 'Triple', value: 'triple' },
+      { label: 'Bedspace', value: 'bedspace' },
+    ],
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    options: [
+      { label: 'Verified', value: 'verified' },
+      { label: 'Pending', value: 'pending' },
+    ],
+  },
+]
 
-function selectProperty(p: any) {
+function clearFilters() {
+  activeFilters.value = {}
+}
+
+// The left panel is a list ⇄ detail toggle. selectedProperty == null → list;
+// otherwise the panel shows PropertyDetail for that property.
+const filteredForList = computed(() => {
+  let list = properties.value.slice()
+
+  const q = search.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter((p) =>
+      [p.name, p.landlord, p.type]
+        .filter(Boolean)
+        .some((f) => String(f).toLowerCase().includes(q))
+    )
+  }
+
+  for (const key of Object.keys(activeFilters.value)) {
+    const selected = activeFilters.value[key] as string[]
+    if (!selected || selected.length === 0) continue
+    list = list.filter((p) => {
+      const val = key === 'status'
+        ? (p.verified ? 'verified' : 'pending')
+        : String((p as any)[key] ?? '')
+      return selected.includes(val)
+    })
+  }
+
+  return list
+})
+
+// Watch the raw property set (not the filtered list) so markers always match
+// the full dataset; the toolbar filters only control the side list.
+watch(properties, () => addMarkers())
+
+// 'plain' = light-v11 flat; 'satellite' = satellite-streets imagery
+const mapStyle = ref<'plain' | 'satellite'>('plain')
+const MAP_STYLES: Record<'plain' | 'satellite', string> = {
+  plain: 'mapbox://styles/mapbox/light-v11',
+  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+}
+
+// Selecting a property swaps the panel to its DETAIL view and jumps the map to
+// that property's location (its lat/lng — real coords when available, otherwise
+// the derived fallback used for markers).
+function onSelectProperty(p: any) {
   selectedProperty.value = p
-  // Fly to the property's coordinates if present, else its scattered fallback.
+  flyToProperty(p)
+}
+
+function flyToProperty(p: any) {
+  if (!map) return
   const lat = p.lat ?? p._fallbackLat
   const lng = p.lng ?? p._fallbackLng
-  if (map && lat != null && lng != null) {
-    map.flyTo({ center: [lng, lat], zoom: 15, essential: true })
+  if (lat != null && lng != null) {
+    map.flyTo({ center: [lng, lat], zoom: 16, essential: true })
   }
 }
 
+function setStyle(style: 'plain' | 'satellite') {
+  mapStyle.value = style
+  map?.setStyle(MAP_STYLES[style])
+}
+
 function addMarkers() {
+  if (!map) return
   markers.forEach(m => m.remove())
   markers = []
-  // ISU Echague approximate center
   const centerLat = 16.710
   const centerLng = 121.720
 
   properties.value.forEach((p, i) => {
-    // Real properties currently have null lat/lng. Scatter them around campus
-    // deterministically so they're still visible on the map; swap to real
-    // coords automatically once lat/lng are populated.
     const hasCoords = p.lat != null && p.lng != null
     const angle = (i / Math.max(1, properties.value.length)) * Math.PI * 2
     const radius = 0.008 + (i % 3) * 0.004
@@ -116,39 +221,39 @@ function addMarkers() {
     ;(p as any)._fallbackLat = lat
     ;(p as any)._fallbackLng = lng
 
-    const el = document.createElement('div')
-    el.className = 'map-pin'
-    el.style.background = p.verified ? '#0d9488' : '#f59e0b'
-    el.title = p.name
-    el.addEventListener('click', () => { selectProperty(p) })
-
-    const marker = new mapboxgl.Marker({ element: el })
+    const marker = new mapboxgl.Marker()
       .setLngLat([lng, lat])
       .addTo(map!)
+    // Default Mapbox marker is a teal droplet whose bottom tip lands exactly on
+    // the location — no custom pin/rotation so it can't drift or look buried.
+
+    // Wire the default marker's underlying element to open the detail + fly.
+    if (marker.getElement()) {
+      marker.getElement().addEventListener('click', () => {
+        flyToProperty(p)
+        onSelectProperty(p)
+      })
+    }
 
     markers.push(marker)
   })
 }
 
 onMounted(async () => {
+  await loadProperties()
   await nextTick()
   if (!mapContainer.value) return
 
   map = new mapboxgl.Map({
     container: mapContainer.value,
-    style: 'mapbox://styles/mapbox/light-v11',
+    style: MAP_STYLES[mapStyle.value],
     center: [121.720, 16.710],
     zoom: 14,
   })
 
-  map.addControl(new mapboxgl.NavigationControl(), 'top-left')
-
-  // Load real properties first, then place markers once they arrive.
-  loadProperties().then(() => {
-    if (!map) return
-    if (map.loaded()) addMarkers()
-    else map.on('load', addMarkers)
-  })
+  const onReady = () => addMarkers()
+  if (map.loaded()) onReady()
+  else map.on('load', onReady)
 })
 
 onBeforeUnmount(() => {
@@ -161,59 +266,66 @@ onBeforeUnmount(() => {
 .users-page {
   overflow: hidden !important;
   height: 100% !important;
-}
-.custom-shadow {
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important;
-  border-radius: 12px;
-}
-.border-all {
-  border: 1px solid var(--c-border-strong);
+  padding: 0 !important;
 }
 
-.sidebar-container {
-  width: 420px;
-  min-width: 420px;
-  height: 100%;
-  border: 1px solid var(--c-border-strong);
-}
-
-.map-area {
-  height: 100%;
-  border: 1px solid var(--c-border-strong);
-  border-radius: 12px;
-  overflow: hidden;
-}
+.full-map-page { position: relative; }
 
 .map-container {
   position: absolute;
-  inset: 0;
+  inset: 16px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--c-border-strong, #e6e8eb);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
-.legend-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 5px;
+.property-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.slide-fade-enter-active { transition: all 0.2s ease-out; }
-.slide-fade-leave-active { transition: all 0.1s cubic-bezier(1, 0.5, 0.8, 1); }
-.slide-fade-enter-from, .slide-fade-leave-to {
-  transform: translateX(-10px);
-  opacity: 0;
+/* Toolbar search + filter spacing (outside the side table) */
+.map-toolbar .toolbar-row {
+  gap: 10px;
+}
+.map-toolbar .search-input :deep(.q-field__control) {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.map-toolbar .filter-drop { margin-left: auto; }
+.map-toolbar .filter-drop :deep(.q-btn) {
+  border-radius: 12px;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--c-border-strong, #cbcbcb);
+  background: var(--c-surface);
+}
+.map-toolbar .search-input :deep(.q-field__control),
+.map-toolbar .filter-drop :deep(.q-btn) {
+  background: #fff;
+}
+
+.style-toggle {
+  border-radius: 12px;
+  border: 1px solid var(--c-border-strong, #e6e8eb);
+  overflow: hidden;
+}
+.style-toggle .active-style {
+  background: #0d9488;
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+}
+.style-toggle .inactive-style {
+  background: #fff;
+  color: #555;
+  font-size: 12px;
 }
 
 :deep(.mapboxgl-ctrl-attrib) { font-size: 10px; }
-</style>
-
-<style>
-.map-pin {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 3px solid #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  cursor: pointer;
-}
 </style>

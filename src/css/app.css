@@ -75,11 +75,29 @@ h4,
 .text-ink { color: var(--c-ink) !important; }
 .text-muted { color: var(--c-muted) !important; }
 .border-token { border: 1px solid var(--c-border) !important; }
+.border-strong { border: 1px solid var(--c-border-strong) !important; }
 .radius { border-radius: var(--radius) !important; }
 .radius-lg { border-radius: var(--radius-lg) !important; }
 .card-radius { border-radius: var(--card-radius) !important; }
 .radius-sm { border-radius: var(--radius-sm) !important; }
+.radius-input { border-radius: var(--radius-btn) !important; }
 .shadow-token { box-shadow: var(--shadow) !important; }
+.shadow-card { box-shadow: var(--shadow-sm) !important; }
+
+/* ---- Semantic status utilities (soft bg + ink, token-driven) ---- */
+.bg-primary-soft  { background: var(--c-primary-soft) !important; }
+.bg-success-soft  { background: var(--c-success-soft) !important; }
+.bg-warning-soft  { background: var(--c-warning-soft) !important; }
+.bg-danger-soft   { background: var(--c-danger-soft) !important; }
+.bg-info-soft     { background: var(--c-info-soft) !important; }
+.bg-neutral-soft  { background: var(--c-surface-2) !important; }
+
+.text-primary { color: var(--c-primary) !important; }
+.text-success { color: var(--c-success) !important; }
+.text-warning { color: var(--c-warning) !important; }
+.text-danger  { color: var(--c-danger) !important; }
+.text-info    { color: var(--c-info) !important; }
+.text-neutral { color: var(--c-muted) !important; }
 
 /* ---- Unified button design ----
    Every Quasar button (except round/fab/circle) shares one corner radius,

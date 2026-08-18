@@ -32,7 +32,7 @@
             <div class="column q-ml-md">
               <div class="text-weight-bold text-ink" style="font-size: 16px">{{ form.name || 'Administrator' }}</div>
               <div class="text-muted" style="font-size: 13px">{{ form.email || 'admin@osas.gov.ph' }}</div>
-              <BadgePill :bg="roleStyle.bg" :text-color="roleStyle.text" :icon="roleStyle.icon" :label="form.role" class="q-mt-xs" />
+              <BadgePill :tone="roleStyle.tone" :icon="roleStyle.icon" :label="form.role" class="q-mt-xs" />
             </div>
           </div>
 
@@ -79,7 +79,7 @@
           <div class="field-block">
             <div class="field-label">Density</div>
             <q-btn-toggle v-model="appearance.density" spread no-caps unelevated
-              :options="densityOptions" color="grey-3" text-color="grey-8"
+              :options="densityOptions" color="grey-3" text-color="ink"
               class="density-toggle" active-class="density-active" />
           </div>
 
@@ -200,7 +200,7 @@ const initials = computed(() =>
   form.name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase() || 'A'
 )
 
-const roleStyle = { bg: 'teal-1', text: 'teal-8', icon: 'mdi:shield-account' }
+const roleStyle = { tone: 'primary', icon: 'mdi:shield-account' }
 
 const notifications = reactive({
   emailAlerts: true,

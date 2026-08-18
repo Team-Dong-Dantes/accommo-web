@@ -4,7 +4,7 @@
     <Sidebar />
 
     <q-header class="bg-transparent text-ink app-header" :class="{ 'is-scrolled': scrolled }">
-      <q-toolbar class="q-py-sm q-px-md">
+      <q-toolbar class="q-py-xs q-px-sm">
         <div class="text-h5 text-weight-bold q-ml-sm" style="line-height: 1.2; font-family: var(--font-display);">
           {{ route.meta.title || 'Accommo' }}
         </div>
@@ -56,8 +56,11 @@ onUnmounted(() => {
   background-color: var(--c-bg);
 }
 .app-header {
+  margin: 6px 12px 0;
+  border-radius: var(--radius-lg);
+  padding: 2px 8px;
   background: transparent;
-  border-bottom: 1px solid transparent;
+  border: 1px solid transparent;
   transition: background-color .25s ease, backdrop-filter .25s ease,
     -webkit-backdrop-filter .25s ease, box-shadow .25s ease, border-color .25s ease;
 }
@@ -65,7 +68,7 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--c-bg) 72%, transparent);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   backdrop-filter: blur(14px) saturate(140%);
-  border-bottom-color: var(--c-border);
+  border-color: var(--c-border);
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
 }
 </style>

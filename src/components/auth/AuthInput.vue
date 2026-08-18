@@ -1,5 +1,5 @@
 <template>
-  <q-input v-model="model" borderless hide-bottom-space dark color="teal-4" class="auth-input" v-bind="$attrs">
+  <q-input v-model="model" borderless hide-bottom-space dark color="primary" class="auth-input" v-bind="$attrs">
     <template v-for="(_, name) in $slots" #[name]="slotData">
       <slot :name="name" v-bind="slotData || {}" />
     </template>

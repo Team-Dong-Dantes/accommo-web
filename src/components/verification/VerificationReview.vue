@@ -14,8 +14,8 @@
       </q-btn>
 
       <div class="row items-center q-gutter-x-sm">
-        <span class="text-grey-6 text-weight-medium text-caption">Request ID: {{ request?.id || 'REQ-L102' }}</span>
-        <div class="bg-orange-1 text-orange-7 text-caption text-weight-bold q-px-sm q-py-xs rounded-borders">
+        <span class="text-muted text-weight-medium text-caption">Request ID: {{ request?.id || 'REQ-L102' }}</span>
+        <div class="bg-warning-soft text-warning text-caption text-weight-bold q-px-sm q-py-xs rounded-borders">
           Pending Review
         </div>
       </div>
@@ -27,7 +27,7 @@
         <q-card flat bordered class="bg-surface document-container">
 
           <div class="row justify-between items-center q-pa-sm border-bottom">
-            <div class="text-weight-bold text-dark q-ml-sm">
+            <div class="text-weight-bold text-ink q-ml-sm">
               Attached_Document.pdf
             </div>
             <div class="row q-gutter-x-xs">
@@ -39,9 +39,9 @@
             </div>
           </div>
 
-          <div class="col bg-grey-2 flex flex-center relative-position">
-            <Icon icon="mdi:file-document-outline" width="64" height="64" color="#bdbdbd" />
-            <div class="absolute-bottom text-center q-pb-md text-grey-5 text-caption">
+          <div class="col bg-surface-2 flex flex-center relative-position">
+            <Icon icon="mdi:file-document-outline" width="64" height="64" color="var(--c-border-strong)" />
+            <div class="absolute-bottom text-center q-pb-md text-muted text-caption">
               Simulated Document Viewer
             </div>
           </div>
@@ -52,41 +52,41 @@
       <div class="col-12 col-md-4 column q-gutter-y-md">
 
         <q-card flat bordered class="q-pa-md panel-card">
-          <div class="text-caption text-grey-6 text-weight-bold q-mb-md text-uppercase">Applicant</div>
+          <div class="text-caption text-muted text-weight-bold q-mb-md text-uppercase">Applicant</div>
 
           <div class="row items-center no-wrap">
             <q-avatar size="48px" :color="request?.avatarColor || 'teal-6'" text-color="white" class="text-weight-bold q-mr-md">
               {{ request?.initials || '??' }}
             </q-avatar>
             <div class="column">
-              <div class="text-weight-bold text-dark" style="font-size: 16px">{{ request?.name || 'Applicant Name' }}</div>
-              <div class="text-grey-6" style="font-size: 13px">{{ request?.email || request?.owner || 'Contact Info' }}</div>
+              <div class="text-weight-bold text-ink" style="font-size: 16px">{{ request?.name || 'Applicant Name' }}</div>
+              <div class="text-muted" style="font-size: 13px">{{ request?.email || request?.owner || 'Contact Info' }}</div>
             </div>
           </div>
         </q-card>
 
         <q-card flat bordered class="q-pa-md panel-card">
           <div class="row justify-between items-center q-mb-md">
-            <div class="text-caption text-grey-6 text-weight-bold text-uppercase">System Match Verification</div>
-            <div class="text-caption text-teal-7 text-weight-bold bg-teal-1 q-px-sm q-py-xs rounded-borders">
+            <div class="text-caption text-muted text-weight-bold text-uppercase">System Match Verification</div>
+            <div class="text-caption text-primary text-weight-bold bg-primary-soft q-px-sm q-py-xs rounded-borders">
               Auto-Checked
             </div>
           </div>
 
           <div class="column q-gutter-y-sm">
 
-            <div class="row items-center justify-between bg-grey-1 q-pa-sm rounded-borders">
+            <div class="row items-center justify-between bg-surface-2 q-pa-sm rounded-borders">
               <div class="column">
-                <span class="text-caption text-grey-6">Registered Name</span>
-                <span class="text-weight-bold text-dark" style="font-size: 13px">{{ request?.name }}</span>
+                <span class="text-caption text-muted">Registered Name</span>
+                <span class="text-weight-bold text-ink" style="font-size: 13px">{{ request?.name }}</span>
               </div>
               <Icon icon="mdi:check-circle" color="#66bb6a" width="18" height="18" />
             </div>
 
-            <div class="row items-center justify-between bg-grey-1 q-pa-sm rounded-borders">
+            <div class="row items-center justify-between bg-surface-2 q-pa-sm rounded-borders">
               <div class="column">
-                <span class="text-caption text-grey-6">Document Status</span>
-                <span class="text-weight-bold text-dark" style="font-size: 13px">Valid until Dec 2026</span>
+                <span class="text-caption text-muted">Document Status</span>
+                <span class="text-weight-bold text-ink" style="font-size: 13px">Valid until Dec 2026</span>
               </div>
               <Icon icon="mdi:check-circle" color="#66bb6a" width="18" height="18" />
             </div>
@@ -95,13 +95,13 @@
         </q-card>
 
         <q-card flat bordered class="q-pa-md col flex column panel-card">
-          <div class="text-caption text-grey-6 text-weight-bold q-mb-md text-uppercase">Decision</div>
+          <div class="text-caption text-muted text-weight-bold q-mb-md text-uppercase">Decision</div>
 
           <div class="row q-gutter-x-sm q-mb-md">
             <q-btn
               outline
-              :color="decision === 'approve' ? 'teal-7' : 'grey-5'"
-              :class="{'bg-teal-1': decision === 'approve'}"
+              :color="decision === 'approve' ? 'primary' : 'grey-5'"
+              :class="{'bg-primary-soft': decision === 'approve'}"
               label="Approve"
               class="col text-weight-bold"
               no-caps
@@ -109,8 +109,8 @@
             />
             <q-btn
               outline
-              :color="decision === 'reject' ? 'red-6' : 'grey-5'"
-              :class="{'bg-red-1': decision === 'reject'}"
+              :color="decision === 'reject' ? 'negative' : 'grey-5'"
+              :class="{'bg-danger-soft': decision === 'reject'}"
               label="Reject"
               class="col text-weight-bold"
               no-caps
@@ -119,7 +119,7 @@
           </div>
 
           <div v-if="decision === 'reject'" class="q-mb-md">
-            <div class="text-caption text-grey-8 q-mb-sm text-weight-medium">Select Rejection Reasons</div>
+            <div class="text-caption text-ink q-mb-sm text-weight-medium">Select Rejection Reasons</div>
             <div class="row q-gutter-sm">
               <q-chip
                 v-for="tag in availableTags"
@@ -136,7 +136,7 @@
           </div>
 
           <div v-if="decision" class="q-mb-md">
-            <div class="text-caption text-grey-8 q-mb-sm text-weight-medium">Additional Notes</div>
+            <div class="text-caption text-ink q-mb-sm text-weight-medium">Additional Notes</div>
             <q-input
               v-model="notes"
               outlined
@@ -221,11 +221,11 @@ function toggleTag(tag: string) {
 }
 
 .border-bottom {
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--c-border);
 }
 
 .rounded-borders {
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .submit-btn {
