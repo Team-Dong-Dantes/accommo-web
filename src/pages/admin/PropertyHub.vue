@@ -40,7 +40,7 @@
                 </div>
               </template>
               <template #body="{ props }">
-                <q-tr :props="props" class="smart-row">
+                <q-tr :props="props" class="smart-row cursor-pointer" @click="openProperty(props.row)">
                       <q-td key="property" :props="props">
                         <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="props.row.avatarColor" :subtitle="props.row.id" />
                       </q-td>
@@ -68,7 +68,7 @@
                 </div>
               </template>
               <template #body="{ props }">
-                <q-tr :props="props" class="smart-row">
+                <q-tr :props="props" class="smart-row cursor-pointer" @click="openProperty(props.row)">
                       <q-td key="property" :props="props">
                         <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="props.row.avatarColor" :subtitle="props.row.id" />
                       </q-td>
@@ -100,7 +100,7 @@
                 </div>
               </template>
               <template #body="{ props }">
-                <q-tr :props="props" class="smart-row">
+                <q-tr :props="props" class="smart-row cursor-pointer" @click="openProperty(props.row)">
                       <q-td key="property" :props="props">
                         <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="props.row.avatarColor" :subtitle="props.row.id" />
                       </q-td>
@@ -129,7 +129,7 @@
                 </div>
               </template>
               <template #body="{ props }">
-                <q-tr :props="props" class="smart-row">
+                <q-tr :props="props" class="smart-row cursor-pointer" @click="openProperty(props.row)">
                   <q-td key="rank" :props="props" class="text-muted text-weight-bold" style="font-size: 13px;">#{{ props.row.performance.rank }}</q-td>
                       <q-td key="property" :props="props">
                         <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="props.row.avatarColor" :subtitle="props.row.id" />
@@ -155,6 +155,64 @@
       </template>
     </TableCard>
 
+    <DetailDrawer v-model="drawerOpen">
+      <template #banner>
+        <ProfileHero
+          :name="selectedProperty?.name"
+          :initials="selectedProperty?.initials"
+          :avatar-color="selectedProperty?.avatarColor"
+          role-label="Boarding House"
+          :role-style="{ icon: 'mdi:home-city' }"
+          :status-label="selectedProperty?.accreditation.status"
+          :status-style="getAccreditationColor(selectedProperty?.accreditation.status)"
+        />
+      </template>
+
+      <template v-if="selectedProperty">
+        <SegmentedToggle v-model="sectionTab" :options="sectionOptions" />
+
+        <transition name="ph-fade" mode="out-in">
+          <div :key="sectionTab" class="ph-section">
+
+            <!-- OVERVIEW -->
+            <template v-if="sectionTab === 'overview'">
+              <InfoCard title="Basic Info">
+                <InfoRow icon="mdi:identifier" label="Property ID" :value="selectedProperty.id" :mono="true" />
+                <InfoRow icon="mdi:account-tie" label="Landlord" :value="selectedProperty.landlord" />
+                <InfoRow icon="mdi:bed" label="Total Rooms" :value="selectedProperty.accreditation.rooms != null ? String(selectedProperty.accreditation.rooms) : '—'" :last="true" />
+              </InfoCard>
+
+              <InfoCard title="Accreditation">
+                <InfoRow icon="mdi:certificate" label="Status" :value="selectedProperty.accreditation.status" />
+                <InfoRow icon="mdi:calendar-clock" label="Next Renewal" :value="selectedProperty.accreditation.nextRenewal" />
+                <InfoRow icon="mdi:account-search" label="Inspector" :value="selectedProperty.accreditation.inspector" :last="true" />
+              </InfoCard>
+            </template>
+
+            <!-- COMPLIANCE -->
+            <template v-else-if="sectionTab === 'compliance'">
+              <InfoCard title="Permits">
+                <InfoRow icon="mdi:domain" label="Business Permit" :value="fmtPermit(selectedProperty.compliance.business)" />
+                <InfoRow icon="mdi:spray-bottle" label="Sanitary Permit" :value="fmtPermit(selectedProperty.compliance.sanitary)" />
+                <InfoRow icon="mdi:fire" label="Fire Certificate" :value="fmtPermit(selectedProperty.compliance.fire)" />
+                <InfoRow icon="mdi:water" label="Water Permit" :value="fmtPermit(selectedProperty.compliance.water)" />
+                <InfoRow icon="mdi:shield-check" label="Overall" :value="selectedProperty.compliance.overall" :last="true" />
+              </InfoCard>
+            </template>
+
+          </div>
+        </transition>
+      </template>
+
+      <template #footer>
+        <div class="row items-center justify-end">
+          <q-btn unelevated no-caps color="primary" text-color="white" class="text-weight-bold ph-close-btn" @click="drawerOpen = false">
+            Close
+          </q-btn>
+        </div>
+      </template>
+    </DetailDrawer>
+
   </q-page>
 </template>
 
@@ -165,6 +223,11 @@ import TableCard from '@/components/table/TableCard.vue'
 import DataTable from '@/components/table/DataTable.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
+import DetailDrawer from '@/components/ui/DetailDrawer.vue'
+import ProfileHero from '@/components/user/ProfileHero.vue'
+import SegmentedToggle from '@/components/ui/SegmentedToggle.vue'
+import InfoCard from '@/components/ui/InfoCard.vue'
+import InfoRow from '@/components/ui/InfoRow.vue'
 import { useProperties } from '@/composables/useProperties'
 
 const search = ref('')
@@ -203,6 +266,31 @@ async function fetchProperties() {
 }
 
 onMounted(fetchProperties)
+
+const drawerOpen = ref(false)
+const selectedProperty = ref<any | null>(null)
+const sectionTab = ref('overview')
+
+function openProperty(row: any) {
+  selectedProperty.value = row
+  sectionTab.value = 'overview'
+  drawerOpen.value = true
+}
+
+function cap(s: string | null | undefined) {
+  if (!s) return '—'
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function fmtPermit(p: any) {
+  if (!p || p.status === '—') return '—'
+  return `${p.status}${p.date && p.date !== '—' ? ' · ' + p.date : ''}`
+}
+
+const sectionOptions = [
+  { value: 'overview', label: 'Overview' },
+  { value: 'compliance', label: 'Compliance' },
+]
 
 const auditColumns = [
   { name: 'property', align: 'left', label: 'Property', field: 'name', headerStyle: 'width: 22%' },
@@ -394,5 +482,24 @@ function getTrend(trend: string) {
 
 .non-shrink {
   flex-shrink: 0;
+}
+
+/* Section transition (matches Users detail drawer) */
+.ph-fade-enter-active,
+.ph-fade-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.ph-fade-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.ph-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.ph-close-btn {
+  border-radius: var(--radius-btn);
+  padding: 8px 22px;
 }
 </style>

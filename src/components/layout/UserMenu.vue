@@ -38,18 +38,18 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import { useQuasar } from 'quasar';
+import { useNotify } from '@/utils/notify';
 
 const router = useRouter();
 const authStore = useAuthStore();
-const $q = useQuasar();
+const { error: notifyError } = useNotify();
 
 async function handleLogout() {
   try {
     await authStore.logout();
     void router.push('/login');
   } catch (error) {
-    $q.notify({ message: 'Error signing out', color: 'red', position: 'top' });
+    notifyError('Error signing out');
   }
 }
 </script>

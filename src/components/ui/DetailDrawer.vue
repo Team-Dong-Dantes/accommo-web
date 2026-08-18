@@ -11,7 +11,7 @@
           <aside
             v-if="modelValue"
             class="dd-panel"
-            :style="{ width: width, maxWidth: '92vw' }"
+            :style="{ width: width, maxWidth: '90vw' }"
             role="dialog"
             aria-modal="true"
             @click.stop
@@ -107,6 +107,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   backdrop-filter: blur(2px);
   display: flex;
   justify-content: flex-end;
+  padding: var(--sp-4);
+  box-sizing: border-box;
 }
 .dd-backdrop--static {
   background: transparent;
@@ -119,6 +121,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   height: 100%;
   background: var(--c-surface);
   box-shadow: var(--shadow-lg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   pointer-events: auto;

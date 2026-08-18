@@ -175,8 +175,10 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import BadgePill from '@/components/user/BadgePill.vue'
+import { useNotify } from '@/utils/notify'
 
 const $q = useQuasar()
+const notify = useNotify()
 const active = ref('profile')
 
 const sections = [
@@ -245,9 +247,9 @@ function saveAll() {
   saved.value = snapshot()
   try {
     localStorage.setItem('accommo-settings', saved.value)
-    $q.notify({ message: 'Settings saved', color: 'positive', position: 'top', icon: 'mdi:check-circle' })
+    notify.success('Settings saved')
   } catch {
-    $q.notify({ message: 'Could not save settings', color: 'negative', position: 'top' })
+    notify.error('Could not save settings')
   }
   password.current = ''
   password.next = ''
@@ -298,14 +300,14 @@ onMounted(() => {
 
 function savePassword() {
   if (password.next && password.next !== password.confirm) {
-    $q.notify({ message: 'New passwords do not match', color: 'negative', position: 'top' })
+    notify.error('New passwords do not match')
     return
   }
   if (password.next && password.next.length < 8) {
-    $q.notify({ message: 'Password must be at least 8 characters', color: 'negative', position: 'top' })
+    notify.error('Password must be at least 8 characters')
     return
   }
-  $q.notify({ message: 'Password updated', color: 'positive', position: 'top', icon: 'mdi:check-circle' })
+  notify.success('Password updated')
   password.current = ''
   password.next = ''
   password.confirm = ''
@@ -319,7 +321,7 @@ function confirmDelete() {
     persistent: true,
     ok: { color: 'negative', label: 'Delete' },
   }).onOk(() => {
-    $q.notify({ message: 'Account deletion requested', color: 'negative', position: 'top' })
+    notify.error('Account deletion requested')
   })
 }
 </script>
