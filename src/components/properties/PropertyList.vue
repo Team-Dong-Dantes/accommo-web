@@ -62,10 +62,23 @@
 </template>
 
 <script setup lang="ts">
+import { PropType } from 'vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 
+interface PropertyItem {
+  id: string | number
+  name: string
+  type?: string
+  landlord?: string
+  image?: string
+  verified?: boolean
+  rating?: string | number | null
+  totalStudents?: number
+  totalCapacity?: number
+}
+
 defineProps({
-  properties: { type: Array, required: true }
+  properties: { type: Array as PropType<PropertyItem[]>, required: true }
 })
 
 defineEmits(['select'])

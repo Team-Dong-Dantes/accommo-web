@@ -27,7 +27,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Dashboard.vue'),
-        meta: { title: 'Dashboard', subtitle: 'Platform overview — properties, occupancy, students & activity' },
+        meta: { title: 'Dashboard' },
       },
     ],
   },
@@ -39,7 +39,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Users.vue'),
-        meta: { title: 'Account Management', subtitle: 'All registered accounts — click any user to see placement, welfare, compliance & more' },
+        meta: { title: 'Account Management' },
       },
     ],
   },
@@ -51,7 +51,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Verifications.vue'),
-        meta: { title: 'Verifications', subtitle: 'Review and approve landlord identities and property OSAS accreditations' },
+        meta: { title: 'Verifications' },
       },
     ],
   },
@@ -63,7 +63,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/MapView.vue'),
-        meta: { title: 'Map View', subtitle: 'Interactive map and directory of all registered boarding houses and dorms' },
+        meta: { title: 'Map View' },
       },
     ],
   },
@@ -75,7 +75,19 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/PropertyHub.vue'),
-        meta: { title: 'Property Hub', subtitle: 'Audit · Compliance · Accreditation · Performance — all in one place' },
+        meta: { title: 'Property Hub' },
+      },
+    ],
+  },
+  {
+    path: '/room-hub',
+    component: () => import('@/layouts/MainLayout.vue'),
+    meta: { requiresAuth: true, role: 'admin' },
+    children: [
+      {
+        path: '',
+        component: () => import('@/pages/admin/RoomHub.vue'),
+        meta: { title: 'Room Hub' },
       },
     ],
   },
@@ -87,7 +99,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Concerns.vue'),
-        meta: { title: 'Concerns', subtitle: 'Manage student tickets, landlord issues, and support requests' },
+        meta: { title: 'Concerns' },
       },
     ],
   },
@@ -99,7 +111,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Announcements.vue'),
-        meta: { title: 'Announcements', subtitle: 'Manage platform announcements, policies, and guidelines' },
+        meta: { title: 'Announcements' },
       },
     ],
   },
@@ -111,7 +123,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/AuditLogs.vue'),
-        meta: { title: 'Audit Logs', subtitle: 'Track system events, user activity, and data modifications' },
+        meta: { title: 'Audit Logs' },
       },
     ],
   },
@@ -123,7 +135,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Settings.vue'),
-        meta: { title: 'Settings', subtitle: 'Manage your account, notifications, appearance, and security' },
+        meta: { title: 'Settings' },
       },
     ],
   },
