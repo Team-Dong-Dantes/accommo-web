@@ -181,6 +181,29 @@ export function useVerifications() {
     return filteredRows.value.slice(start, start + 10)
   })
 
+  function filterArr(arr: VerificationRequest[]) {
+    let result = arr
+    if (search.value) {
+      const needle = search.value.toLowerCase()
+      result = result.filter((row) =>
+        Object.values(row).some((val) => String(val).toLowerCase().includes(needle)),
+      )
+    }
+    return result
+  }
+  function paginateArr(arr: VerificationRequest[]) {
+    const start = (currentPage.value - 1) * 10
+    return arr.slice(start, start + 10)
+  }
+
+  const studentFiltered = computed(() => filterArr(studentRequests.value))
+  const landlordFiltered = computed(() => filterArr(landlordRequests.value))
+  const propertyFiltered = computed(() => filterArr(propertyRequests.value))
+
+  const studentPaginated = computed(() => paginateArr(studentFiltered.value))
+  const landlordPaginated = computed(() => paginateArr(landlordFiltered.value))
+  const propertyPaginated = computed(() => paginateArr(propertyFiltered.value))
+
   const totalLabel = computed(
     () => `${filteredRows.value.length} total ${filteredRows.value.length === 1 ? 'request' : 'requests'}`,
   )
@@ -281,6 +304,12 @@ export function useVerifications() {
     columns,
     filteredRows,
     paginatedRows,
+    studentFiltered,
+    landlordFiltered,
+    propertyFiltered,
+    studentPaginated,
+    landlordPaginated,
+    propertyPaginated,
     totalLabel,
     searchPlaceholder,
     emptyTitle,

@@ -81,6 +81,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import PropertyList from '@/components/properties/PropertyList.vue'
@@ -98,6 +99,7 @@ try {
 } catch {}
 
 const { properties, load: loadProperties } = useProperties()
+const route = useRoute()
 
 const mapContainer = ref<HTMLElement | null>(null)
 let map: mapboxgl.Map | null = null
@@ -251,7 +253,19 @@ onMounted(async () => {
     zoom: 14,
   })
 
-  const onReady = () => addMarkers()
+  const onReady = () => {
+    addMarkers()
+    // Deep-link support: ?property=<id> (e.g. from the user drawer's
+    // "View on Map" action) focuses + flies to that property on load.
+    const targetId = route.query.property
+    if (typeof targetId === 'string' && targetId) {
+      const target = properties.value.find((p) => p.id === targetId)
+      if (target) {
+        selectedProperty.value = target
+        flyToProperty(target)
+      }
+    }
+  }
   if (map.loaded()) onReady()
   else map.on('load', onReady)
 })

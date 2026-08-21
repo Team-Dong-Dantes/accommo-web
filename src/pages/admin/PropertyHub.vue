@@ -120,105 +120,12 @@
     <!-- DETAIL DRAWER: docks to the right edge of the table, flush, no margin -->
     <DetailDrawer
       v-model="drawerOpen"
-      :width="'460px'"
+      :width="'540px'"
       anchored
       position="right"
       close-on-backdrop
-    >
-      <template #banner>
-        <ProfileHero
-          v-if="selectedProperty"
-          :name="selectedProperty.name"
-          :initials="selectedProperty.initials"
-          avatar-color="primary"
-          avatar-size="88px"
-          avatar-font-size="32px"
-          :role-label="selectedProperty.type"
-          :role-style="{ icon: 'mdi:home-city' }"
-          :status-label="selectedProperty.verified ? 'Accredited' : 'Pending'"
-          :status-style="selectedProperty.verified ? { icon: 'mdi:check-circle' } : { icon: 'mdi:clock-outline' }"
-        />
-      </template>
-
-      <template v-if="selectedProperty">
-        <SegmentedToggle v-model="sectionTab" :options="sectionOptions" />
-
-        <transition name="ph-fade" mode="out-in">
-          <div :key="sectionTab" class="ph-section">
-
-            <!-- DETAILS -->
-            <template v-if="sectionTab === 'details'">
-              <InfoCard title="Boarding House">
-                <InfoRow icon="mdi:identifier" label="Property ID" :value="selectedProperty.id" :mono="true" />
-                <InfoRow icon="mdi:domain" label="Type" :value="selectedProperty.type" />
-                <InfoRow icon="mdi:account-tie" label="Landlord" :value="selectedProperty.landlord" />
-                <InfoRow icon="mdi:map-marker" label="Address" :value="selectedProperty.address" />
-                <InfoRow icon="mdi:floor-plan" label="Floors" :value="selectedProperty.floors ? String(selectedProperty.floors) : '—'" />
-                <InfoRow icon="mdi:bed" label="Total Rooms" :value="selectedProperty.totalRooms ? String(selectedProperty.totalRooms) : '—'" :last="true" />
-              </InfoCard>
-
-              <InfoCard title="Occupancy">
-                <InfoRow icon="mdi:account-group" label="Occupants" :value="String(selectedProperty.totalStudents)" />
-                <InfoRow icon="mdi:gender-female" label="Female" :value="String(selectedProperty.femaleCount)" />
-                <InfoRow icon="mdi:gender-male" label="Male" :value="String(selectedProperty.maleCount)" :last="true" />
-              </InfoCard>
-            </template>
-
-            <!-- ROOMS & OCCUPANTS -->
-            <template v-else>
-              <div v-if="!selectedProperty.rooms?.length" class="text-muted q-pa-lg text-center">
-                <Icon icon="mdi:bed-empty" width="40" height="40" class="q-mb-sm" />
-                <div style="font-size: 13px;">No rooms listed yet.</div>
-              </div>
-
-              <div v-else class="column q-gutter-y-sm">
-                <q-card v-for="room in selectedProperty.rooms" :key="room.id" flat bordered style="border-radius: 12px;">
-                  <q-card-section class="q-py-sm row items-center justify-between">
-                    <div class="row items-center no-wrap">
-                      <div class="room-badge">
-                        <Icon icon="mdi:bed-single" width="18" height="18" />
-                      </div>
-                      <div class="q-ml-sm">
-                        <div class="text-weight-bold text-ink" style="font-size: 14px;">Room {{ room.name }}</div>
-                        <div class="text-muted" style="font-size: 11px;">
-                          Floor {{ room.floor ?? '—' }} · Capacity {{ room.capacity ?? '—' }}
-                          <template v-if="room.monthlyRent != null"> · ₱{{ room.monthlyRent.toLocaleString('en-PH') }}/mo</template>
-                        </div>
-                      </div>
-                    </div>
-                    <BadgePill
-                      :tone="room.status === 'occupied' ? 'success' : 'neutral'"
-                      :label="room.status === 'occupied' ? 'Occupied' : 'Available'"
-                    />
-                  </q-card-section>
-
-                  <q-separator v-if="room.occupants.length" />
-
-                  <q-list v-if="room.occupants.length" dense class="q-pa-none">
-                    <q-item v-for="o in room.occupants" :key="o.name" class="q-px-sm q-py-sm">
-                      <q-item-section avatar>
-                        <q-avatar size="34px" color="primary" text-color="white" class="text-weight-bold" style="font-size: 13px !important;">{{ o.initials }}</q-avatar>
-                      </q-item-section>
-                      <q-item-section>
-                        <q-item-label class="text-weight-bold text-ink" style="font-size: 13px;">{{ o.name }}</q-item-label>
-                        <q-item-label caption class="text-muted">Since {{ o.since }}</q-item-label>
-                      </q-item-section>
-                      <q-item-section side>
-                        <Icon :icon="o.gender === 'female' ? 'mdi:gender-female' : 'mdi:gender-male'" :color="o.gender === 'female' ? '#e91e63' : '#42a5f5'" width="18" height="18" />
-                      </q-item-section>
-                    </q-item>
-                  </q-list>
-
-                  <q-card-section v-else class="q-py-sm">
-                    <div class="text-muted text-caption">Vacant — no occupants.</div>
-                  </q-card-section>
-                </q-card>
-              </div>
-            </template>
-          </div>
-        </transition>
-      </template>
-    </DetailDrawer>
+      :preview="propertyPreview"
+    />
 
     </div><!-- /prop-hub-body -->
 
@@ -234,10 +141,8 @@ import DataTable from '@/components/table/DataTable.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
-import ProfileHero from '@/components/user/ProfileHero.vue'
-import SegmentedToggle from '@/components/ui/SegmentedToggle.vue'
-import InfoCard from '@/components/ui/InfoCard.vue'
-import InfoRow from '@/components/ui/InfoRow.vue'
+import type { DrawerPreview, PreviewChip } from '@/components/ui/DetailDrawer.vue'
+import type { StatusTone } from '@/utils/status.config'
 import { useProperties } from '@/composables/useProperties'
 
 const search = ref('')
@@ -291,16 +196,9 @@ onMounted(async () => {
 
 const drawerOpen = ref(false)
 const selectedProperty = ref<any | null>(null)
-const sectionTab = ref('details')
-
-const sectionOptions = [
-  { value: 'details', label: 'Details' },
-  { value: 'rooms', label: 'Rooms & Occupants' },
-]
 
 function openProperty(row: any) {
   selectedProperty.value = row
-  sectionTab.value = 'details'
   drawerOpen.value = true
 }
 
@@ -439,6 +337,73 @@ const paginatedProperties = computed(() => {
 watch(activeTab, () => {
   search.value = ''
   currentPage.value = 1
+})
+
+const avatarUrl = (name: string) =>
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=160&background=0F766E&color=fff&bold=true`
+
+const propertyPreview = computed<DrawerPreview>(() => {
+  const p = selectedProperty.value
+  if (!p) return { title: 'Property Preview', name: '', avatar: '', stats: [], details: [] }
+  const chips: PreviewChip[] = [
+    { text: p.type, tone: 'primary', icon: 'mdi:home-city' },
+    p.verified
+      ? { text: 'Accredited', tone: 'success', icon: 'mdi:check-circle' }
+      : { text: 'Pending', tone: 'warning', icon: 'mdi:clock-outline' },
+  ]
+  const occupancy = p.totalCapacity ? `${Math.round((p.totalStudents / p.totalCapacity) * 100)}%` : '—'
+  const stats = [
+    { label: 'Occupants', value: p.totalStudents },
+    { label: 'Rooms', value: p.totalRooms },
+    { label: 'Rating', value: p.rating != null ? `${p.rating} ★` : '—' },
+    { label: 'Occupancy', value: occupancy },
+  ]
+  const details = [
+    { label: 'Property ID', value: String(p.id) },
+    { label: 'Type', value: p.type },
+    { label: 'Landlord', value: p.landlord },
+    { label: 'Address', value: p.address },
+    { label: 'Floors', value: p.floors ? String(p.floors) : '—' },
+    { label: 'Total Rooms', value: String(p.totalRooms) },
+    { label: 'Occupants', value: `${p.totalStudents} / ${p.totalCapacity}` },
+    { label: 'Female / Male', value: `${p.femaleCount} / ${p.maleCount}` },
+  ]
+  const card = {
+    title: 'Accreditation',
+    footerLink: 'View Compliance',
+    head: {
+      code: p.accreditationStatus,
+      title: 'Permit Status',
+      status: p.verified ? 'Accredited' : 'Pending',
+      statusTone: (p.verified ? 'success' : 'warning') as StatusTone,
+    },
+    cells: [
+      { label: 'Status', tone: (p.verified ? 'success' : 'warning') as StatusTone, value: p.verified ? 'Accredited' : 'Pending' },
+      { label: 'Rating', value: p.rating != null ? `${p.rating} ★` : '—' },
+      { label: 'Response', value: p.responseRate != null ? `${p.responseRate}%` : '—' },
+      { label: 'Expires', value: p.accreditationExpiresAt || '—' },
+    ],
+  }
+  const activity = (p.rooms || []).slice(0, 5).map((r: any) => ({
+    text: `<strong>Room ${r.name}</strong> — Floor ${r.floor ?? '—'}`,
+    time: `Capacity ${r.capacity ?? '—'} · ${r.status === 'occupied' ? 'Occupied' : 'Available'}`,
+  }))
+  if (!activity.length) activity.push({ text: `<strong>${p.name}</strong> listing created`, time: p.accreditationExpiresAt || '—' })
+
+  return {
+    title: 'Property Preview',
+    positionLabel: p.type,
+    viewDetailsLabel: 'View Full Details',
+    name: p.name,
+    avatar: avatarUrl(p.name),
+    chips,
+    meta: p.address,
+    org: { name: p.landlord, icon: 'mdi:account-tie' },
+    stats,
+    details,
+    card,
+    activity,
+  }
 })
 </script>
 

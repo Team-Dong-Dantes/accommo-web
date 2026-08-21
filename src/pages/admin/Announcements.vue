@@ -245,6 +245,7 @@ import TabNav from '@/components/ui/TabNav.vue'
 import TableCard from '@/components/table/TableCard.vue'
 import DataTable from '@/components/table/DataTable.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
+import { type StatusTone } from '@/utils/status.config'
 
 const $q = useQuasar()
 const notify = useNotify()
@@ -567,7 +568,7 @@ const policyColumns = [
   { name: 'actions', align: 'right', label: '', field: 'actions', headerStyle: 'width: 10%' },
 ]
 
-function statusColor(status: string) {
+function statusColor(status: string): { tone: StatusTone } {
   if (status === 'published') return { tone: 'success' }
   if (status === 'draft') return { tone: 'warning' }
   return { tone: 'neutral' }
@@ -592,14 +593,14 @@ function audienceLabel(audience: string) {
   return audience
 }
 
-function audienceColor(audience: string) {
+function audienceColor(audience: string): { tone: StatusTone } {
   if (audience === 'all') return { tone: 'neutral' }
   if (audience === 'students') return { tone: 'info' }
   if (audience === 'landlords') return { tone: 'primary' }
   return { tone: 'neutral' }
 }
 
-function policyStatusColor(row: any) {
+function policyStatusColor(row: any): { tone: StatusTone } {
   const eff = row.effective_date
   const active = eff && new Date(eff).getTime() <= Date.now()
   return active ? { tone: 'success' } : { tone: 'warning' }

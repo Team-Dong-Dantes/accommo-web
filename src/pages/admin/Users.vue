@@ -33,7 +33,7 @@
       </template>
 
       <template #body="{ props }">
-        <q-tr :props="props" :key="props.row.rawId" class="cursor-pointer smart-row" @click="openUser(props.row)">
+        <q-tr :props="props" :key="props.row.rawId" class="cursor-pointer smart-row" @click.stop="openUser(props.row)">
             <q-td key="user" :props="props">
               <UserInfoCell
                 :initials="props.row.initials"
@@ -56,140 +56,18 @@
       </template>
     </TableCard>
 
-    <DetailDrawer v-model="drawerOpen" expandable v-model:expanded="drawerExpanded" anchored position="right" close-on-backdrop>
-      <template #banner>
-        <ProfileHero
-          :name="selectedUser?.name"
-          :initials="selectedUser?.initials"
-          :avatar-color="selectedUser?.avatarColor"
-          :role-label="cap(selectedUser?.role)"
-          :status-label="selectedUser?.status"
-          :role-style="selectedUser?.roleStyle"
-          :status-style="selectedUser?.statusStyle"
-        />
-      </template>
-
-      <template v-if="selectedUser">
-        <SegmentedToggle v-if="!drawerExpanded" v-model="sectionTab" :options="sectionOptions" />
-
-        <div class="usr-section">
-          <!-- OVERVIEW -->
-          <template v-if="drawerExpanded || sectionTab === 'overview'">
-              <InfoCard title="Basic Info">
-                <InfoRow icon="mdi:email-outline" label="Email" :value="selectedUser.email" />
-                <InfoRow icon="mdi:phone-outline" label="Contact" :value="selectedUser.contact" />
-                <InfoRow icon="mdi:calendar-clock" label="Joined" :value="selectedUser.joined" />
-                <InfoRow icon="mdi:identifier" label="User ID" :value="selectedUser.id" :mono="true" :last="true" />
-              </InfoCard>
-
-              <InfoCard :title="isStudent ? 'Student Profile' : isLandlord ? 'Landlord Profile' : 'Profile'">
-                <template v-if="detailLoading">
-                  <InfoRow icon="mdi:school" label="College"><q-skeleton type="text" width="90px" /></InfoRow>
-                  <InfoRow icon="mdi:book-open-variant" label="Program"><q-skeleton type="text" width="90px" /></InfoRow>
-                  <InfoRow icon="mdi:calendar-star" label="Year Level"><q-skeleton type="text" width="90px" /></InfoRow>
-                  <InfoRow icon="mdi:card-account-details" label="Student ID" :last="true"><q-skeleton type="text" width="90px" /></InfoRow>
-                </template>
-
-                <template v-else-if="userDetail && isStudent">
-                  <InfoRow icon="mdi:school" label="College" :value="userDetail.college || '—'" />
-                  <InfoRow icon="mdi:book-open-variant" label="Program" :value="userDetail.program || '—'" />
-                  <InfoRow icon="mdi:calendar-star" label="Year Level" :value="userDetail.year_level ?? '—'" />
-                  <InfoRow icon="mdi:card-account-details" label="Student ID" :value="userDetail.student_id || '—'" />
-                  <InfoRow icon="mdi:check-decagram" label="OSAS Verified" :value="userDetail.osas_verified_at ? 'Yes' : 'No'" :last="true" />
-                </template>
-
-                <template v-else-if="userDetail && isLandlord">
-                  <InfoRow icon="mdi:domain" label="Business Name" :value="userDetail.business_name || '—'" />
-                  <InfoRow icon="mdi:certificate" label="Accreditation" :value="userDetail.accreditation_status || '—'" />
-                  <InfoRow icon="mdi:flash" label="Response Rate" :value="userDetail.response_rate != null ? userDetail.response_rate + '%' : '—'" />
-                  <InfoRow icon="mdi:clock-outline" label="Expires" :value="userDetail.accreditation_expires_at || '—'" :last="true" />
-                </template>
-
-                <EmptyState v-else icon="mdi:account-details" message="No extended profile available." />
-              </InfoCard>
-            </template>
-
-            <!-- HOUSING (students) -->
-            <template v-if="(drawerExpanded && isStudent) || (sectionTab === 'housing' && isStudent)">
-              <InfoCard title="Housing">
-                <template v-if="detailLoading">
-                  <InfoRow icon="mdi:home-city" label="Placement"><q-skeleton type="text" width="90px" /></InfoRow>
-                  <InfoRow icon="mdi:domain" label="Property"><q-skeleton type="text" width="90px" /></InfoRow>
-                  <InfoRow icon="mdi:bed" label="Room Type"><q-skeleton type="text" width="90px" /></InfoRow>
-                  <InfoRow icon="mdi:account-tie" label="Landlord" :last="true"><q-skeleton type="text" width="90px" /></InfoRow>
-                </template>
-                <template v-else-if="housing">
-                  <InfoRow icon="mdi:home-city" label="Placement">
-                    <span v-if="housing.placed" class="usr-pill usr-pill--ok">Housed</span>
-                    <span v-else class="usr-pill usr-pill--muted">Not placed</span>
-                  </InfoRow>
-                  <template v-if="housing.placed">
-                    <InfoRow icon="mdi:domain" label="Property">
-                      <button class="usr-link" type="button" @click="router.push('/map-view')">{{ housing.propertyName }} →</button>
-                    </InfoRow>
-                    <InfoRow icon="mdi:bed" label="Room Type" :value="housing.roomType" />
-                    <InfoRow icon="mdi:account-tie" label="Landlord" :value="housing.landlordName" />
-                    <InfoRow icon="mdi:calendar-clock" label="Move-in" :value="fmtDate(housing.moveIn)" :last="true" />
-                  </template>
-                </template>
-                <EmptyState v-else icon="mdi:home-city-outline" message="No housing data." />
-              </InfoCard>
-
-              <InfoCard title="Boarding History">
-                <template v-if="detailLoading">
-                  <div v-for="n in 2" :key="n" class="usr-skel-block">
-                    <q-skeleton type="text" width="140px" />
-                    <q-skeleton type="text" width="180px" class="q-mt-xs" />
-                  </div>
-                </template>
-                <template v-else-if="boardingHistory.length">
-                  <HistoryItem
-                    v-for="h in boardingHistory"
-                    :key="h.id"
-                    :title="h.propertyName"
-                    :chip="h.roomType"
-                    :subtitle="h.address"
-                    :meta="h.period"
-                    :pin="true"
-                  />
-                </template>
-                <EmptyState v-else icon="mdi:history" message="No boarding history." />
-              </InfoCard>
-            </template>
-
-            <!-- PERFORMANCE (landlords) -->
-            <template v-if="(drawerExpanded && isLandlord) || (sectionTab === 'performance' && isLandlord)">
-              <StatGrid>
-                <StatTile icon="mdi:domain" label="Properties Listed" :value="String(landlordProps.length)" accent="teal" />
-                <StatTile icon="mdi:star" label="Avg Rating" :value="avgRating" accent="amber" />
-                <StatTile icon="mdi:flash" label="Response Rate" :value="userDetail?.response_rate != null ? userDetail.response_rate + '%' : '—'" accent="green" />
-                <StatTile icon="mdi:timer-outline" label="Avg Response" :value="respTime" accent="info" />
-              </StatGrid>
-
-              <InfoCard title="Listed Properties">
-                <template v-if="detailLoading">
-                  <div v-for="n in 2" :key="n" class="usr-skel-block">
-                    <q-skeleton type="text" width="150px" />
-                    <q-skeleton type="text" width="170px" class="q-mt-xs" />
-                  </div>
-                </template>
-                <template v-else-if="landlordProps.length">
-                  <HistoryItem
-                    v-for="p in landlordProps"
-                    :key="p.id"
-                    :title="p.name"
-                    :chip="cap(p.room_type)"
-                    :subtitle="`${cap(p.status)} · ${p.rating_avg != null ? p.rating_avg.toFixed(1) + ' ★' : 'No rating'} · ${p.reviews_count || 0} reviews`"
-                    clickable
-                    @click="router.push('/map-view')"
-                  />
-                </template>
-                <EmptyState v-else icon="mdi:domain-off" message="No listed properties." />
-              </InfoCard>
-            </template>
-          </div>
-      </template>
-    </DetailDrawer>
+    <DetailDrawer
+      v-model="drawerOpen"
+      expandable
+      v-model:expanded="drawerExpanded"
+      anchored
+      position="right"
+      close-on-backdrop
+      :preview="userPreview"
+      :loading="detailLoading"
+      :management-actions="userManagementActions"
+      @manage="onManageUser"
+    />
 
     </div><!-- /users-body -->
 
@@ -198,7 +76,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { supabase } from '@/utils/supabase'
 
 import TabNav from '@/components/ui/TabNav.vue'
@@ -208,14 +85,7 @@ import BadgePill from '@/components/user/BadgePill.vue'
 import { getStatus, getTone, type StatusTone } from '@/utils/status.config'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
-import ProfileHero from '@/components/user/ProfileHero.vue'
-import SegmentedToggle from '@/components/ui/SegmentedToggle.vue'
-import InfoCard from '@/components/ui/InfoCard.vue'
-import InfoRow from '@/components/ui/InfoRow.vue'
-import StatGrid from '@/components/ui/StatGrid.vue'
-import StatTile from '@/components/ui/StatTile.vue'
-import HistoryItem from '@/components/ui/HistoryItem.vue'
-import EmptyState from '@/components/ui/EmptyState.vue'
+import type { DrawerPreview, PreviewChip } from '@/components/ui/DetailDrawer.vue'
 
 const loading = ref(true)
 const fetchError = ref('')
@@ -229,14 +99,13 @@ const drawerOpen = ref(false)
 const drawerExpanded = ref(false)
 const selectedUser = ref<any | null>(null)
 const userDetail = ref<any | null>(null)
+const userReviews = ref<any[]>([])
 const detailLoading = ref(false)
 
 const sectionTab = ref<string>('overview')
 const housing = ref<any | null>(null)
 const boardingHistory = ref<any[]>([])
 const landlordProps = ref<any[]>([])
-
-const router = useRouter()
 
 const tabs = [
   { name: 'users', label: 'Users' },
@@ -299,6 +168,7 @@ async function openUser(row: any) {
   housing.value = null
   boardingHistory.value = []
   landlordProps.value = []
+  userReviews.value = []
   sectionTab.value = 'overview'
   drawerExpanded.value = false
   drawerOpen.value = true
@@ -314,7 +184,7 @@ async function fetchDetail(userId: string, role: string) {
     if (normalized === 'student') {
       const { data } = await supabase
         .from('student_profiles')
-        .select('college, program, year_level, student_id, osas_verified_at, emergency_contact_json')
+        .select('college, program, year_level, student_id, osas_verified_at, emergency_contact_json, school_id_url, assessment_of_fees_url')
         .eq('user_id', userId)
         .maybeSingle()
       detail = data
@@ -333,6 +203,7 @@ async function fetchDetail(userId: string, role: string) {
             propertyName: lease.room?.property?.name || '—',
             roomType: cap(lease.room?.property?.room_type),
             landlordName: lease.landlord?.full_name || '—',
+            address: composeAddress(lease.room?.property),
             moveIn: lease.start_date,
           }
         : { placed: false }
@@ -354,7 +225,7 @@ async function fetchDetail(userId: string, role: string) {
     } else if (normalized === 'landlord') {
       const { data } = await supabase
         .from('landlord_profiles')
-        .select('business_name, accreditation_status, response_rate, accreditation_expires_at, avg_response_minutes')
+        .select('business_name, accreditation_status, response_rate, accreditation_expires_at, avg_response_minutes, government_id_url')
         .eq('user_id', userId)
         .maybeSingle()
       detail = data
@@ -362,10 +233,41 @@ async function fetchDetail(userId: string, role: string) {
       // Listed properties
       const { data: props } = await supabase
         .from('properties')
-        .select('id, name, status, room_type, rating_avg, reviews_count')
+        .select('id, name, status, room_type, total_rooms, address, barangay, city, rating_avg, reviews_count')
         .eq('landlord_id', userId)
         .order('name', { ascending: true })
       landlordProps.value = props || []
+    }
+
+    // Reviews — landlord = reviews received; student = tenant reviews received
+    if (normalized === 'landlord') {
+      const res = (await supabase
+        .from('landlord_reviews')
+        .select('rating, comment, created_at, student_id(full_name)')
+        .eq('landlord_id', userId)
+        .order('created_at', { ascending: false })) as any
+      const revs = (res?.data || []) as any[]
+      userReviews.value = revs.map((r: any) => ({
+        author_name: r.student_id?.full_name || 'Anonymous',
+        rating: r.rating,
+        comment: r.comment,
+        created_at: r.created_at,
+      }))
+    } else if (normalized === 'student') {
+      const res = (await supabase
+        .from('tenant_reviews')
+        .select('rating, comment, created_at, landlord_id(full_name)')
+        .eq('student_id', userId)
+        .order('created_at', { ascending: false })) as any
+      const revs = (res?.data || []) as any[]
+      userReviews.value = revs.map((r: any) => ({
+        author_name: r.landlord_id?.full_name || 'Anonymous',
+        rating: r.rating,
+        comment: r.comment,
+        created_at: r.created_at,
+      }))
+    } else {
+      userReviews.value = []
     }
 
     userDetail.value = detail
@@ -478,17 +380,323 @@ function fmtMinutes(m: number | null | undefined) {
 
 const isStudent = computed(() => (selectedUser.value?.role || '').toLowerCase() === 'student')
 const isLandlord = computed(() => (selectedUser.value?.role || '').toLowerCase() === 'landlord')
-const sectionOptions = computed(() =>
-  isStudent.value
-    ? [ { value: 'overview', label: 'Overview' }, { value: 'housing', label: 'Housing' } ]
-    : [ { value: 'overview', label: 'Overview' }, { value: 'performance', label: 'Performance' } ]
-)
-const avgRating = computed(() => {
-  const vals = landlordProps.value.map(p => p.rating_avg).filter((v: any) => v != null) as number[]
-  if (!vals.length) return '—'
-  return (vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1) + ' ★'
-})
 const respTime = computed(() => fmtMinutes(userDetail.value?.avg_response_minutes))
+
+const avatarUrl = (name: string) =>
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=160&background=0F766E&color=fff&bold=true`
+
+function statusChip(label: string, tone: StatusTone, icon?: string): PreviewChip {
+  const c: PreviewChip = { text: label, tone }
+  if (icon) c.icon = icon
+  return c
+}
+
+const userPreview = computed<DrawerPreview>(() => {
+  const u = selectedUser.value
+  if (!u) return { title: 'User Preview', name: '', avatar: '', stats: [], details: [] }
+  const detail = userDetail.value
+
+  const roleChip: PreviewChip = isStudent.value
+    ? { text: 'Student', tone: 'neutral', icon: 'mdi:school' }
+    : isLandlord.value
+      ? { text: 'Landlord', tone: 'primary', icon: 'mdi:domain' }
+      : { text: u.role, tone: 'neutral' }
+
+  const chips: PreviewChip[] = [roleChip, statusChip(u.status, u.statusStyle?.tone ?? 'neutral', u.statusStyle?.icon)]
+
+  const stats = isLandlord.value
+    ? [
+        { label: 'Properties', value: landlordProps.value.length },
+        { label: 'Response Rate', value: detail?.response_rate != null ? `${detail.response_rate}%` : '—' },
+        { label: 'Avg Response', value: respTime.value },
+      ]
+    : []
+
+  const telLink = (c: string) => c.startsWith('+') ? `tel:${c.replace(/\s/g, '')}` : undefined
+  type PDetail = NonNullable<DrawerPreview['details']>[number]
+  const detailRow = (label: string, value: string, link?: string): PDetail => {
+    const row: PDetail = { label, value }
+    if (link) row.link = link
+    return row
+  }
+
+  const details = isStudent.value
+    ? [
+        detailRow('Email', u.email, `mailto:${u.email}`),
+        detailRow('Phone', u.contact, telLink(u.contact)),
+        detailRow('College', detail?.college || '—'),
+        detailRow('Program', detail?.program || '—'),
+        detailRow('Year Level', detail?.year_level ?? '—'),
+        detailRow('Student ID', detail?.student_id || '—'),
+        detailRow('Joined', u.joined),
+      ]
+    : [
+        detailRow('Email', u.email, `mailto:${u.email}`),
+        detailRow('Phone', u.contact, telLink(u.contact)),
+        detailRow('Joined', u.joined),
+      ]
+
+  let card: DrawerPreview['card']
+  const historyCards: any[] = []
+  if (isStudent.value) {
+    if (housing.value?.placed) {
+      const h = housing.value
+      historyCards.push({
+        icon: 'mdi:home',
+        title: h.propertyName,
+        status: 'Current',
+        statusTone: 'success',
+        active: true,
+        roomType: h.roomType || '—',
+        location: h.address,
+        date: `Move-in ${fmtDate(h.moveIn)}`,
+        propertyId: h.propertyId,
+      })
+    }
+    boardingHistory.value.forEach((hh) => {
+      historyCards.push({
+        icon: 'mdi:history',
+        title: hh.propertyName,
+        status: 'Past',
+        statusTone: 'neutral',
+        roomType: hh.roomType || '—',
+        location: hh.address,
+        date: hh.period,
+        propertyId: hh.propertyId,
+      })
+    })
+  } else if (isLandlord.value && landlordProps.value.length) {
+    const p = landlordProps.value[0]
+    card = {
+      title: 'Active Listing',
+      propertyId: p.id,
+      head: { title: p.name, location: composeAddress(p), status: cap(p.status), statusTone: getTone(p.status) },
+      cells: [
+        { label: 'Type', value: cap(p.room_type) },
+        { label: 'Rooms', value: p.total_rooms != null ? String(p.total_rooms) : '—' },
+        { label: 'Rating', value: p.rating_avg != null ? `${p.rating_avg.toFixed(1)} ★` : 'No rating' },
+        { label: 'Reviews', value: String(p.reviews_count || 0) },
+      ],
+    }
+  }
+
+  type PReview = NonNullable<DrawerPreview['reviews']>
+  const reviews: PReview = userReviews.value.map((r: any) => ({
+    author: r.author_name || 'Anonymous',
+    rating: r.rating,
+    comment: r.comment || undefined,
+    time: fmtDate(r.created_at),
+  }))
+
+  // Activity feed — what the user has actually done / experienced in the app,
+  // derived from real lifecycle events (most recent first).
+  type ActivityEvent = { text: string; time: string; ts: number; icon: string; tone: StatusTone }
+  const events: ActivityEvent[] = []
+
+  if (u.joined) {
+    const ts = new Date(u.joined).getTime()
+    if (!isNaN(ts)) {
+      events.push({
+        text: `<strong>${u.name}</strong> created their account`,
+        time: fmtDate(u.joined),
+        ts,
+        icon: 'mdi:account-plus',
+        tone: 'primary',
+      })
+    }
+  }
+
+  if (isStudent.value && detail?.osas_verified_at) {
+    const ts = new Date(detail.osas_verified_at).getTime()
+    if (!isNaN(ts)) {
+      events.push({
+        text: `<strong>${u.name}</strong> was verified by OSAS`,
+        time: fmtDate(detail.osas_verified_at),
+        ts,
+        icon: 'mdi:shield-check',
+        tone: 'success',
+      })
+    }
+  }
+
+  if (isStudent.value && housing.value?.placed && housing.value.moveIn) {
+    const ts = new Date(housing.value.moveIn).getTime()
+    if (!isNaN(ts)) {
+      events.push({
+        text: `Moved into <strong>${housing.value.propertyName}</strong>`,
+        time: fmtDate(housing.value.moveIn),
+        ts,
+        icon: 'mdi:home',
+        tone: 'success',
+      })
+    }
+  }
+
+  boardingHistory.value.forEach((hh) => {
+    const ts = new Date(hh.period_start).getTime()
+    if (isNaN(ts)) return
+    events.push({
+      text: `Boarded at <strong>${hh.propertyName}</strong>`,
+      time: hh.period,
+      ts,
+      icon: 'mdi:history',
+      tone: 'neutral',
+    })
+  })
+
+  userReviews.value.forEach((r) => {
+    const ts = new Date(r.created_at).getTime()
+    if (isNaN(ts)) return
+    const author = r.author_name && r.author_name !== 'Anonymous' ? ` from ${r.author_name}` : ''
+    events.push({
+      text: `Received a <strong>${r.rating}★</strong> review${author}`,
+      time: fmtDate(r.created_at),
+      ts,
+      icon: 'mdi:star',
+      tone: 'warning',
+    })
+  })
+
+  events.sort((a, b) => b.ts - a.ts)
+
+  const activity = events.length
+    ? events.map((e) => ({ text: e.text, time: e.time, icon: e.icon, tone: e.tone }))
+    : [{ text: `<strong>${u.name}</strong> has no recorded activity yet`, time: '', icon: 'mdi:calendar-blank', tone: 'neutral' as StatusTone }]
+
+  const files: { name: string; url: string }[] = []
+  if (isStudent.value) {
+    if (detail?.school_id_url) files.push({ name: 'School ID', url: detail.school_id_url })
+    if (detail?.assessment_of_fees_url) files.push({ name: 'Assessment of Fees', url: detail.assessment_of_fees_url })
+  } else if (isLandlord.value) {
+    if (detail?.government_id_url) files.push({ name: 'Government ID', url: detail.government_id_url })
+  }
+
+  type PHistory = NonNullable<DrawerPreview['history']>
+  const history: PHistory = []
+  let placement: DrawerPreview['placement']
+  if (isStudent.value) {
+    if (housing.value?.placed) {
+      const h = housing.value
+      placement = {
+        status: 'Housed',
+        statusTone: 'success',
+        property: h.propertyName || 'Boarding House',
+        roomType: h.roomType,
+        landlord: h.landlordName,
+        address: h.address,
+        moveIn: fmtDate(h.moveIn),
+      }
+      history.push({
+        title: h.propertyName || 'Active Placement',
+        desc: [cap(h.roomType), h.landlordName, h.address].filter(Boolean).join(' · '),
+        meta: `Move-in ${fmtDate(h.moveIn)}`,
+        tone: 'success',
+        icon: 'mdi:home',
+        active: true,
+      })
+    } else {
+      placement = { status: 'Not placed', statusTone: 'neutral', property: 'No active placement' }
+      history.push({ title: 'No active placement', tone: 'neutral', icon: 'mdi:home-outline' })
+    }
+    boardingHistory.value.forEach((hh) => {
+      history.push({
+        title: hh.propertyName || 'Boarding',
+        desc: [hh.roomType ? cap(hh.roomType) : '', hh.address].filter(Boolean).join(' · '),
+        meta: hh.period,
+        tone: 'neutral',
+        icon: 'mdi:history',
+      })
+    })
+  }
+
+  const result: DrawerPreview = {
+    title: 'User Preview',
+    viewDetailsLabel: 'View Full Details',
+    name: u.name,
+    avatar: avatarUrl(u.name),
+    chips,
+    stats,
+    details,
+    activity,
+  }
+  if (card) result.card = card
+  if (isStudent.value) {
+    result.history = history
+    result.historyCards = historyCards
+    if (placement) result.placement = placement
+  }
+  result.files = files
+  result.reviews = reviews
+  return result
+})
+
+type ManagementAction = { label: string; action: string; danger?: boolean }
+
+const userManagementActions = computed<ManagementAction[]>(() => {
+  const u = selectedUser.value
+  if (!u) return []
+  const status = (u.status || '').toLowerCase()
+  const actions: ManagementAction[] = []
+
+  if (status === 'suspended') {
+    actions.push({ label: 'Reactivate Account', action: 'reactivate' })
+  } else {
+    actions.push({ label: 'Suspend Account', action: 'suspend', danger: true })
+  }
+
+  if (status === 'banned') {
+    actions.push({ label: 'Unban Account', action: 'unban' })
+  } else {
+    actions.push({ label: 'Ban Account', action: 'ban', danger: true })
+  }
+
+  if (['pending', 'reviewing', 'unverified'].includes(status)) {
+    actions.push({ label: 'Mark as Verified', action: 'verify' })
+  }
+
+  return actions
+})
+
+const STATUS_FOR_ACTION: Record<string, string> = {
+  suspend: 'Suspended',
+  reactivate: 'Verified',
+  ban: 'Banned',
+  unban: 'Verified',
+  verify: 'Verified',
+}
+
+async function onManageUser(action: string) {
+  const u = selectedUser.value
+  if (!u || !u.rawId) return
+
+  const newStatus = STATUS_FOR_ACTION[action]
+  if (!newStatus) return
+
+  try {
+    const { error } = await supabase
+      .from('users')
+      .update({ status: newStatus as any })
+      .eq('id', u.rawId)
+    if (error) throw error
+
+    const lower = newStatus.toLowerCase()
+    const style = {
+      tone: getTone(lower),
+      icon: getStatus(lower).icon || 'mdi:help-circle-outline',
+    }
+    const label = newStatus.charAt(0).toUpperCase() + newStatus.slice(1)
+    u.status = label
+    u.statusStyle = style
+
+    const row = rawUsers.value.find(r => r.rawId === u.rawId)
+    if (row) {
+      row.status = label
+      row.statusStyle = style
+    }
+  } catch (err) {
+    console.error('Failed to update user status:', err)
+  }
+}
 </script>
 
 <style scoped>

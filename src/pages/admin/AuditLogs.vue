@@ -127,6 +127,7 @@ import { supabase } from '@/utils/supabase'
 import TabNav from '@/components/ui/TabNav.vue'
 import TableCard from '@/components/table/TableCard.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
+import { type StatusTone } from '@/utils/status.config'
 
 const searchQuery = ref('')
 const currentPage = ref(1)
@@ -351,7 +352,7 @@ const paginatedLogs = computed(() => {
   return filteredLogs.value.slice(start, start + 10)
 })
 
-function getActionColor(action: string) {
+function getActionColor(action: string): { tone: StatusTone } {
   switch(action) {
     case 'CREATE': return { tone: 'success' }
     case 'APPROVE': return { tone: 'success' }

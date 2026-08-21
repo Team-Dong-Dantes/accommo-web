@@ -157,11 +157,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import BadgePill from '@/components/user/BadgePill.vue'
 import PanelHeader from '@/components/ui/PanelHeader.vue'
 import { useNotify } from '@/utils/notify'
+import { type StatusTone } from '@/utils/status.config'
 
 const $q = useQuasar()
 const notify = useNotify()
@@ -186,7 +187,7 @@ const initials = computed(() =>
   form.name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase() || 'A'
 )
 
-const roleStyle = { tone: 'primary', icon: 'mdi:shield-account' }
+const roleStyle: { tone: StatusTone; icon: string } = { tone: 'primary', icon: 'mdi:shield-account' }
 
 const notifications = reactive({
   emailAlerts: true,
@@ -195,7 +196,7 @@ const notifications = reactive({
   grievanceAlerts: true,
 })
 
-const notificationOptions = [
+const notificationOptions: { key: keyof typeof notifications; label: string; desc: string }[] = [
   { key: 'emailAlerts', label: 'Email alerts', desc: 'Important account and verification updates.' },
   { key: 'pushAlerts', label: 'Push notifications', desc: 'Real-time alerts in your browser.' },
   { key: 'weeklyDigest', label: 'Weekly digest', desc: 'A Monday summary of platform activity.' },
@@ -204,6 +205,7 @@ const notificationOptions = [
 
 const themeOptions = [
   { label: 'Light (default)', value: 'light' },
+  { label: 'Dark', value: 'dark' },
 ]
 
 const densityOptions = [
@@ -217,6 +219,16 @@ const appearance = reactive({
   density: 'comfortable',
   accent: '#0F766E',
 })
+
+watch(
+  () => appearance.theme,
+  (t) => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', t)
+    }
+  },
+  { immediate: true },
+)
 
 const security = reactive({
   twoFactor: false,

@@ -204,7 +204,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useDashboardStats } from '@/composables/useDashboardStats'
 import { Icon } from '@iconify/vue'
-import { chartTheme } from '@/utils/chartTheme'
+import { chartTheme, donutTotal } from '@/utils/chartTheme'
 
 const { loading, data, load } = useDashboardStats()
 const hasData = ref(false)
@@ -258,9 +258,6 @@ const concernCats = computed(() => {
 const genderTotal = computed(() => data.gender.female + data.gender.male + data.gender.other)
 const genderSeries = computed(() => [data.gender.female, data.gender.male, data.gender.other])
 const yearMax = computed(() => Math.max(1, ...data.studentsByYear.map((y) => y.val)))
-
-const donutTotal = (w: { globals: { seriesTotals: number[] } }) =>
-  w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0)
 
 /* ---- Registration trends: smooth area ---- */
 const regOptions = computed(() => {
