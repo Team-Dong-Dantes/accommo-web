@@ -70,6 +70,12 @@ withDefaults(defineProps<{
   page: number
 }>(), {
   rowsPerPage: 10,
+  searchPlaceholder: '',
+  rowKey: 'id',
+  rows: () => [],
+  columns: () => [],
+  filters: () => [],
+  activeFilters: () => ({}),
 })
 defineEmits<{
   (e: 'update:search', value: string): void

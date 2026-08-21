@@ -89,3 +89,8 @@ export function chartTheme(): ChartTheme {
     ],
   }
 }
+
+/* Sum of all donut series — used as the center "total" label formatter. */
+export function donutTotal(w: { globals: { seriesTotals: number[] } }): number {
+  return w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0)
+}

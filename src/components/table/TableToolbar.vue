@@ -1,7 +1,7 @@
 <template>
   <div class="row items-center justify-between q-pa-md table-bar">
     <div class="row items-center q-gutter-x-sm">
-      <SearchInput :model-value="search" @update:model-value="$emit('update:search', $event)" :placeholder="searchPlaceholder" style="width: 300px;" />
+      <SearchInput :model-value="search" @update:model-value="$emit('update:search', $event)" :placeholder="searchPlaceholder ?? ''" style="width: 300px;" />
       <FilterDropdown
         :filters="filters"
         :active-filters="activeFilters"

@@ -95,3 +95,47 @@
 
   color-scheme: light;
 }
+
+/* ============================================================
+   Dark theme — opt-in via <html data-theme="dark">.
+   Surfaces, text and borders flip; the sidebar stays deep teal
+   by design, so its tokens are intentionally untouched.
+   ============================================================ */
+[data-theme="dark"] {
+  --c-bg: #0B1413;
+  --c-surface: #12201E;
+  --c-surface-2: #1A2B28;
+  --c-ink: #EAF4F1;
+  --c-text: #C7D3CF;
+  --c-muted: #8A9A94;
+  --c-border: #223530;
+  --c-border-strong: #2E4540;
+
+  --c-primary: #14B8A6;
+  --c-primary-soft: #14302D;
+  --c-primary-ink: #5EEAD4;
+
+  --c-accent: #F0806A;
+  --c-accent-soft: #3A221C;
+
+  --c-success: #4ADE80;
+  --c-success-soft: #14301F;
+  --c-warning: #FBBF24;
+  --c-warning-soft: #33250E;
+  --c-danger: #FB7185;
+  --c-danger-soft: #3A1714;
+  --c-info: #38BDF8;
+  --c-info-soft: #0E2A33;
+
+  --c-panel-dark: #0E2E2A;
+  --c-panel-dark-text: #EAF4F1;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.6);
+
+  --card-bg: var(--c-surface);
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+
+  color-scheme: dark;
+}

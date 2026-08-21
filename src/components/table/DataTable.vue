@@ -40,11 +40,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, PropType } from 'vue'
 
 const props = defineProps({
-  rows: { type: Array, required: true },
-  columns: { type: Array, required: true },
+  rows: { type: Array as PropType<any[]>, required: true },
+  columns: { type: Array as PropType<any[]>, required: true },
   rowKey: { type: String, default: 'id' },
   pagination: { type: Object, default: () => ({ rowsPerPage: 10 }) },
   loading: { type: Boolean, default: false }

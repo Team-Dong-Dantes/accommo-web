@@ -34,6 +34,7 @@ export const STATUS_MAP: Record<string, StatusDef> = {
 
   rejected: { tone: 'danger', icon: 'mdi:close-circle' },
   suspended: { tone: 'danger', icon: 'mdi:cancel' },
+  banned: { tone: 'danger', icon: 'mdi:block-helper' },
   expired: { tone: 'danger', icon: 'mdi:alert-outline' },
   upcoming: { tone: 'warning', icon: 'mdi:calendar-clock' },
 

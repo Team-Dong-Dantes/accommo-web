@@ -18,7 +18,7 @@ export function useNotify() {
   }
 
   return {
-    success: (message: string, caption?: string) =>
+    success: (message: string, caption = '') =>
       $q.notify({
         ...base,
         message,
@@ -27,7 +27,7 @@ export function useNotify() {
         iconColor: 'teal-4',
         timeout: 3500,
       }),
-    error: (message: string, caption?: string) =>
+    error: (message: string, caption = '') =>
       $q.notify({
         ...base,
         message,
@@ -36,7 +36,7 @@ export function useNotify() {
         iconColor: 'red-4',
         timeout: 4500,
       }),
-    warning: (message: string, caption?: string) =>
+    warning: (message: string, caption = '') =>
       $q.notify({
         ...base,
         message,
@@ -45,7 +45,7 @@ export function useNotify() {
         iconColor: 'amber-4',
         timeout: 4500,
       }),
-    info: (message: string, caption?: string) =>
+    info: (message: string, caption = '') =>
       $q.notify({
         ...base,
         message,

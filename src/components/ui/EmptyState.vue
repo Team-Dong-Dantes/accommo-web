@@ -1,7 +1,20 @@
 <template>
-  <div class="usr-empty text-muted">
-    <Icon :icon="icon" width="15" height="15" class="q-mr-xs" />
-    {{ message }}
+  <div
+    :class="variant === 'rich'
+      ? 'rich-empty full-width column flex-center text-muted q-pa-xl'
+      : 'usr-empty text-muted'"
+  >
+    <Icon
+      :icon="icon"
+      :width="variant === 'rich' ? size : 15"
+      :height="variant === 'rich' ? size : 15"
+      :class="variant === 'rich' ? 'q-mb-md' : 'q-mr-xs'"
+    />
+    <template v-if="variant === 'rich'">
+      <div class="text-h6 text-weight-bold text-ink">{{ title }}</div>
+      <div v-if="message" class="text-center">{{ message }}</div>
+    </template>
+    <template v-else>{{ message }}</template>
   </div>
 </template>
 
@@ -9,8 +22,11 @@
 import { Icon } from '@iconify/vue'
 
 defineProps({
+  variant: { type: String as () => 'inline' | 'rich', default: 'inline' },
   icon: { type: String, default: 'mdi:information-outline' },
-  message: { type: String, required: true },
+  title: { type: String, default: 'Nothing here yet' },
+  message: { type: String, default: '' },
+  size: { type: [Number, String], default: 48 },
 })
 </script>
 
@@ -21,5 +37,8 @@ defineProps({
   padding: 6px 0;
   display: flex;
   align-items: center;
+}
+.rich-empty {
+  gap: 2px;
 }
 </style>

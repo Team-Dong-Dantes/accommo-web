@@ -2,8 +2,8 @@
   <q-card flat class="kpi-card" :class="variant === 'feature' ? 'kpi-feature' : 'bg-surface border-token'">
     <div class="kpi-top">
       <span class="kpi-label">{{ label }}</span>
-      <div class="kpi-ico" :class="variant === 'feature' ? 'on-feature' : 'on-light'">
-        <Icon :icon="icon" :width="17" :height="17" :color="variant === 'feature' ? 'white' : 'var(--c-primary)'" />
+      <div class="kpi-ico" :class="variant === 'feature' ? 'on-feature' : `accent-${accent}`">
+        <Icon :icon="icon" :width="17" :height="17" :color="variant === 'feature' ? 'white' : `var(--c-${accent})`" />
       </div>
     </div>
     <div class="kpi-val text-display">{{ value }}</div>
@@ -25,6 +25,7 @@ defineProps({
   value: { type: String, required: true },
   icon: { type: String, required: true },
   variant: { type: String as () => 'default' | 'feature', default: 'default' },
+  accent: { type: String as () => 'primary' | 'warning' | 'success' | 'info', default: 'primary' },
   trend: { type: String as () => 'up' | 'down' | 'flat', default: 'flat' },
   delta: { type: String, default: '' },
   deltaLabel: { type: String, default: '' },
@@ -71,8 +72,17 @@ defineProps({
   justify-content: center;
   flex: none;
 }
-.kpi-ico.on-light {
+.kpi-ico.accent-primary {
   background: var(--c-primary-soft);
+}
+.kpi-ico.accent-warning {
+  background: var(--c-warning-soft);
+}
+.kpi-ico.accent-success {
+  background: var(--c-success-soft);
+}
+.kpi-ico.accent-info {
+  background: var(--c-info-soft);
 }
 .kpi-ico.on-feature {
   background: rgba(255, 255, 255, 0.16);
