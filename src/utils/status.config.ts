@@ -39,7 +39,9 @@ export const STATUS_MAP: Record<string, StatusDef> = {
   upcoming: { tone: 'warning', icon: 'mdi:calendar-clock' },
 
   open: { tone: 'warning', icon: 'mdi:folder-open-outline' },
+  in_progress: { tone: 'info', icon: 'mdi:progress-clock' },
   resolved: { tone: 'success', icon: 'mdi:check' },
+  urgent: { tone: 'danger', icon: 'mdi:alert-octagon' },
   high: { tone: 'danger', icon: 'mdi:alert' },
   medium: { tone: 'warning', icon: 'mdi:equal' },
   low: { tone: 'info', icon: 'mdi:chevron-double-down' },

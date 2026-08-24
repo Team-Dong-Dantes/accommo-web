@@ -33,3 +33,16 @@ supabase/
 
 # Dev-only style guide (not shipped)
 src/pages/admin/UIBible.vue
+
+# Local debugging / DOM-inspection scratch
+*.log
+ddout.txt
+files.txt
+intro.json
+intro-table.json
+*.tsbuildinfo
+
+# Dev screenshots
+shot-*.png
+shots/
+scripts/

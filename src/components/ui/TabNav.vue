@@ -32,13 +32,14 @@ defineEmits<{ (e: 'update:modelValue', value: string): void }>()
 
 <style scoped>
 .folder-tabs {
-  min-height: 48px;
+  min-height: 46px;
   background: transparent;
 }
 
 :deep(.folder-tab) {
-  min-height: 48px;
-  padding: 0 24px;
+  min-height: 46px;
+  padding: 0 22px;
+  margin-right: 4px;
   font-size: 13px;
   font-weight: 700;
   color: var(--c-muted);
@@ -46,8 +47,6 @@ defineEmits<{ (e: 'update:modelValue', value: string): void }>()
   border: 1px solid var(--c-border);
   border-bottom: none;
   border-radius: 12px 12px 0 0;
-  margin-right: 6px;
-  margin-bottom: -1px;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
@@ -57,10 +56,12 @@ defineEmits<{ (e: 'update:modelValue', value: string): void }>()
 
 :deep(.folder-tab.q-tab--active) {
   background-color: var(--c-surface);
-  border-color: var(--c-border);
-  border-bottom: none;
   color: var(--c-primary);
+  border-color: var(--c-border);
+  border-bottom: 1px solid var(--c-surface);
   margin-bottom: -1px;
+  position: relative;
+  z-index: 1;
 }
 
 :deep(.q-tab__indicator) {
