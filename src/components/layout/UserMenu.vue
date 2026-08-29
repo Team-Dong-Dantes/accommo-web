@@ -2,12 +2,12 @@
   <div class="row items-center no-wrap cursor-pointer profile-capsule">
 
     <q-avatar size="48px" color="primary" text-color="white" class="text-weight-bold" style="font-size: 30px;">
-      MA
+      {{ authStore.user?.initials || 'MA' }}
     </q-avatar>
 
     <div class="column q-ml-sm q-mr-xs">
-      <div class="text-weight-bold text-ink" style="font-size: 15px; line-height: 1.1;">Maria Admin</div>
-      <div class="text-muted" style="font-size: 12px; font-weight: 600;">Administrator</div>
+      <div class="text-weight-bold text-ink" style="font-size: 15px; line-height: 1.1;">{{ authStore.user?.full_name || 'Maria Admin' }}</div>
+      <div class="text-muted" style="font-size: 12px; font-weight: 600;">{{ authStore.roleLabel(authStore.user?.role || 'admin') }}</div>
     </div>
 
     <q-menu anchor="bottom right" self="top right" :offset="[0, 10]"

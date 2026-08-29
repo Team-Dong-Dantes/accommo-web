@@ -62,7 +62,7 @@ async function handleLogin() {
   if (!loginFormRef.value) return;
   const success = await loginFormRef.value.validate();
   if (!success) {
-    $q.notify({ message: 'Please enter your email and password.', position: 'top', color: 'grey-9', textColor: 'white', type: 'warning', classes: 'custom-notify' });
+    $q.notify({ message: 'Please enter your email and password.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' });
     return;
   }
 
@@ -71,7 +71,7 @@ async function handleLogin() {
     await authStore.login(email.value, password.value);
 
     $q.notify({ message: 'Welcome back!', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-check-circle', iconColor: 'teal-4', classes: 'custom-notify' });
-    void router.push('/dashboard');
+    void router.push(authStore.needsOnboarding ? '/onboarding' : '/dashboard');
   } catch (error: unknown) {
     $q.notify({ message: error instanceof Error ? error.message : 'An unexpected error occurred', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' });
   } finally {
@@ -102,12 +102,5 @@ async function handleLogin() {
 .footer-text {
   color: #4b5563;
   font-size: 11px;
-}
-</style>
-<style>
-.custom-notify {
-  border-radius: 20px !important;
-  padding: 10px 20px !important;
-  font-weight: 500;
 }
 </style>

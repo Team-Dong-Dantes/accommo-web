@@ -1155,7 +1155,9 @@ export type Database = {
           full_name: string
           id: string
           initials: string
+          is_superadmin: boolean
           last_login_at: string | null
+          onboarding_complete: boolean
           phone: string
           role: Database["public"]["Enums"]["user_role"]
           sex: string | null
@@ -1170,7 +1172,9 @@ export type Database = {
           full_name: string
           id: string
           initials: string
+          is_superadmin: boolean
           last_login_at?: string | null
+          onboarding_complete?: boolean | null
           phone: string
           role: Database["public"]["Enums"]["user_role"]
           sex?: string | null
@@ -1185,7 +1189,9 @@ export type Database = {
           full_name?: string
           id?: string
           initials?: string
+          is_superadmin?: boolean
           last_login_at?: string | null
+          onboarding_complete?: boolean | null
           phone?: string
           role?: Database["public"]["Enums"]["user_role"]
           sex?: string | null

@@ -20,6 +20,14 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
+    path: '/onboarding',
+    component: () => import('@/layouts/AuthLayout.vue'),
+    meta: { requiresAuth: true, role: 'admin' },
+    children: [
+      { path: '', component: () => import('@/pages/auth/OnboardingPage.vue') },
+    ],
+  },
+  {
     path: '/dashboard',
     component: () => import('@/layouts/MainLayout.vue'),
     meta: { requiresAuth: true, role: 'admin' },
@@ -99,7 +107,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Concerns.vue'),
-        meta: { title: 'Concerns' },
+        meta: { title: 'Support Tickets' },
       },
     ],
   },
@@ -136,6 +144,18 @@ const routes: RouteRecordRaw[] = [
         path: '',
         component: () => import('@/pages/admin/Settings.vue'),
         meta: { title: 'Settings' },
+      },
+    ],
+  },
+  {
+    path: '/notifications',
+    component: () => import('@/layouts/MainLayout.vue'),
+    meta: { requiresAuth: true, role: 'admin' },
+    children: [
+      {
+        path: '',
+        component: () => import('@/pages/admin/Notifications.vue'),
+        meta: { title: 'Notifications' },
       },
     ],
   },

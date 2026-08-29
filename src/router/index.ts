@@ -29,18 +29,19 @@ export default defineRouter(() => {
     if (roleFetchInProgress) return roleFetchInProgress;
 
     roleFetchInProgress = (async () => {
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', session.user.id)
-          .maybeSingle();
+       try {
+         const { data, error } = await supabase
+           .from('users')
+            .select('id, full_name, email, initials, avatar_color, phone, is_superadmin, onboarding_complete, role')
+           .eq('id', session.user.id)
+           .maybeSingle();
 
-        if (error || !data) return null;
+         if (error || !data) return null;
 
-        authStore.cachedRole = data.role;
-        return data.role;
-      } catch {
+         authStore.user = data as any;
+         authStore.cachedRole = data.role;
+         return data.role;
+       } catch {
         return null;
       } finally {
         roleFetchInProgress = null;
@@ -52,20 +53,37 @@ export default defineRouter(() => {
 
   Router.beforeEach(async (to) => {
     const { data: { session } } = await supabase.auth.getSession();
+    const authStore = useAuthStore();
     const isAuthenticated = !!session;
 
     const publicRoutes = ['/', '/auth/login'];
     const isPublicRoute = publicRoutes.includes(to.path);
+    const isOnboarding = to.path === '/onboarding';
 
-    if (!isAuthenticated && !isPublicRoute) {
+    // Unauthenticated users may only reach public routes.
+    if (!isAuthenticated) {
+      if (isPublicRoute) return true;
       return '/auth/login';
     }
 
-    if (isAuthenticated && isPublicRoute) {
-      const role = await fetchUserRole(session);
+    // Authenticated: load the role/profile so we can check onboarding state.
+    const role = await fetchUserRole(session);
+    const needsOnboarding =
+      !!authStore.user &&
+      authStore.user.role === 'admin' &&
+      !authStore.user.onboarding_complete;
+
+    // The onboarding screen is only for admins who haven't completed it yet.
+    if (isOnboarding) {
+      return needsOnboarding ? true : '/dashboard';
+    }
+
+    if (needsOnboarding) {
+      return '/onboarding';
+    }
+
+    if (isPublicRoute) {
       if (role === 'admin') return '/dashboard';
-      if (role === 'student') return '/';
-      if (role === 'landlord') return '/';
       return '/';
     }
 
@@ -74,17 +92,10 @@ export default defineRouter(() => {
       return true;
     }
 
-    if (!isAuthenticated || !session) {
-      return '/auth/login';
-    }
-
     const requiredRole = to.matched.find((record) => record.meta?.role)?.meta?.role as string | undefined;
 
-    if (requiredRole) {
-      const role = await fetchUserRole(session);
-      if (role !== requiredRole) {
-        return '/auth/login';
-      }
+    if (requiredRole && role !== requiredRole) {
+      return '/auth/login';
     }
 
     return true;
