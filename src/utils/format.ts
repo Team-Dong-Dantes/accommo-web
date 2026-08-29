@@ -24,7 +24,12 @@ export function getTimeAgo(dateString: string | null | undefined): string {
   if (isNaN(past)) return 'Unknown'
 
   const diffInMins = Math.floor((new Date().getTime() - past) / 60000)
+  if (diffInMins < 1) return 'just now'
   if (diffInMins < 60) return `${diffInMins} mins ago`
-  if (diffInMins < 1440) return `${Math.floor(diffInMins / 60)} hrs ago`
-  return `${Math.floor(diffInMins / 1440)} days ago`
+  if (diffInMins < 1440) {
+    const h = Math.floor(diffInMins / 60)
+    return `${h} ${h === 1 ? 'hr' : 'hrs'} ago`
+  }
+  const d = Math.floor(diffInMins / 1440)
+  return `${d} ${d === 1 ? 'day' : 'days'} ago`
 }

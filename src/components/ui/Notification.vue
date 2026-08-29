@@ -16,7 +16,7 @@
 
       <q-list class="q-py-xs">
         <q-item v-for="notif in notifications" :key="notif.id" clickable v-ripple
-          :class="notif.unread ? 'bg-primary-1' : ''" @click="notif.unread = false" class="q-pa-md transition-bg">
+          :class="notif.unread ? 'bg-primary-1' : ''" @click="markRead(notif)" class="q-pa-md transition-bg">
           <q-item-section avatar>
             <q-avatar :color="notif.color" text-color="white" size="40px" font-size="20px">
               <Icon :icon="notif.icon" width="20" height="20" />
@@ -46,8 +46,8 @@
       </q-list>
 
       <div class="q-pa-sm text-center border-top bg-surface sticky-bottom">
-        <q-btn flat dense color="primary" label="View All Notifications" class="full-width text-weight-bold"
-          style="font-size: 12px;" />
+  <q-btn flat dense color="primary" label="View All Notifications" class="full-width text-weight-bold"
+    style="font-size: 12px;" @click="viewAll" />
       </div>
     </q-menu>
 
@@ -55,21 +55,105 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { supabase } from '@/utils/supabase'
+import { getTimeAgo } from '@/utils/format'
+import { notificationStyle } from '@/utils/notificationStyle'
 
-const notifications = ref([
-  { id: 1, title: 'New Registration Pending', message: 'Pedro Santos applied as a Landlord for Sunrise Boarding House.', time: '10 min ago', icon: 'mdi:person-add', color: 'teal-5', unread: true },
-  { id: 2, title: 'Urgent Grievance Filed', message: 'TKT-0038: Student reported unauthorized room entry.', time: '1 hr ago', icon: 'mdi:alert-circle', color: 'red-5', unread: true },
-  { id: 3, title: 'Property Verified', message: 'Maharlika Student Hub has been successfully verified.', time: '3 hrs ago', icon: 'mdi:verified', color: 'blue-5', unread: false },
-  { id: 4, title: 'System Update', message: 'Server maintenance scheduled for tonight at 12:00 AM.', time: '1 day ago', icon: 'mdi:cog', color: 'grey-7', unread: false },
-  { id: 5, title: 'Payment Alert', message: 'New rent threshold data has been compiled for May.', time: '2 days ago', icon: 'mdi:credit-card', color: 'orange-5', unread: false }
-]);
+const router = useRouter()
 
-const unreadCount = computed(() => notifications.value.filter(n => n.unread).length);
-
-function markAllRead() {
-  notifications.value.forEach(n => n.unread = false);
+interface Notif {
+  id: string
+  title: string
+  message: string
+  time: string
+  icon: string
+  color: string
+  unread: boolean
+  linkUrl: string
 }
+
+const notifications = ref<Notif[]>([])
+const unreadCount = computed(() => notifications.value.filter((n) => n.unread).length)
+
+function mapRow(r: any): Notif {
+  const s = notificationStyle(r.type)
+  return {
+    id: r.id,
+    title: r.title || 'Notification',
+    message: r.body || '',
+    time: getTimeAgo(r.created_at),
+    icon: s.icon,
+    color: s.color,
+    unread: !r.read_at,
+    linkUrl: r.link_url || '',
+  }
+}
+
+let channel: any = null
+
+async function load() {
+  try {
+    const user = (await supabase.auth.getUser()).data.user
+    if (!user) return
+    const { data } = await supabase
+      .from('notifications')
+      .select('id, title, body, type, link_url, read_at, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    if (data) notifications.value = (data as any[]).map(mapRow)
+  } catch (e: any) {
+    console.warn('Could not load notifications (apply verification_workflow migration?):', e?.message)
+  }
+}
+
+async function markRead(notif: Notif) {
+  if (!notif.unread) return
+  notif.unread = false
+  try {
+    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', notif.id)
+  } catch (e: any) {
+    console.warn('Could not mark notification read:', e?.message)
+  }
+}
+
+async function markAllRead() {
+  const user = (await supabase.auth.getUser()).data.user
+  if (!user) return
+  notifications.value.forEach((n) => (n.unread = false))
+  try {
+    const now = new Date().toISOString()
+    await supabase.from('notifications').update({ read_at: now }).eq('user_id', user.id).is('read_at', null)
+  } catch (e: any) {
+    console.warn('Could not mark all read:', e?.message)
+  }
+}
+
+function viewAll() {
+  router.push('/notifications')
+}
+
+onMounted(async () => {
+  await load()
+  const user = (await supabase.auth.getUser()).data.user
+  if (!user) return
+  channel = supabase
+    .channel('notif-bell')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+      (payload: any) => {
+        notifications.value = [mapRow(payload.new), ...notifications.value].slice(0, 20)
+      },
+    )
+    .subscribe()
+})
+
+onUnmounted(() => {
+  if (channel) supabase.removeChannel(channel)
+})
 </script>
 
 <style scoped>
