@@ -65,7 +65,7 @@ export default defineConfig((/* ctx */) => {
       iconSet: 'mdi-v7',
       config: {},
 
-      plugins: ['Notify']
+      plugins: ['Notify', 'Dialog']
     },
 
     animations: [],

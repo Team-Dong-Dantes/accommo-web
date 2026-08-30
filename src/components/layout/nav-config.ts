@@ -30,12 +30,13 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
-    id: 'properties',
-    label: 'Properties',
+    id: 'accommodations',
+    label: 'Accommodations',
     icon: 'mdi:home-city-outline',
     children: [
       { id: 'map-view', label: 'Map View', icon: 'mdi:map-outline', to: '/map-view' },
-      { id: 'property-hub', label: 'Property Hub', icon: 'mdi:home-city-outline', to: '/property-hub' },
+      { id: 'accommodation-hub', label: 'Accommodation Hub', icon: 'mdi:home-city-outline', to: '/accommodation-hub' },
+      { id: 'room-hub', label: 'Room Hub', icon: 'mdi:door-open', to: '/room-hub' },
     ],
   },
   {
@@ -43,7 +44,7 @@ export const navGroups: NavGroup[] = [
     label: 'Operations',
     icon: 'mdi:briefcase-outline',
     children: [
-      { id: 'concerns', label: 'Concerns', icon: 'mdi:forum-outline', to: '/concerns' },
+      { id: 'support-tickets', label: 'Support Tickets', icon: 'mdi:headset', to: '/support-tickets' },
       { id: 'announcements', label: 'Announcements', icon: 'mdi:bullhorn-outline', to: '/announcements' },
     ],
   },
@@ -53,7 +54,6 @@ export const navGroups: NavGroup[] = [
     icon: 'mdi:tune',
     children: [
       { id: 'audit-logs', label: 'Audit Logs', icon: 'mdi:clipboard-list-outline', to: '/audit-logs' },
-      { id: 'settings', label: 'Settings', icon: 'mdi:cog-outline', to: '/settings' },
     ],
   },
 ];

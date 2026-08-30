@@ -9,6 +9,8 @@
     "dev": "node node_modules/@quasar/app-vite/bin/quasar.js dev",
     "build": "node node_modules/@quasar/app-vite/bin/quasar.js build",
     "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "postinstall": "quasar prepare --silent"
   },
   "dependencies": {
@@ -29,9 +31,11 @@
     "@quasar/app-vite": "^3.2.0",
     "@types/node": "^22.19.11",
     "autoprefixer": "^10.4.27",
+    "playwright": "^1.62.1",
     "postcss": "^8.5.8",
     "typescript": "^6.0.0",
-    "vue-tsc": "^3.3.3"
+    "vue-tsc": "^3.3.3",
+    "vitest": "^4.1.11"
   },
   "keywords": [
     "quasar",

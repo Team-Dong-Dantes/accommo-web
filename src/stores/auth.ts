@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { supabase } from '@/utils/supabase';
+import { roleLabel } from '@/utils/format';
 
 function sanitizeError(error: unknown): Error {
   if (error instanceof Error) {
@@ -106,12 +107,7 @@ export const useAuthStore = defineStore('auth', {
     },
 
     roleLabel(role: string): string {
-      switch (role) {
-        case 'admin': return 'Administrator';
-        case 'student': return 'Student';
-        case 'landlord': return 'Landlord';
-        default: return role ? role.charAt(0).toUpperCase() + role.slice(1) : 'User';
-      }
+      return roleLabel(role);
     },
   },
 });

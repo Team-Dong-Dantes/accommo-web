@@ -1,0 +1,169 @@
+// DetailDrawer preview contract — the data-driven shape rendered by the
+// drawer's reference layout. Moved verbatim from DetailDrawer.vue so
+// feature components can import it without circular dependencies.
+// DetailDrawer.vue re-exports everything for backward compatibility
+// (RoomHub/AccommodationHub/Users import types from it).
+
+import type { StatusTone } from '@/utils/status.config'
+
+export interface PreviewChip {
+  text: string
+  tone?: StatusTone
+  icon?: string
+}
+export interface PreviewStat {
+  label: string
+  value: string | number
+  sub?: string
+  subTone?: StatusTone
+}
+export interface PreviewDetail {
+  label: string
+  value?: string
+  link?: string
+  tone?: StatusTone
+  icon?: string
+  avatar?: { initials: string }
+}
+export interface PreviewCardCell {
+  label: string
+  value?: string
+  tone?: StatusTone
+  icon?: string
+  avatar?: { initials: string; name: string }
+}
+export interface PreviewCard {
+  title: string
+  footerLink?: string
+  accommodationId?: string
+  head: { code?: string; title: string; status: string; statusTone?: StatusTone; location?: string }
+  cells?: PreviewCardCell[]
+}
+export interface PreviewActivity {
+  text: string
+  time: string
+  active?: boolean
+  icon?: string
+  tone?: StatusTone
+}
+export interface PreviewReview {
+  author: string
+  rating: number
+  comment?: string
+  time?: string
+}
+export interface PreviewHistoryCard {
+  icon?: string
+  title: string
+  status: string
+  statusTone?: StatusTone
+  active?: boolean
+  roomType?: string
+  location?: string
+  date?: string
+  accommodationId?: string
+}
+export interface PreviewFile {
+  name: string
+  url: string
+}
+export interface PreviewRoom {
+  id: string
+  name: string
+  floor?: string | number | null
+  capacity?: number | null
+  pax?: number | null
+  status?: string | null
+  statusTone?: StatusTone
+  accommodationId?: string
+}
+export interface PreviewOccupant {
+  id: string
+  name: string
+  initials: string
+  gender?: string | null
+  since?: string | null
+  status?: string | null
+  statusTone?: StatusTone
+}
+export interface PreviewPhoto {
+  id: string
+  url: string
+}
+export interface PreviewTimelineItem {
+  title: string
+  desc?: string
+  meta?: string
+  tone?: StatusTone
+  icon?: string
+  active?: boolean
+}
+export interface PreviewPlacement {
+  status: string
+  statusTone?: StatusTone
+  accommodation: string
+  roomType?: string
+  accommodationManager?: string
+  address?: string
+  moveIn?: string
+}
+export interface DrawerPreview {
+  kind?: 'user' | 'accommodation' | 'room'
+  title?: string
+  positionLabel?: string
+  viewDetailsLabel?: string
+  name: string
+  avatar: string
+  subtitle?: string
+  chips?: PreviewChip[]
+  meta?: string
+  metaIcon?: string
+  stats?: PreviewStat[]
+  details?: PreviewDetail[]
+  placement?: PreviewPlacement
+  history?: PreviewTimelineItem[]
+  files?: PreviewFile[]
+  rooms?: PreviewRoom[]
+  occupants?: PreviewOccupant[]
+  photos?: PreviewPhoto[]
+  card?: PreviewCard
+  activity?: PreviewActivity[]
+  reviews?: PreviewReview[]
+  historyCards?: PreviewHistoryCard[]
+}
+
+/** Hub destinations reachable from hover-overlays and room rows. */
+export type HubKind = 'map' | 'accommodation' | 'room'
+
+/** Shared tone → soft icon-chip style (activity feeds in tabs). */
+export function activityIconStyle(a: { tone?: string }) {
+  const base =
+    a.tone === 'primary' ? 'var(--c-primary)'
+    : a.tone === 'success' ? 'var(--c-success)'
+    : a.tone === 'warning' ? 'var(--c-warning)'
+    : a.tone === 'danger' ? 'var(--c-danger)'
+    : a.tone === 'info' ? 'var(--c-info, var(--c-primary))'
+    : 'var(--c-muted)'
+  return {
+    background: `color-mix(in srgb, ${base} 14%, transparent)`,
+    borderColor: `color-mix(in srgb, ${base} 34%, transparent)`,
+    color: base,
+  }
+}
+
+/** Gender label helper (occupants tab). */
+export function capGender(g: string | null | undefined): string {
+  if (!g) return '—'
+  const s = g.toLowerCase()
+  if (s === 'female') return 'Female'
+  if (s === 'male') return 'Male'
+  return g.charAt(0).toUpperCase() + g.slice(1)
+}
+
+/** Month-year helper (occupants tab). */
+export function fmtMonthYear(s: string | null | undefined): string {
+  if (!s) return '—'
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}

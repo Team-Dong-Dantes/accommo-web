@@ -1,80 +1,82 @@
+// Dashboard statistics orchestrator.
+// Owns the reactive stats object + loading/error state; all Supabase access
+// lives in src/api/* modules. Transform logic lifted verbatim from the
+// original monolithic load() — no behavior change.
+
 import { ref, reactive } from 'vue'
-import { supabase } from '@/utils/supabase'
+import type { DashboardStats } from '@/types/dashboard'
+import { CARD_COLORS } from '@/types/dashboard'
+import { getInitials as initialsOf, getTimeAgoShort as timeAgo } from '@/utils/format'
+import {
+  fetchAccommodationRows,
+  fetchPendingAccommodationIds,
+  fetchExpiringAccommodationAccreditations,
+  fetchPendingAccommodations,
+  fetchAccommodationDocumentIndex,
+  type AccommodationRow,
+} from '@/api/accommodations'
+import { fetchRoomRows, type RoomRow } from '@/api/rooms'
+import {
+  fetchAdminName,
+  fetchStudentCount,
+  fetchNewStudentCount,
+  fetchPendingUserRows,
+  fetchUnverifiedUserCount,
+  fetchUserRoles,
+  fetchRegistrationsSince,
+  fetchPendingRoleCounts,
+  fetchStudentSexes,
+  fetchPendingVerificationUsers,
+  fetchVerificationDocIndex,
+  type PendingUserRow,
+} from '@/api/users'
+import {
+  fetchCollegeCounts,
+  fetchYearLevelCounts,
+  fetchTicketSummaries,
+} from '@/api/tickets'
+import {
+  fetchActiveLeaseCount,
+  fetchExpiringLeases,
+  fetchLeaveRequestCount,
+  fetchLeasesSince,
+  type LeaseStartDateRow,
+} from '@/api/leases'
+import {
+  fetchPendingAccommodationManagerPaymentVerificationCount,
+  fetchOverdueAccommodationManagerPaymentCount,
+} from '@/api/payments'
 
-export interface PendingRegistration {
-  initials: string
-  name: string
-  time: string
-  role: string
-  roleColor: string
-  status: string
-  statusColor: string
-  color: string
-}
+export type { DashboardStats } from '@/types/dashboard'
+export type { PendingRegistration } from '@/types/dashboard'
 
-export interface DashboardStats {
-  loading: boolean
-  error: string | null
-  adminName: string
-  properties: { total: number; accredited: number; avgRent: number }
-  rooms: { total: number; occupied: number; available: number; capacity: number; occupancyPct: number }
-  roomsByType: { type: string; capacity: number; count: number }[]
-  topOccupied: { name: string; ratio: string; val: number }[]
-  students: { total: number; newThisMonth: number }
-  studentsByCollege: { name: string; val: number; pct: string; ratio: number; color: string }[]
-  studentsByYear: { year: string; val: number }[]
-  gender: { female: number; male: number; other: number }
-  concerns: {
-    total: number
-    open: number
-    inProgress: number
-    resolved: number
-    rejected: number
-    urgent: number
-  }
-  concernsByCategory: { name: string; val: number; ratio: number; color: string }[]
-  complaints: { total: number; open: number; urgent: number }
-  pendingRegistrations: PendingRegistration[]
-  unverifiedUsers: { total: number; pending: number; reviewing: number }
-  activeLeases: number
-  registrationsByMonth: { month: string; students: number; landlords: number }[]
-  queue: { pendingStudents: number; pendingLandlords: number; pendingProperties: number }
-  expiringLeases: { id: string; end_date: string | null }[]
-  expiringAccreditations: number
-  recentComplaints: { id: string; subject: string; priority: string; status: string; filed_at: string | null }[]
-}
-
-const CARD_COLORS = [
-  'teal-5',
-  'indigo-5',
-  'orange-5',
-  'blue-5',
-  'pink-4',
-  'deep-purple-4',
-  'green-5',
-  'red-5',
+const DASHBOARD_LOAD_TIMEOUT_MS = 15_000
+const VERIFICATION_REVIEW_SLA_DAYS = 3
+const SUPPORT_TICKET_SLA_DAYS = 3
+const REQUIRED_ACCOMMODATION_PERMITS = [
+  { type: 'sanitary_permit', label: 'Sanitary permit' },
+  { type: 'fire_safety', label: 'Fire safety permit' },
+  { type: 'business_permit', label: 'Business permit' },
+  { type: 'building_permit', label: 'Building permit' },
 ]
 
-function initialsOf(name: string | null | undefined): string {
-  const parts = (name ?? '').trim().split(' ').filter(Boolean)
-  if (parts.length === 0) return '?'
-  const first = parts[0]?.[0] ?? ''
-  if (parts.length > 1) {
-    const last = parts[parts.length - 1]?.[0] ?? ''
-    return (first + last).toUpperCase()
-  }
-  return first.toUpperCase()
-}
+function settleWithin<T>(promise: Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Dashboard data is taking too long to load. Check your connection and retry.'))
+    }, DASHBOARD_LOAD_TIMEOUT_MS)
 
-function timeAgo(dateStr: string | null | undefined): string {
-  if (!dateStr) return 'Unknown'
-  const past = new Date(dateStr).getTime()
-  if (isNaN(past)) return 'Unknown'
-  const diff = Math.floor((Date.now() - past) / 60000)
-  if (diff < 1) return 'just now'
-  if (diff < 60) return `${diff} min ago`
-  if (diff < 1440) return `${Math.floor(diff / 60)} hrs ago`
-  return `${Math.floor(diff / 1440)} days ago`
+    promise.then(
+      (value) => {
+        clearTimeout(timeout)
+        resolve(value)
+      },
+      (reason) => {
+        clearTimeout(timeout)
+        reject(reason)
+      },
+    )
+  })
 }
 
 function emptyStats(): DashboardStats {
@@ -82,31 +84,424 @@ function emptyStats(): DashboardStats {
     loading: true,
     error: null,
     adminName: 'Admin',
-    properties: { total: 0, accredited: 0, avgRent: 0 },
-    rooms: { total: 0, occupied: 0, available: 0, capacity: 0, occupancyPct: 0 },
+    accommodations: { total: 0, accredited: 0, avgRent: 0 },
+    rooms: { total: 0, occupied: 0, available: 0, capacity: 0, pax: 0, occupancyPct: 0 },
+    users: { total: 0, students: 0, accommodationManagers: 0, agents: 0, admins: 0 },
     roomsByType: [],
     topOccupied: [],
     students: { total: 0, newThisMonth: 0 },
     studentsByCollege: [],
+    studentProfileQuality: { records: 0, collegeRecorded: 0, collegeMissing: 0, yearLevelMissing: 0, distinctCollegeValues: 0 },
     studentsByYear: [],
-    gender: { female: 0, male: 0, other: 0 },
-    concerns: { total: 0, open: 0, inProgress: 0, resolved: 0, rejected: 0, urgent: 0 },
-    concernsByCategory: [],
-    complaints: { total: 0, open: 0, urgent: 0 },
+    gender: { female: 0, male: 0, other: 0, unspecified: 0 },
+    tickets: {
+      total: 0,
+      open: 0,
+      inProgress: 0,
+      resolved: 0,
+      rejected: 0,
+      urgent: 0,
+    },
+    ticketsByCategory: [],
     pendingRegistrations: [],
     unverifiedUsers: { total: 0, pending: 0, reviewing: 0 },
     activeLeases: 0,
     registrationsByMonth: [],
-    queue: { pendingStudents: 0, pendingLandlords: 0, pendingProperties: 0 },
+    trends: { users: [], tickets: [], accommodations: [], leases: [] },
+    queue: { pendingStudents: 0, pendingAccommodationManagers: 0, pendingAccommodations: 0 },
     expiringLeases: [],
     expiringAccreditations: 0,
-    recentComplaints: [],
+    recentTickets: [],
+    accommodationManagerPayments: { pendingVerification: 0, overdue: 0 },
+    leaveRequests: 0,
+    accommodationFunnel: { pending: 0, reviewing: 0, accredited: 0, rejected: 0, delisted: 0 },
+    verificationQueue: { students: 0, accommodationManagers: 0, withDocs: 0, oldestDays: 0, oldestStudentDays: 0, studentsReadyForReview: 0, studentsPastSla: 0, oldest: [] },
+    accreditationQueue: {
+      total: 0,
+      withPermits: 0,
+      documentGaps: REQUIRED_ACCOMMODATION_PERMITS.map(({ label }) => ({ label, accommodations: 0 })),
+      oldest: [],
+    },
+    ticketQueue: { open: 0, urgent: 0, unassigned: 0, oldestDays: 0, pastSla: 0, createdLast7Days: 0, createdPrevious7Days: 0, leadingOpenCategory: null, oldest: [] },
   }
 }
+
+// --- pure transforms (verbatim from the original monolith) -----------------
+
+function computeAccommodations(accommodations: AccommodationRow[], rooms: RoomRow[], data: DashboardStats) {
+  data.accommodations.total = accommodations.length
+  data.accommodations.accredited = accommodations.filter((accommodation) => accommodation.status === 'accredited').length
+
+  const funnel = { pending: 0, reviewing: 0, accredited: 0, rejected: 0, delisted: 0 }
+  for (const accommodation of accommodations) {
+    if (accommodation.status === 'pending' || accommodation.status === 'reviewing' || accommodation.status === 'accredited' || accommodation.status === 'rejected' || accommodation.status === 'delisted') {
+      funnel[accommodation.status] += 1
+    }
+  }
+  data.accommodationFunnel = funnel
+  // Rent is per-room (rooms.monthly_rent), not per-accommodation.
+  const rents = rooms.map((r) => r.monthly_rent).filter((r): r is number => r != null)
+  data.accommodations.avgRent = rents.length
+    ? Math.round(rents.reduce((s, r) => s + r, 0) / rents.length)
+    : 0
+}
+
+function computeRooms(rooms: RoomRow[], data: DashboardStats) {
+  const totalRooms = rooms.length
+  const occupiedRooms = rooms.filter((r) => r.status === 'occupied').length
+  const availableRooms = rooms.filter((r) => r.status === 'available').length
+  const totalCapacity = rooms.reduce((s, r) => s + (r.capacity ?? 0), 0)
+  const totalPax = rooms.reduce((s, r) => s + (r.current_pax ?? 0), 0)
+  data.rooms = {
+    total: totalRooms,
+    occupied: occupiedRooms,
+    available: availableRooms,
+    capacity: totalCapacity,
+    pax: totalPax,
+    occupancyPct: totalCapacity > 0 ? Math.round((totalPax / totalCapacity) * 100) : 0,
+  }
+
+  // Rooms by type (sum capacity per room_type)
+  const typeMap = new Map<string, { capacity: number; count: number }>()
+  for (const r of rooms) {
+    const t = r.accommodation?.room_type ?? 'unknown'
+    const entry = typeMap.get(t) ?? { capacity: 0, count: 0 }
+    entry.capacity += r.capacity ?? 0
+    entry.count += 1
+    typeMap.set(t, entry)
+  }
+  data.roomsByType = Array.from(typeMap.entries())
+    .map(([type, v]) => ({ type, capacity: v.capacity, count: v.count }))
+    .sort((a, b) => b.capacity - a.capacity)
+
+  // Most occupied accommodations.
+  const accommodationAgg = new Map<string, { occupied: number; total: number }>()
+  for (const r of rooms) {
+    const name = r.accommodation?.name ?? 'Unknown'
+    const agg = accommodationAgg.get(name) ?? { occupied: 0, total: 0 }
+    agg.total += 1
+    if (r.status === 'occupied') agg.occupied += 1
+    accommodationAgg.set(name, agg)
+  }
+  data.topOccupied = Array.from(accommodationAgg.entries())
+    .map(([name, v]) => ({
+      name,
+      val: v.total > 0 ? v.occupied / v.total : 0,
+      ratio: `${v.occupied}/${v.total}`,
+    }))
+    .filter((p) => p.val > 0)
+    .sort((a, b) => b.val - a.val)
+    .slice(0, 5)
+}
+
+function computeUsers(roleRows: string[], data: DashboardStats) {
+  let uStudents = 0
+  let uAccommodationManagers = 0
+  let uAgents = 0
+  let uAdmins = 0
+  for (const role of roleRows) {
+    const r = role.toLowerCase()
+    if (r === 'student') uStudents += 1
+    else if (r === 'accommodation_manager') uAccommodationManagers += 1
+    else if (r === 'agent') uAgents += 1
+    else if (r === 'admin') uAdmins += 1
+  }
+  data.users = {
+    total: roleRows.length,
+    students: uStudents,
+    accommodationManagers: uAccommodationManagers,
+    agents: uAgents,
+    admins: uAdmins,
+  }
+}
+
+function computeStudentDemographics(
+  collegeSummary: Awaited<ReturnType<typeof fetchCollegeCounts>>,
+  years: Map<number, number>,
+  sexes: Array<{ sex: string | null }>,
+  studentTotal: number,
+  data: DashboardStats,
+) {
+  // By college
+  const { counts: colleges } = collegeSummary
+  const totalStudents = studentTotal || colleges.size || 1
+  data.studentsByCollege = Array.from(colleges.entries())
+    .map(([name, val]) => ({ name, val }))
+    .sort((a, b) => b.val - a.val)
+    .slice(0, 6)
+    .map((c, i) => ({
+      name: c.name,
+      val: c.val,
+      pct: `${Math.round((c.val / totalStudents) * 100)}%`,
+      ratio: totalStudents > 0 ? c.val / totalStudents : 0,
+      color: CARD_COLORS[i % CARD_COLORS.length] ?? 'grey-5',
+    }))
+  // Keep missing or invalid profile values visible instead of silently dropping them.
+  const standardYearLevels = ['1st Yr', '2nd Yr', '3rd Yr', '4th Yr'].map((year, i) => ({
+    year,
+    val: years.get(i + 1) ?? 0,
+  }))
+  const unrecordedYears = Array.from(years.entries())
+    .filter(([year]) => year < 1 || year > 4)
+    .reduce((total, [, count]) => total + count, 0)
+  data.studentsByYear = unrecordedYears > 0
+    ? [...standardYearLevels, { year: 'Not recorded', val: unrecordedYears }]
+    : standardYearLevels
+  data.studentProfileQuality = {
+    records: collegeSummary.profileCount,
+    collegeRecorded: collegeSummary.recordedCount,
+    collegeMissing: collegeSummary.missingCount,
+    yearLevelMissing: unrecordedYears,
+    distinctCollegeValues: collegeSummary.distinctCount,
+  }
+
+  // Gender
+  let female = 0
+  let male = 0
+  let other = 0
+  let unspecified = 0
+  for (const s of sexes) {
+    const sex = s.sex?.trim().toLowerCase()
+    if (sex === 'f' || sex === 'female') female += 1
+    else if (sex === 'm' || sex === 'male') male += 1
+    else if (!sex) unspecified += 1
+    else other += 1
+  }
+  data.gender = { female, male, other, unspecified }
+}
+
+function computeTickets(
+  ticketRows: Array<{ id: string; status: string; category: string | null }>,
+  data: DashboardStats,
+) {
+  let open = 0
+  let inProgress = 0
+  let resolved = 0
+  let rejected = 0
+  const catCounts = new Map<string, number>()
+  for (const ticket of ticketRows) {
+    const status = ticket.status.toLowerCase()
+    if (status === 'open') open += 1
+    else if (status === 'in_progress') inProgress += 1
+    else if (status === 'resolved') resolved += 1
+    else if (status === 'rejected') rejected += 1
+    const cat = ticket.category || 'others'
+    catCounts.set(cat, (catCounts.get(cat) ?? 0) + 1)
+  }
+  const ticketTotal = ticketRows.length
+  const securityTickets = ticketRows.filter((ticket) => ticket.category === 'security').length
+  data.tickets = {
+    total: ticketTotal,
+    open,
+    inProgress,
+    resolved,
+    rejected,
+    urgent: securityTickets,
+  }
+  const maxCat = Math.max(1, ...Array.from(catCounts.values()))
+  data.ticketsByCategory = Array.from(catCounts.entries())
+    .map(([name, val], i) => ({
+      name,
+      val,
+      ratio: val / maxCat,
+      color: CARD_COLORS[i % CARD_COLORS.length] ?? 'grey-5',
+    }))
+    .sort((a, b) => b.val - a.val)
+}
+
+function computePendingRegistrations(pending: PendingUserRow[], data: DashboardStats) {
+  data.pendingRegistrations = pending.map((u) => {
+    const isAccommodationManager = (u.role ?? '').toLowerCase() === 'accommodation_manager'
+    return {
+      initials: initialsOf(u.full_name),
+      name: u.full_name || 'Unknown User',
+      time: timeAgo(u.created_at),
+      role: isAccommodationManager ? 'Accommodation Manager' : 'Student',
+      roleColor: isAccommodationManager ? 'indigo-4' : 'teal-4',
+      status: (u.status ?? 'pending').charAt(0).toUpperCase() + (u.status ?? 'pending').slice(1).toLowerCase(),
+      statusColor: isAccommodationManager ? 'orange' : 'orange',
+      color: isAccommodationManager ? 'indigo-5' : 'teal-5',
+    }
+  })
+}
+
+function computeRegistrationTrend(
+  regRows: Array<{ created_at: string | null; role: string }>,
+  data: DashboardStats,
+) {
+  const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  const now = new Date()
+  const monthLabels: string[] = []
+  for (let i = 12; i >= 0; i--) {
+    monthLabels.push(monthKey(new Date(now.getFullYear(), now.getMonth() - i, 1)))
+  }
+  const regByMonth = new Map(monthLabels.map(k => [k, { students: 0, accommodationManagers: 0 }]))
+  for (const u of regRows) {
+    if (!u.created_at) continue
+    const k = monthKey(new Date(u.created_at))
+    const bucket = regByMonth.get(k)
+    if (!bucket) continue
+    if (u.role === 'student') bucket.students += 1
+    else if (u.role === 'accommodation_manager') bucket.accommodationManagers += 1
+  }
+  data.registrationsByMonth = monthLabels.map((k) => {
+    const [y, m] = k.split('-')
+    const label = new Date(Number(y), Number(m) - 1, 1).toLocaleString('en', { month: 'short' })
+    const v = regByMonth.get(k)!
+    return { ym: k, month: label, students: v.students, accommodationManagers: v.accommodationManagers }
+  })
+}
+
+function ageInDays(date: string | null): number {
+  if (!date) return 0
+  const timestamp = new Date(date).getTime()
+  if (Number.isNaN(timestamp)) return 0
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 86_400_000))
+}
+
+function computeOperationalQueues(
+  pendingUsers: Awaited<ReturnType<typeof fetchPendingVerificationUsers>>,
+  verificationDocs: Map<string, string[]>,
+  pendingAccommodations: Awaited<ReturnType<typeof fetchPendingAccommodations>>,
+  accommodationDocuments: Map<string, string[]>,
+  tickets: Awaited<ReturnType<typeof fetchTicketSummaries>>,
+  data: DashboardStats,
+) {
+  const verificationOldest = pendingUsers.slice(0, 3).map((user) => ({
+    name: user.full_name || 'Unknown user',
+    role: user.role,
+    ageDays: ageInDays(user.created_at),
+    hasDocs: (verificationDocs.get(user.id)?.length ?? 0) > 0,
+  }))
+  const oldestPendingStudent = pendingUsers.find((user) => user.role === 'student')
+  data.verificationQueue = {
+    students: pendingUsers.filter((user) => user.role === 'student').length,
+    accommodationManagers: pendingUsers.filter((user) => user.role === 'accommodation_manager').length,
+    withDocs: pendingUsers.filter((user) => (verificationDocs.get(user.id)?.length ?? 0) > 0).length,
+    oldestDays: verificationOldest[0]?.ageDays ?? 0,
+    oldestStudentDays: ageInDays(oldestPendingStudent?.created_at ?? null),
+    studentsReadyForReview: pendingUsers.filter((user) =>
+      user.role === 'student' && (verificationDocs.get(user.id)?.length ?? 0) >= 2,
+    ).length,
+    studentsPastSla: pendingUsers.filter((user) =>
+      user.role === 'student' && ageInDays(user.created_at) > VERIFICATION_REVIEW_SLA_DAYS,
+    ).length,
+    oldest: verificationOldest,
+  }
+
+  const accreditationReady = pendingAccommodations.filter((accommodation) => {
+    const uploaded = new Set(accommodationDocuments.get(accommodation.id) ?? [])
+    return REQUIRED_ACCOMMODATION_PERMITS.every(({ type }) => uploaded.has(type))
+  }).length
+  const documentGaps = REQUIRED_ACCOMMODATION_PERMITS.map(({ type, label }) => ({
+    label,
+    accommodations: pendingAccommodations.filter((accommodation) => !(new Set(accommodationDocuments.get(accommodation.id) ?? [])).has(type)).length,
+  }))
+  const accreditationOldest = pendingAccommodations.slice(0, 3).map((accommodation) => {
+    const uploaded = new Set(accommodationDocuments.get(accommodation.id) ?? [])
+    return {
+      name: accommodation.name || 'Unnamed accommodation',
+      roomType: accommodation.room_type,
+      hasPermits: REQUIRED_ACCOMMODATION_PERMITS.every(({ type }) => uploaded.has(type)),
+    }
+  })
+  data.accreditationQueue = {
+    total: pendingAccommodations.length,
+    withPermits: accreditationReady,
+    documentGaps,
+    oldest: accreditationOldest,
+  }
+
+  const openTickets = tickets
+    .filter((ticket) => ['open', 'in_progress'].includes(ticket.status.toLowerCase()))
+    .sort((a, b) => new Date(a.reported_at).getTime() - new Date(b.reported_at).getTime())
+  const sevenDaysAgo = Date.now() - 7 * 86_400_000
+  const fourteenDaysAgo = Date.now() - 14 * 86_400_000
+  const ticketCreatedAt = (ticket: { reported_at: string }) => new Date(ticket.reported_at).getTime()
+  const openCategoryCounts = new Map<string, number>()
+  for (const ticket of openTickets) {
+    const category = ticket.category || 'Other'
+    openCategoryCounts.set(category, (openCategoryCounts.get(category) ?? 0) + 1)
+  }
+  const leadingOpenCategory = Array.from(openCategoryCounts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)[0] ?? null
+  data.ticketQueue = {
+    open: openTickets.length,
+    urgent: openTickets.filter((ticket) => ticket.priority === 'urgent').length,
+    unassigned: openTickets.filter((ticket) => !ticket.assignee_id).length,
+    oldestDays: ageInDays(openTickets[0]?.reported_at ?? null),
+    pastSla: openTickets.filter((ticket) => ageInDays(ticket.reported_at) > SUPPORT_TICKET_SLA_DAYS).length,
+    createdLast7Days: tickets.filter((ticket) => ticketCreatedAt(ticket) >= sevenDaysAgo).length,
+    createdPrevious7Days: tickets.filter((ticket) => {
+      const createdAt = ticketCreatedAt(ticket)
+      return createdAt >= fourteenDaysAgo && createdAt < sevenDaysAgo
+    }).length,
+    leadingOpenCategory,
+    oldest: openTickets.slice(0, 3).map((ticket) => ({
+      id: ticket.id,
+      subject: ticket.subject || 'Untitled ticket',
+      priority: ticket.priority,
+      ageDays: ageInDays(ticket.reported_at),
+    })),
+  }
+}
+
+// Builds the 13-month trend series used by the KPI sparklines.
+function computeTrends(
+  regRows: Array<{ created_at: string | null; role: string }>,
+  ticketRows: Array<{ reported_at: string | null }>,
+  leaseRows: Array<LeaseStartDateRow>,
+  data: DashboardStats,
+) {
+  const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  const now = new Date()
+  const monthLabels: string[] = []
+  for (let i = 12; i >= 0; i--) {
+    monthLabels.push(monthKey(new Date(now.getFullYear(), now.getMonth() - i, 1)))
+  }
+
+  // Users — cumulative registered accounts.
+  const regByMonth = new Map<string, number>()
+  for (const u of regRows) {
+    if (!u.created_at) continue
+    const k = monthKey(new Date(u.created_at))
+    regByMonth.set(k, (regByMonth.get(k) ?? 0) + 1)
+  }
+  let running = 0
+  const usersTrend: number[] = []
+  for (const k of monthLabels) {
+    running += regByMonth.get(k) ?? 0
+    usersTrend.push(running)
+  }
+
+  // Tickets — opened per month (from reported_at).
+  const ticketByMonth = new Map<string, number>()
+  for (const t of ticketRows) {
+    if (!t.reported_at) continue
+    const k = monthKey(new Date(t.reported_at))
+    ticketByMonth.set(k, (ticketByMonth.get(k) ?? 0) + 1)
+  }
+  const ticketsTrend = monthLabels.map(k => ticketByMonth.get(k) ?? 0)
+
+  // Leases — started per month (from start_date).
+  const leaseByMonth = new Map<string, number>()
+  for (const l of leaseRows) {
+    if (!l.start_date) continue
+    const k = monthKey(new Date(l.start_date))
+    leaseByMonth.set(k, (leaseByMonth.get(k) ?? 0) + 1)
+  }
+  const leasesTrend = monthLabels.map(k => leaseByMonth.get(k) ?? 0)
+
+  data.trends = { users: usersTrend, tickets: ticketsTrend, accommodations: [], leases: leasesTrend }
+}
+
+// --- orchestrator ------------------------------------------------------------
 
 export function useDashboardStats() {
   const loading = ref(true)
   const error = ref<string | null>(null)
+  const lastUpdated = ref<Date | null>(null)
   const data = reactive<DashboardStats>(emptyStats())
 
   async function load() {
@@ -116,350 +511,152 @@ export function useDashboardStats() {
       const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()
       const nowIso = new Date().toISOString()
       const thirtyDaysIso = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString()
-      const sevenMonthsAgo = new Date(Date.now() - 210 * 24 * 3600 * 1000).toISOString()
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (session?.user) {
-        const { data: adminRow } = await supabase
-          .from('users')
-          .select('full_name')
-          .eq('id', session.user.id)
-          .maybeSingle()
-        if (adminRow?.full_name) data.adminName = adminRow.full_name
-      }
+      const regFetchSince = new Date(Date.now() - 395 * 24 * 3600 * 1000).toISOString()
 
       const [
-        propertiesRes,
-        roomsRes,
-        studentTotalRes,
-        studentNewRes,
-        collegeRes,
-        yearRes,
-        sexRes,
-        concernsRes,
-        urgentRes,
-        pendingRes,
-        unverifiedRes,
-        leaseRes,
-        complaintOpenRes,
-        regRes,
-        pendingRolesRes,
-        pendingPropsRes,
-        expLeasesRes,
-        expAccRes,
-        complaintsRes,
-      ] = await Promise.all([
-        supabase.from('properties').select('id, status, capacity, total_rooms, room_type, name'),
-        supabase.from('rooms').select('capacity, current_pax, status, monthly_rent, property:properties(name, room_type)'),
-        supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'student'),
-        supabase
-          .from('users')
-          .select('*', { count: 'exact', head: true })
-          .eq('role', 'student')
-          .gte('created_at', since),
-        supabase.from('student_profiles').select('college'),
-        supabase.from('student_profiles').select('year_level'),
-        supabase.from('users').select('sex').eq('role', 'student'),
-        supabase.from('concerns').select('id, status, category'),
-        supabase
-          .from('complaints')
-          .select('*', { count: 'exact', head: true })
-          .eq('priority', 'urgent')
-          .neq('status', 'resolved'),
-        supabase
-          .from('users')
-          .select('id, full_name, created_at, role, status')
-          .in('status', ['pending', 'reviewing'])
-          .order('created_at', { ascending: false })
-          .limit(6),
-        supabase
-          .from('users')
-          .select('id', { count: 'exact', head: true })
-          .in('status', ['pending', 'reviewing']),
-        supabase
-          .from('leases')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'active'),
-        supabase
-          .from('complaints')
-          .select('id', { count: 'exact', head: true })
-          .neq('status', 'resolved'),
-        supabase.from('users').select('created_at, role').gte('created_at', sevenMonthsAgo),
-        supabase.from('users').select('role').in('status', ['pending', 'reviewing']),
-        supabase.from('properties').select('id').in('status', ['pending', 'reviewing']),
-        supabase
-          .from('leases')
-          .select('id, end_date')
-          .eq('status', 'active')
-          .gte('end_date', nowIso)
-          .lte('end_date', thirtyDaysIso),
-        supabase
-          .from('landlord_profiles')
-          .select('user_id, accreditation_expires_at')
-          .gte('accreditation_expires_at', nowIso)
-          .lte('accreditation_expires_at', thirtyDaysIso),
-        supabase
-          .from('complaints')
-          .select('id, subject, priority, status, filed_at')
-          .neq('status', 'resolved')
-          .order('filed_at', { ascending: false })
-          .limit(5),
-      ])
+        adminName,
+        accommodations,
+        rooms,
+        studentTotal,
+        studentNew,
+        colleges,
+        years,
+        sexes,
+        ticketRows,
+        pending,
+        unverifiedTotal,
+        activeLeases,
+        regRows,
+        pendingRoles,
+        pendingAccommodationIds,
+        expLeases,
+        expAccred,
+        accommodationManagerPaymentsPending,
+        accommodationManagerPaymentsOverdue,
+        leaveReq,
+        userRoles,
+        leaseRows,
+        verificationUsers,
+        verificationDocs,
+        pendingAccommodations,
+        accommodationDocuments,
+      ] = await settleWithin(Promise.all([
+        fetchAdminName(),
+        fetchAccommodationRows(),
+        fetchRoomRows(),
+        fetchStudentCount(),
+        fetchNewStudentCount(since),
+        fetchCollegeCounts(),
+        fetchYearLevelCounts(),
+        fetchStudentSexes(),
+        fetchTicketSummaries(),
+        fetchPendingUserRows(),
+        fetchUnverifiedUserCount(),
+        fetchActiveLeaseCount(),
+        fetchRegistrationsSince(regFetchSince),
+        fetchPendingRoleCounts(),
+        fetchPendingAccommodationIds(),
+        fetchExpiringLeases(nowIso, thirtyDaysIso),
+        fetchExpiringAccommodationAccreditations(nowIso, thirtyDaysIso),
+        fetchPendingAccommodationManagerPaymentVerificationCount(),
+        fetchOverdueAccommodationManagerPaymentCount(),
+        fetchLeaveRequestCount(),
+        fetchUserRoles(),
+        fetchLeasesSince(regFetchSince),
+        fetchPendingVerificationUsers(),
+        fetchVerificationDocIndex(),
+        fetchPendingAccommodations(),
+        fetchAccommodationDocumentIndex(),
+      ]))
 
-      const props = (propertiesRes.data ?? []) as Array<{
-        id: string
-        status: string
-        capacity: number | null
-        total_rooms: number | null
-        room_type: string
-        name: string
-      }>
-      const rooms = (roomsRes.data ?? []) as Array<{
-        capacity: number | null
-        current_pax: number | null
-        status: string
-        monthly_rent: number | null
-        property: { name: string | null; room_type: string } | null
-      }>
-      const colleges = (collegeRes.data ?? []) as Array<{ college: string | null }>
-      const years = (yearRes.data ?? []) as Array<{ year_level: number | null }>
-      const sexes = (sexRes.data ?? []) as Array<{ sex: string | null }>
-      const concernRows = (concernsRes.data ?? []) as Array<{
-        id: string
-        status: string
-        category: string
-      }>
-      const pending = (pendingRes.data ?? []) as Array<{
-        id: string
-        full_name: string | null
-        created_at: string | null
-        role: string
-        status: string
-      }>
+      if (adminName) data.adminName = adminName
 
-      // Properties
-      data.properties.total = props.length
-      data.properties.accredited = props.filter((p) => p.status === 'accredited').length
-      // Rent is per-room (rooms.monthly_rent), not per-property.
-      const rents = rooms.map((r) => r.monthly_rent).filter((r): r is number => r != null)
-      data.properties.avgRent = rents.length
-        ? Math.round(rents.reduce((s, r) => s + r, 0) / rents.length)
-        : 0
+      // Accommodations / rooms / funnel / rent
+      computeAccommodations(accommodations, rooms, data)
 
-      // Rooms
-      const totalRooms = rooms.length
-      const occupiedRooms = rooms.filter((r) => r.status === 'occupied').length
-      const availableRooms = rooms.filter((r) => r.status === 'available').length
-      const totalCapacity = rooms.reduce((s, r) => s + (r.capacity ?? 0), 0)
-      const totalPax = rooms.reduce((s, r) => s + (r.current_pax ?? 0), 0)
-      data.rooms = {
-        total: totalRooms,
-        occupied: occupiedRooms,
-        available: availableRooms,
-        capacity: totalCapacity,
-        occupancyPct: totalCapacity > 0 ? Math.round((totalPax / totalCapacity) * 100) : 0,
-      }
+      // Rooms (occupancy, by type, top occupied)
+      computeRooms(rooms, data)
 
-      // Rooms by type (sum capacity per room_type)
-      const typeMap = new Map<string, { capacity: number; count: number }>()
-      for (const r of rooms) {
-        const t = r.property?.room_type ?? 'unknown'
-        const entry = typeMap.get(t) ?? { capacity: 0, count: 0 }
-        entry.capacity += r.capacity ?? 0
-        entry.count += 1
-        typeMap.set(t, entry)
-      }
-      data.roomsByType = Array.from(typeMap.entries())
-        .map(([type, v]) => ({ type, capacity: v.capacity, count: v.count }))
-        .sort((a, b) => b.capacity - a.capacity)
-
-      // Most occupied properties
-      const propAgg = new Map<string, { occupied: number; total: number }>()
-      for (const r of rooms) {
-        const name = r.property?.name ?? 'Unknown'
-        const agg = propAgg.get(name) ?? { occupied: 0, total: 0 }
-        agg.total += 1
-        if (r.status === 'occupied') agg.occupied += 1
-        propAgg.set(name, agg)
-      }
-      data.topOccupied = Array.from(propAgg.entries())
-        .map(([name, v]) => ({
-          name,
-          val: v.total > 0 ? v.occupied / v.total : 0,
-          ratio: `${v.occupied}/${v.total}`,
-        }))
-        .filter((p) => p.val > 0)
-        .sort((a, b) => b.val - a.val)
-        .slice(0, 5)
+      // Users (all roles)
+      computeUsers(userRoles, data)
 
       // Students
-      data.students.total = studentTotalRes.count ?? 0
-      data.students.newThisMonth = studentNewRes.count ?? 0
+      data.students.total = studentTotal
+      data.students.newThisMonth = studentNew
+      computeStudentDemographics(colleges, years, sexes, studentTotal, data)
 
-      // By college
-      const collegeCounts = new Map<string, number>()
-      for (const c of colleges) {
-        const key = c.college || 'Unspecified'
-        collegeCounts.set(key, (collegeCounts.get(key) ?? 0) + 1)
-      }
-      const totalStudents = data.students.total || collegeCounts.size || 1
-      data.studentsByCollege = Array.from(collegeCounts.entries())
-        .map(([name, val]) => ({ name, val }))
-        .sort((a, b) => b.val - a.val)
-        .slice(0, 6)
-        .map((c, i) => ({
-          name: c.name,
-          val: c.val,
-          pct: `${Math.round((c.val / totalStudents) * 100)}%`,
-          ratio: totalStudents > 0 ? c.val / totalStudents : 0,
-          color: CARD_COLORS[i % CARD_COLORS.length] ?? 'grey-5',
-        }))
-
-      // By year level
-      const yearCounts = new Map<number, number>()
-      for (const y of years) {
-        const key = y.year_level ?? 0
-        yearCounts.set(key, (yearCounts.get(key) ?? 0) + 1)
-      }
-      data.studentsByYear = ['1st Yr', '2nd Yr', '3rd Yr', '4th Yr'].map((year, i) => ({
-        year,
-        val: yearCounts.get(i + 1) ?? 0,
-      }))
-
-      // Gender
-      let female = 0
-      let male = 0
-      let other = 0
-      for (const s of sexes) {
-        if (s.sex === 'F' || s.sex === 'Female') female += 1
-        else if (s.sex === 'M' || s.sex === 'Male') male += 1
-        else other += 1
-      }
-      data.gender = { female, male, other }
-
-      // Concerns
-      let open = 0
-      let inProgress = 0
-      let resolved = 0
-      let rejected = 0
-      const catCounts = new Map<string, number>()
-      for (const c of concernRows) {
-        if (c.status === 'open') open += 1
-        else if (c.status === 'in_progress') inProgress += 1
-        else if (c.status === 'resolved') resolved += 1
-        else if (c.status === 'rejected') rejected += 1
-        const cat = c.category || 'others'
-        catCounts.set(cat, (catCounts.get(cat) ?? 0) + 1)
-      }
-      const concernTotal = concernRows.length
-      data.concerns = {
-        total: concernTotal,
-        open,
-        inProgress,
-        resolved,
-        rejected,
-        urgent: urgentRes.count ?? 0,
-      }
-      const maxCat = Math.max(1, ...Array.from(catCounts.values()))
-      data.concernsByCategory = Array.from(catCounts.entries())
-        .map(([name, val], i) => ({
-          name,
-          val,
-          ratio: val / maxCat,
-          color: CARD_COLORS[i % CARD_COLORS.length] ?? 'grey-5',
-        }))
-        .sort((a, b) => b.val - a.val)
+      // Support tickets
+      computeTickets(ticketRows, data)
 
       // Pending registrations
-      data.pendingRegistrations = pending.map((u) => {
-        const isLandlord = (u.role ?? '').toLowerCase() === 'landlord'
-        return {
-          initials: initialsOf(u.full_name),
-          name: u.full_name || 'Unknown User',
-          time: timeAgo(u.created_at),
-          role: isLandlord ? 'Landlord' : 'Student',
-          roleColor: isLandlord ? 'indigo-4' : 'teal-4',
-          status: (u.status ?? 'pending').charAt(0).toUpperCase() + (u.status ?? 'pending').slice(1).toLowerCase(),
-          statusColor: isLandlord ? 'orange' : 'orange',
-          color: isLandlord ? 'indigo-5' : 'teal-5',
-        }
-      })
+      computePendingRegistrations(pending, data)
 
-      // Unverified users
+      // Unverified users (pending/reviewing derived from the limit-6 preview
+      // rows, exactly as before)
       data.unverifiedUsers = {
-        total: unverifiedRes.count ?? 0,
+        total: unverifiedTotal,
         pending: pending.filter(u => u.status === 'pending').length,
         reviewing: pending.filter(u => u.status === 'reviewing').length,
       }
 
       // Active leases
-      data.activeLeases = leaseRes.count ?? 0
+      data.activeLeases = activeLeases
 
-      // Open complaints
-      data.complaints = {
-        total: (complaintOpenRes.count ?? 0),
-        open: complaintOpenRes.count ?? 0,
-        urgent: urgentRes.count ?? 0,
+      // Accommodation-manager lease payments and leave requests.
+      data.accommodationManagerPayments = {
+        pendingVerification: accommodationManagerPaymentsPending,
+        overdue: accommodationManagerPaymentsOverdue,
       }
+      data.leaveRequests = leaveReq
 
       // Registration trend (last 7 months, split by role)
-      const regRows = (regRes.data ?? []) as Array<{ created_at: string | null; role: string }>
-      const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const now = new Date()
-      const monthLabels: string[] = []
-      for (let i = 6; i >= 0; i--) {
-        monthLabels.push(monthKey(new Date(now.getFullYear(), now.getMonth() - i, 1)))
-      }
-      const regByMonth = new Map(monthLabels.map(k => [k, { students: 0, landlords: 0 }]))
-      for (const u of regRows) {
-        if (!u.created_at) continue
-        const k = monthKey(new Date(u.created_at))
-        const bucket = regByMonth.get(k)
-        if (!bucket) continue
-        if (u.role === 'student') bucket.students += 1
-        else if (u.role === 'landlord') bucket.landlords += 1
-      }
-      data.registrationsByMonth = monthLabels.map((k) => {
-        const [y, m] = k.split('-')
-        const label = new Date(Number(y), Number(m) - 1, 1).toLocaleString('en', { month: 'short' })
-        const v = regByMonth.get(k)!
-        return { month: label, students: v.students, landlords: v.landlords }
-      })
+      computeRegistrationTrend(regRows, data)
+
+      // KPI sparkline trends (cumulative users / tickets / leases)
+      computeTrends(regRows, ticketRows, leaseRows, data)
 
       // Action queue
-      const pendingRoles = (pendingRolesRes.data ?? []) as Array<{ role: string }>
-      const pendingProps = (pendingPropsRes.data ?? []) as Array<{ id: string }>
       data.queue = {
         pendingStudents: pendingRoles.filter(r => r.role === 'student').length,
-        pendingLandlords: pendingRoles.filter(r => r.role === 'landlord').length,
-        pendingProperties: pendingProps.length,
+        pendingAccommodationManagers: pendingRoles.filter(r => r.role === 'accommodation_manager').length,
+        pendingAccommodations: pendingAccommodationIds.length,
       }
 
+      computeOperationalQueues(
+        verificationUsers,
+        verificationDocs,
+        pendingAccommodations,
+        accommodationDocuments,
+        ticketRows,
+        data,
+      )
+
       // Expiring leases (active, ending within 30 days)
-      data.expiringLeases = (expLeasesRes.data ?? []).map(l => ({
+      data.expiringLeases = expLeases.map(l => ({
         id: l.id,
         end_date: l.end_date,
       }))
 
-      // Expiring landlord accreditations (within 30 days)
-      data.expiringAccreditations = (expAccRes.data ?? []).length
+      // Expiring accommodation accreditations (within 30 days).
+      data.expiringAccreditations = expAccred.length
 
-      // Recent open complaints
-      data.recentComplaints = (complaintsRes.data ?? []).map(c => ({
-        id: c.id,
-        subject: c.subject,
-        priority: c.priority,
-        status: c.status,
-        filed_at: c.filed_at,
-      }))
+      data.recentTickets = ticketRows
+        .filter((ticket) => ['open', 'in_progress'].includes(ticket.status.toLowerCase()))
+        .slice(0, 5)
+        .map((ticket) => ({
+          id: ticket.id,
+          subject: ticket.subject,
+          priority: ticket.priority,
+          status: ticket.status,
+          reported_at: ticket.reported_at,
+        }))
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load dashboard data'
     } finally {
       loading.value = false
+      lastUpdated.value = new Date()
     }
   }
 
-  return { loading, error, data, load }
+  return { loading, error, data, lastUpdated, load }
 }

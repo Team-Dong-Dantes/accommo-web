@@ -35,7 +35,7 @@
 
           <div class="form-grid">
             <q-input outlined dense v-model="form.name" label="Full name" class="field" />
-            <q-input outlined dense v-model="form.email" label="Email address" type="email" class="field" />
+            <q-input outlined dense v-model="form.email" label="Email address" type="email" readonly class="field" />
             <q-input outlined dense v-model="form.phone" label="Phone number" class="field" />
             <q-input outlined dense v-model="form.role" label="Role" readonly class="field" />
           </div>
@@ -56,33 +56,6 @@
               </q-item-section>
             </q-item>
           </q-list>
-        </q-card>
-
-        <!-- Appearance -->
-        <q-card flat class="section-card" v-show="active === 'appearance'">
-          <PanelHeader title="Appearance" subtitle="Personalize the look and feel of your workspace." />
-
-          <div class="field-block">
-            <div class="field-label">Theme</div>
-            <q-select outlined dense v-model="appearance.theme" :options="themeOptions" emit-value map-options class="field" />
-          </div>
-
-          <div class="field-block">
-            <div class="field-label">Density</div>
-            <q-btn-toggle v-model="appearance.density" spread no-caps unelevated
-              :options="densityOptions" color="grey-3" text-color="ink"
-              class="density-toggle" active-class="density-active" />
-          </div>
-
-          <div class="field-block">
-            <div class="field-label">Accent color</div>
-            <div class="row q-gutter-sm items-center">
-              <button v-for="c in accentColors" :key="c" type="button"
-                class="swatch" :class="{ 'swatch--active': appearance.accent === c }"
-                :style="{ background: c }" @click="appearance.accent = c" :aria-label="c" />
-              <span class="text-muted" style="font-size: 12px; margin-left: 4px">{{ appearance.accent }}</span>
-            </div>
-          </div>
         </q-card>
 
         <!-- Security -->
@@ -121,20 +94,8 @@
           </q-btn>
         </q-card>
 
-        <!-- Danger zone -->
-        <q-card flat class="section-card danger-card" v-show="active === 'danger'">
-          <PanelHeader title="Danger zone" subtitle="Irreversible and destructive actions." title-class="text-negative" />
-
-          <div class="row items-center justify-between danger-row">
-            <div>
-              <div class="text-weight-medium text-ink" style="font-size: 14px">Delete account</div>
-              <div class="text-muted" style="font-size: 12px">Permanently remove your account and all associated data.</div>
-            </div>
-            <q-btn outline color="negative" no-caps class="text-weight-bold" @click="confirmDelete">
-              Delete account
-            </q-btn>
-          </div>
-        </q-card>
+        <!-- Administrators -->
+        <AdministratorsSection v-if="authStore.isSuperadmin" v-show="active === 'administrators'" />
 
         <!-- Action row: only when there are unsaved changes -->
         <div class="action-row" v-if="dirty">
@@ -157,35 +118,51 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { useQuasar } from 'quasar'
+import { ref, reactive, computed, onMounted } from 'vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import PanelHeader from '@/components/ui/PanelHeader.vue'
 import { useNotify } from '@/utils/notify'
+import { useAuthStore } from '@/stores/auth'
+import { supabase } from '@/utils/supabase'
 import { type StatusTone } from '@/utils/status.config'
+import AdministratorsSection from '@/features/settings/AdministratorsSection.vue'
 
-const $q = useQuasar()
 const notify = useNotify()
+const authStore = useAuthStore()
 const active = ref('profile')
 
-const sections = [
-  { id: 'profile', label: 'Profile', icon: 'mdi:account-circle-outline' },
-  { id: 'notifications', label: 'Notifications', icon: 'mdi:bell-outline' },
-  { id: 'appearance', label: 'Appearance', icon: 'mdi:palette-outline' },
-  { id: 'security', label: 'Security', icon: 'mdi:shield-lock-outline' },
-  { id: 'danger', label: 'Danger zone', icon: 'mdi:alert-octagon-outline' },
-]
+const sections = computed(() => {
+  const list = [
+    { id: 'profile', label: 'Profile', icon: 'mdi:account-circle-outline' },
+    { id: 'notifications', label: 'Notifications', icon: 'mdi:bell-outline' },
+    { id: 'security', label: 'Security', icon: 'mdi:shield-lock-outline' },
+  ]
+  if (authStore.isSuperadmin) {
+    list.push({ id: 'administrators', label: 'Administrators', icon: 'mdi:account-cog-outline' })
+  }
+  return list
+})
 
 const form = reactive({
-  name: 'Maria Admin',
-  email: 'admin@osas.gov.ph',
-  phone: '+63 912 345 6789',
-  role: 'Administrator',
+  name: '',
+  email: '',
+  phone: '',
+  role: '',
 })
 
 const initials = computed(() =>
-  form.name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase() || 'A'
+  authStore.user?.initials ||
+  (form.name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase() || 'A')
 )
+
+function applyProfile() {
+  const u = authStore.user
+  if (!u) return
+  form.name = u.full_name
+  form.phone = (u as any).phone ?? ''
+  form.email = u.email
+  form.role = authStore.roleLabel(u.role)
+}
 
 const roleStyle: { tone: StatusTone; icon: string } = { tone: 'primary', icon: 'mdi:shield-account' }
 
@@ -200,35 +177,8 @@ const notificationOptions: { key: keyof typeof notifications; label: string; des
   { key: 'emailAlerts', label: 'Email alerts', desc: 'Important account and verification updates.' },
   { key: 'pushAlerts', label: 'Push notifications', desc: 'Real-time alerts in your browser.' },
   { key: 'weeklyDigest', label: 'Weekly digest', desc: 'A Monday summary of platform activity.' },
-  { key: 'grievanceAlerts', label: 'Grievance alerts', desc: 'Notify me about new student concerns.' },
+  { key: 'grievanceAlerts', label: 'Support ticket alerts', desc: 'Notify me about new student support tickets.' },
 ]
-
-const themeOptions = [
-  { label: 'Light (default)', value: 'light' },
-  { label: 'Dark', value: 'dark' },
-]
-
-const densityOptions = [
-  { label: 'Comfortable', value: 'comfortable' },
-  { label: 'Compact', value: 'compact' },
-]
-
-const accentColors = ['#0F766E', '#E0654B', '#0E7490', '#B45309', '#7C3AED', '#0F766E']
-const appearance = reactive({
-  theme: 'light',
-  density: 'comfortable',
-  accent: '#0F766E',
-})
-
-watch(
-  () => appearance.theme,
-  (t) => {
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-theme', t)
-    }
-  },
-  { immediate: true },
-)
 
 const security = reactive({
   twoFactor: false,
@@ -241,14 +191,32 @@ const password = reactive({
   confirm: '',
 })
 
-function saveAll() {
+async function saveAll() {
+  const u = authStore.user
+  if (u) {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ full_name: form.name, phone: form.phone })
+        .eq('id', u.id)
+      if (error) {
+        notify.error(error.message)
+        return
+      }
+      u.full_name = form.name
+      u.phone = form.phone
+    } catch {
+      notify.error('Could not save profile')
+      return
+    }
+  }
   saved.value = snapshot()
   try {
     localStorage.setItem('accommo-settings', saved.value)
-    notify.success('Settings saved')
   } catch {
-    notify.error('Could not save settings')
+    /* ignore */
   }
+  notify.success('Settings saved')
   password.current = ''
   password.next = ''
   password.confirm = ''
@@ -259,7 +227,6 @@ function cancel() {
   if (!snap) return
   Object.assign(form, snap.form)
   Object.assign(notifications, snap.notifications)
-  Object.assign(appearance, snap.appearance)
   Object.assign(security, snap.security)
   password.current = ''
   password.next = ''
@@ -270,7 +237,6 @@ function snapshot() {
   return JSON.stringify({
     form: { ...form },
     notifications: { ...notifications },
-    appearance: { ...appearance },
     security: { ...security },
   })
 }
@@ -282,21 +248,25 @@ const dirty = computed(() => {
   return snapshot() !== saved.value
 })
 
-onMounted(() => {
+onMounted(async () => {
+  if (!authStore.user) {
+    try { await authStore.getSessionProfile() } catch { /* no session */ }
+  }
+  applyProfile()
+
   const raw = localStorage.getItem('accommo-settings')
   if (raw) {
     try {
       const p = JSON.parse(raw)
-      if (p.form) Object.assign(form, p.form)
+      // Profile fields are sourced from the real user record, not local storage.
       if (p.notifications) Object.assign(notifications, p.notifications)
-      if (p.appearance) Object.assign(appearance, p.appearance)
       if (p.security) Object.assign(security, p.security)
     } catch { /* ignore corrupt data */ }
   }
   saved.value = snapshot()
 })
 
-function savePassword() {
+async function savePassword() {
   if (password.next && password.next !== password.confirm) {
     notify.error('New passwords do not match')
     return
@@ -305,23 +275,21 @@ function savePassword() {
     notify.error('Password must be at least 8 characters')
     return
   }
-  notify.success('Password updated')
-  password.current = ''
-  password.next = ''
-  password.confirm = ''
+  try {
+    const { error } = await supabase.auth.updateUser({ password: password.next })
+    if (error) {
+      notify.error(error.message)
+      return
+    }
+    notify.success('Password updated')
+    password.current = ''
+    password.next = ''
+    password.confirm = ''
+  } catch (e) {
+    notify.error('Could not update password')
+  }
 }
 
-function confirmDelete() {
-  $q.dialog({
-    title: 'Delete account?',
-    message: 'This action is permanent and cannot be undone.',
-    cancel: true,
-    persistent: true,
-    ok: { color: 'negative', label: 'Delete' },
-  }).onOk(() => {
-    notify.error('Account deletion requested')
-  })
-}
 </script>
 
 <style scoped>

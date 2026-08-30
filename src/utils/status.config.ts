@@ -5,6 +5,20 @@
 
 export type StatusTone = 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'neutral'
 
+// Tone → CSS custom property. Single source of truth so inline :style
+// bindings (timeline dots, icon chips, pop-items) use the same tokens
+// as BadgePill / status chips instead of per-file hex maps.
+export function toneVar(tone: StatusTone | string | undefined): string {
+  switch (tone) {
+    case 'primary': return 'var(--c-primary)'
+    case 'success': return 'var(--c-success)'
+    case 'warning': return 'var(--c-warning)'
+    case 'danger': return 'var(--c-danger)'
+    case 'info': return 'var(--c-info)'
+    default: return 'var(--c-muted)'
+  }
+}
+
 export interface StatusDef {
   tone: StatusTone
   icon?: string
@@ -14,7 +28,7 @@ export interface StatusDef {
 export const STATUS_MAP: Record<string, StatusDef> = {
   // Roles
   admin: { tone: 'primary', icon: 'mdi:shield-account' },
-  landlord: { tone: 'primary', icon: 'mdi:domain' },
+  accommodation_manager: { tone: 'primary', icon: 'mdi:domain' },
   student: { tone: 'neutral', icon: 'mdi:school' },
   agent: { tone: 'info', icon: 'mdi:headset' },
 
@@ -48,7 +62,7 @@ export const STATUS_MAP: Record<string, StatusDef> = {
 
   all: { tone: 'neutral', icon: 'mdi:account-group' },
   students: { tone: 'info', icon: 'mdi:school' },
-  landlords: { tone: 'primary', icon: 'mdi:domain' },
+  accommodation_managers: { tone: 'primary', icon: 'mdi:domain' },
   public: { tone: 'neutral', icon: 'mdi:earth' }
 }
 

@@ -1,7 +1,8 @@
 import { ref } from 'vue'
 import { supabase } from '@/utils/supabase'
+import { getInitialsWide as initialsOf } from '@/utils/format'
 
-// Real property shape pulled from Supabase. Fields the DB doesn't carry
+// Real accommodation shape pulled from Supabase. Fields the DB doesn't carry
 // (audit results, inspectors, compliance permits, performance scores) are
 // deliberately absent/empty — the UI renders '—' for them instead of inventing data.
 
@@ -15,12 +16,12 @@ export interface RealPermit {
   uploadedAt: string | null
 }
 
-export interface RealProperty {
+export interface RealAccommodation {
   id: string
   name: string
   type: string
-  landlord: string
-  landlordInitials: string
+  accommodationManager: string
+  accommodationManagerInitials: string
   contact: string
   verified: boolean
   status: string
@@ -37,11 +38,11 @@ export interface RealProperty {
   floors: number
   lat: number | null
   lng: number | null
-  // hierarchy: Property → Property Type; Room → Room Type
-  propertyType: string
+  // hierarchy: Accommodation → Accommodation Type; Room → Room Type
+  accommodationType: string
   roomType: string
   description: string
-  // landlord profile (for PropertyHub accreditation/performance tabs)
+  // Manager profile (for Accommodation Hub accreditation/performance tabs)
   businessName: string | null
   accreditationStatus: string | null
   accreditedAt: string | null
@@ -80,52 +81,40 @@ const IMAGES = [
   'https://picsum.photos/400/300?random=25',
 ]
 
-function initialsOf(name: string | null | undefined): string {
-  if (!name) return '?'
-  const parts = name.trim().split(' ').filter(Boolean)
-  if (parts.length === 0) return '?'
-  const first = parts[0] ?? ''
-  if (parts.length > 1) {
-    const last = parts[parts.length - 1] ?? ''
-    return (first.charAt(0) + last.charAt(0)).toUpperCase()
-  }
-  return first.slice(0, 2).toUpperCase()
-}
-
 function titleCase(s: string | null | undefined): string {
   if (!s) return '—'
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-export function useProperties() {
+export function useAccommodations() {
   const loading = ref(true)
   const error = ref<string | null>(null)
-  const properties = ref<RealProperty[]>([])
+  const accommodations = ref<RealAccommodation[]>([])
 
   async function load() {
     loading.value = true
     error.value = null
     try {
       const [propsRes, roomsRes, leasesRes, profilesRes, permitsRes] = await Promise.all([
-        supabase.from('properties').select(
-          `id, name, address, city, barangay, lat, lng, room_type, property_type,
-           total_rooms, total_floors, description, status, rating_avg,
-           reviews_count, landlord_id, business_name, accreditation_status,
-           accredited_at, accreditation_expires_at,
-           landlord:users(id, full_name, phone, initials)`
+        supabase.from('accommodations').select(
+          `id, name, address, city, barangay, lat, lng, room_type, accommodation_type,
+            total_rooms, total_floors, description, status, rating_avg,
+            reviews_count, accommodation_manager_id, business_name, accreditation_status,
+            accredited_at, accreditation_expires_at,
+            accommodation_manager:users!accommodations_accommodation_manager_id_fkey(id, full_name, phone, initials)`
         ),
         supabase.from('rooms').select(
-          `id, room_number, label, floor, capacity, current_pax, status, monthly_rent, property_id`
+          `id, room_number, label, floor, capacity, current_pax, status, monthly_rent, accommodation_id`
         ),
         supabase.from('leases').select(
           `id, status, room_id, student_id, start_date,
            student:users!leases_student_id_fkey(id, full_name, initials, sex)`
         ).in('status', ['active', 'leave_requested']),
-        supabase.from('landlord_profiles').select(
+        supabase.from('accommodation_manager_profiles').select(
           `user_id, response_rate`
         ),
-        supabase.from('property_documents').select(
-          `id, property_id, doc_type, file_url, version, issued_at, expires_at, uploaded_at`
+        supabase.from('accommodation_documents').select(
+          `id, accommodation_id, doc_type, file_url, version, issued_at, expires_at, uploaded_at`
         ).order('version', { ascending: false }),
       ])
 
@@ -134,29 +123,29 @@ export function useProperties() {
       const props = (propsRes.data ?? []) as any[]
       const rooms = (roomsRes.data ?? []) as any[]
       const leases = (leasesRes.data ?? []) as any[]
-      const landlordProfiles = (profilesRes.data ?? []) as any[]
+      const accommodationManagerProfiles = (profilesRes.data ?? []) as any[]
       const permits = (permitsRes.data ?? []) as any[]
 
-      // Index landlord profiles by user_id
+      // Index accommodation-manager profiles by user_id.
       const profileByUserId = new Map<string, any>()
-      for (const lr of landlordProfiles) {
+      for (const lr of accommodationManagerProfiles) {
         if (lr.user_id) profileByUserId.set(lr.user_id, lr)
       }
 
-      // Index rooms by property id
-      const roomsByProperty = new Map<string, any[]>()
+      // Index rooms by accommodation id.
+      const roomsByAccommodation = new Map<string, any[]>()
       for (const r of rooms) {
-        const pid = r.property_id
-        if (!roomsByProperty.has(pid)) roomsByProperty.set(pid, [])
-        roomsByProperty.get(pid)!.push(r)
+        const accommodationId = r.accommodation_id
+        if (!roomsByAccommodation.has(accommodationId)) roomsByAccommodation.set(accommodationId, [])
+        roomsByAccommodation.get(accommodationId)!.push(r)
       }
 
-      // Index permits by property id
-      const permitsByProperty = new Map<string, any[]>()
+      // Index permits by accommodation id.
+      const permitsByAccommodation = new Map<string, any[]>()
       for (const pm of permits) {
-        const pid = pm.property_id
-        if (!permitsByProperty.has(pid)) permitsByProperty.set(pid, [])
-        permitsByProperty.get(pid)!.push(pm)
+        const accommodationId = pm.accommodation_id
+        if (!permitsByAccommodation.has(accommodationId)) permitsByAccommodation.set(accommodationId, [])
+        permitsByAccommodation.get(accommodationId)!.push(pm)
       }
 
       // Index active occupants by room id
@@ -167,11 +156,11 @@ export function useProperties() {
         occupantsByRoom.get(l.room_id)!.push(l)
       }
 
-      properties.value = props.map((p, i): RealProperty => {
-        const landlord = p.landlord
-        const landlordName = landlord?.full_name ?? 'Unknown Landlord'
-        const profile = profileByUserId.get(p.landlord_id)
-        const roomList = roomsByProperty.get(p.id) ?? []
+      accommodations.value = props.map((p, i): RealAccommodation => {
+        const accommodationManager = p.accommodation_manager
+        const accommodationManagerName = accommodationManager?.full_name ?? 'Unknown Accommodation Manager'
+        const profile = profileByUserId.get(p.accommodation_manager_id)
+        const roomList = roomsByAccommodation.get(p.id) ?? []
         const verified = p.status === 'accredited' || p.status === 'verified'
 
         const totalRooms = p.total_rooms ?? roomList.length
@@ -179,9 +168,9 @@ export function useProperties() {
         const totalCapacity = roomList.reduce((s, r) => s + (r.capacity ?? 0), 0)
         const totalPax = roomList.reduce((s, r) => s + (r.current_pax ?? 0), 0)
 
-        // Gender split from THIS property's active lease occupants (filtered by
-        // the property's room ids — previously counted ALL leases for every
-        // property, making every row share the same global male/female total).
+        // Gender split from this accommodation's active lease occupants (filtered by
+        // the accommodation's room ids — previously counted all leases for every
+        // accommodation, making every row share the same global male/female total).
         const roomIdSet = new Set(roomList.map((r) => r.id))
         let femaleCount = 0
         let maleCount = 0
@@ -217,11 +206,11 @@ export function useProperties() {
 
         return {
           id: p.id,
-          name: p.name ?? 'Unnamed Property',
-          type: titleCase(p.property_type),
-          landlord: landlordName,
-          landlordInitials: landlord?.initials ?? initialsOf(landlordName),
-          contact: landlord?.phone ?? '—',
+          name: p.name ?? 'Unnamed Accommodation',
+          type: titleCase(p.accommodation_type),
+          accommodationManager: accommodationManagerName,
+          accommodationManagerInitials: accommodationManager?.initials ?? initialsOf(accommodationManagerName),
+          contact: accommodationManager?.phone ?? '—',
           verified,
           status: p.status ?? 'unknown',
           rating: p.rating_avg != null ? p.rating_avg.toFixed(1) : '—',
@@ -237,7 +226,7 @@ export function useProperties() {
           floors: p.total_floors ?? 0,
           lat: p.lat,
           lng: p.lng,
-          propertyType: titleCase(p.property_type),
+          accommodationType: titleCase(p.accommodation_type),
           roomType: p.room_type ?? '—',
           description: p.description ?? '',
           businessName: p.business_name ?? null,
@@ -246,7 +235,7 @@ export function useProperties() {
           accreditationExpiresAt: p.accreditation_expires_at ?? null,
           responseRate: profile?.response_rate ?? null,
           rooms: mappedRooms,
-          permits: (permitsByProperty.get(p.id) ?? []).map((dm): RealPermit => ({
+          permits: (permitsByAccommodation.get(p.id) ?? []).map((dm): RealPermit => ({
             id: dm.id,
             type: dm.doc_type ?? '—',
             version: dm.version ?? null,
@@ -258,11 +247,11 @@ export function useProperties() {
         }
       })
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load properties'
+      error.value = e instanceof Error ? e.message : 'Failed to load accommodations'
     } finally {
       loading.value = false
     }
   }
 
-  return { loading, error, properties, load }
+  return { loading, error, accommodations, load }
 }

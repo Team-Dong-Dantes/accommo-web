@@ -5,7 +5,7 @@
     <div ref="mapContainer" class="map-container"></div>
 
     <!-- SEARCH + FILTER + FLOATING PANEL (top-left): toolbar, then list ⇄ detail -->
-    <div class="map-toolbar" style="position: absolute; top: 24px; left: 32px; bottom: 32px; z-index: 10; width: 440px; display: flex; flex-direction: column;">
+    <div class="map-toolbar" style="position: absolute; top: 32px; left: 32px; bottom: 32px; z-index: 10; width: 440px; display: flex; flex-direction: column;">
 
       <!-- Search + Filter (outside the table) -->
       <div class="toolbar-row row no-wrap items-center q-mb-md non-shrink">
@@ -14,7 +14,7 @@
           outlined
           dense
           bg-color="surface"
-          placeholder="Search property, landlord..."
+          placeholder="Search accommodation, manager..."
           class="search-input col"
           clearable
         >
@@ -33,47 +33,49 @@
       </div>
 
       <!-- LIST STATE -->
-      <div v-if="!selectedProperty" class="property-panel bg-surface shadow-2">
-        <PropertyList
-          :properties="filteredForList"
-          @select="onSelectProperty"
+      <div v-if="!selectedAccommodation" class="accommodation-panel bg-surface shadow-2">
+        <AccommodationList
+          :accommodations="filteredForList"
+          @select="onSelectAccommodation"
         />
       </div>
 
-      <!-- DETAIL STATE: the panel becomes the property detail -->
-      <div v-else class="property-panel bg-surface shadow-2">
-        <PropertyDetail
-          :key="selectedProperty?.id"
-          :property="selectedProperty"
-          @back="selectedProperty = null"
+      <!-- DETAIL STATE: the panel becomes the accommodation detail -->
+      <div v-else class="accommodation-panel bg-surface shadow-2">
+        <AccommodationDetail
+          :key="selectedAccommodation?.id"
+          :accommodation="selectedAccommodation"
+          @back="selectedAccommodation = null"
         />
       </div>
     </div>
 
     <!-- MAP STYLE TOGGLE (top-right) -->
-    <div class="style-toggle bg-surface shadow-1" style="position: absolute; top: 32px; right: 32px; z-index: 10;">
-      <q-btn-group rounded flat>
-        <q-btn
-          unelevated
-          no-caps
-          dense
-          :class="mapStyle === 'satellite' ? 'active-style' : 'inactive-style'"
-          class="q-px-sm"
-          @click="setStyle('satellite')"
-        >
-          <Icon icon="mdi:satellite-variant" width="18" height="18" class="q-mr-xs" /> Realistic
-        </q-btn>
-        <q-btn
-          unelevated
-          no-caps
-          dense
-          :class="mapStyle === 'plain' ? 'active-style' : 'inactive-style'"
-          class="q-px-sm"
-          @click="setStyle('plain')"
-        >
-          <Icon icon="mdi:map-outline" width="18" height="18" class="q-mr-xs" /> Plain
-        </q-btn>
-      </q-btn-group>
+    <div class="map-style-options" role="radiogroup" aria-label="Map style" style="position: absolute; top: 32px; right: 32px; z-index: 10;">
+      <q-btn
+        unelevated
+        no-caps
+        class="map-style-option"
+        :class="{ 'is-active': mapStyle === 'plain' }"
+        :aria-checked="mapStyle === 'plain'"
+        role="radio"
+        @click="setStyle('plain')"
+      >
+        <Icon icon="mdi:map-outline" width="18" height="18" aria-hidden="true" />
+        <span>Map</span>
+      </q-btn>
+      <q-btn
+        unelevated
+        no-caps
+        class="map-style-option"
+        :class="{ 'is-active': mapStyle === 'satellite' }"
+        :aria-checked="mapStyle === 'satellite'"
+        role="radio"
+        @click="setStyle('satellite')"
+      >
+        <Icon icon="mdi:satellite-variant" width="18" height="18" aria-hidden="true" />
+        <span>Satellite</span>
+      </q-btn>
     </div>
 
   </q-page>
@@ -84,10 +86,10 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import PropertyList from '@/components/properties/PropertyList.vue'
-import PropertyDetail from '@/components/properties/PropertyDetail.vue'
+import AccommodationList from '@/components/properties/PropertyList.vue'
+import AccommodationDetail from '@/components/properties/PropertyDetail.vue'
 import FilterDropdown from '@/components/ui/FilterDropdown.vue'
-import { useProperties } from '@/composables/useProperties'
+import { useAccommodations } from '@/composables/useAccommodations'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
 
@@ -98,23 +100,23 @@ try {
   Object.defineProperty(mapboxgl.config, 'EVENTS_URL', { get: () => null, configurable: true })
 } catch {}
 
-const { properties, load: loadProperties } = useProperties()
+const { accommodations, load: loadAccommodations } = useAccommodations()
 const route = useRoute()
 
 const mapContainer = ref<HTMLElement | null>(null)
 let map: mapboxgl.Map | null = null
 let markers: mapboxgl.Marker[] = []
 
-const selectedProperty = ref<any>(null)
+const selectedAccommodation = ref<any>(null)
 const search = ref('')
 const activeFilters = ref<Record<string, any[]>>({})
 
-// Filters (property type / room type / status) — applied by MapView, so the
-// search + filter toolbar can sit OUTSIDE the PropertyList table.
+// Filters (accommodation type / room type / status) — applied by MapView, so the
+// search + filter toolbar can sit OUTSIDE the AccommodationList table.
 const filters = [
   {
-    key: 'propertyType',
-    label: 'Property Type',
+    key: 'accommodationType',
+    label: 'Accommodation Type',
     options: [
       { label: 'Dormitory', value: 'Dormitory' },
       { label: 'Bedspace', value: 'Bedspace' },
@@ -146,15 +148,15 @@ function clearFilters() {
   activeFilters.value = {}
 }
 
-// The left panel is a list ⇄ detail toggle. selectedProperty == null → list;
-// otherwise the panel shows PropertyDetail for that property.
+// The left panel is a list ⇄ detail toggle. selectedAccommodation == null → list;
+// otherwise the panel shows AccommodationDetail for that accommodation.
 const filteredForList = computed(() => {
-  let list = properties.value.slice()
+  let list = accommodations.value.slice()
 
   const q = search.value.trim().toLowerCase()
   if (q) {
     list = list.filter((p) =>
-      [p.name, p.landlord, p.type]
+      [p.name, p.accommodationManager, p.type]
         .filter(Boolean)
         .some((f) => String(f).toLowerCase().includes(q))
     )
@@ -174,9 +176,9 @@ const filteredForList = computed(() => {
   return list
 })
 
-// Watch the raw property set (not the filtered list) so markers always match
+// Watch the raw accommodation set (not the filtered list) so markers always match
 // the full dataset; the toolbar filters only control the side list.
-watch(properties, () => addMarkers())
+watch(accommodations, () => addMarkers())
 
 // 'plain' = light-v11 flat; 'satellite' = satellite-streets imagery
 const mapStyle = ref<'plain' | 'satellite'>('plain')
@@ -185,18 +187,18 @@ const MAP_STYLES: Record<'plain' | 'satellite', string> = {
   satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
 }
 
-// Selecting a property swaps the panel to its DETAIL view and jumps the map to
-// that property's location (its lat/lng — real coords when available, otherwise
+// Selecting an accommodation swaps the panel to its DETAIL view and jumps the map to
+// that accommodation's location (its lat/lng — real coords when available, otherwise
 // the derived fallback used for markers).
-function onSelectProperty(p: any) {
-  selectedProperty.value = p
-  flyToProperty(p)
+function onSelectAccommodation(accommodation: any) {
+  selectedAccommodation.value = accommodation
+  flyToAccommodation(accommodation)
 }
 
-function flyToProperty(p: any) {
+function flyToAccommodation(accommodation: any) {
   if (!map) return
-  const lat = p.lat ?? p._fallbackLat
-  const lng = p.lng ?? p._fallbackLng
+  const lat = accommodation.lat ?? accommodation._fallbackLat
+  const lng = accommodation.lng ?? accommodation._fallbackLng
   if (lat != null && lng != null) {
     map.flyTo({ center: [lng, lat], zoom: 16, essential: true })
   }
@@ -214,26 +216,27 @@ function addMarkers() {
   const centerLat = 16.710
   const centerLng = 121.720
 
-  properties.value.forEach((p, i) => {
-    const hasCoords = p.lat != null && p.lng != null
-    const angle = (i / Math.max(1, properties.value.length)) * Math.PI * 2
+  accommodations.value.forEach((accommodation, i) => {
+    const hasCoords = accommodation.lat != null && accommodation.lng != null
+    const angle = (i / Math.max(1, accommodations.value.length)) * Math.PI * 2
     const radius = 0.008 + (i % 3) * 0.004
-    const lat = hasCoords ? p.lat! : centerLat + Math.sin(angle) * radius
-    const lng = hasCoords ? p.lng! : centerLng + Math.cos(angle) * radius * 1.3
-    ;(p as any)._fallbackLat = lat
-    ;(p as any)._fallbackLng = lng
+    const lat = hasCoords ? accommodation.lat! : centerLat + Math.sin(angle) * radius
+    const lng = hasCoords ? accommodation.lng! : centerLng + Math.cos(angle) * radius * 1.3
+    ;(accommodation as any)._fallbackLat = lat
+    ;(accommodation as any)._fallbackLng = lng
 
     const marker = new mapboxgl.Marker()
       .setLngLat([lng, lat])
       .addTo(map!)
+
     // Default Mapbox marker is a teal droplet whose bottom tip lands exactly on
     // the location — no custom pin/rotation so it can't drift or look buried.
 
     // Wire the default marker's underlying element to open the detail + fly.
     if (marker.getElement()) {
       marker.getElement().addEventListener('click', () => {
-        flyToProperty(p)
-        onSelectProperty(p)
+        flyToAccommodation(accommodation)
+        onSelectAccommodation(accommodation)
       })
     }
 
@@ -242,7 +245,7 @@ function addMarkers() {
 }
 
 onMounted(async () => {
-  await loadProperties()
+  await loadAccommodations()
   await nextTick()
   if (!mapContainer.value) return
 
@@ -255,14 +258,13 @@ onMounted(async () => {
 
   const onReady = () => {
     addMarkers()
-    // Deep-link support: ?property=<id> (e.g. from the user drawer's
-    // "View on Map" action) focuses + flies to that property on load.
-    const targetId = route.query.property
+    // Deep-link support: ?accommodation=<id> focuses the accommodation on load.
+    const targetId = route.query.accommodation
     if (typeof targetId === 'string' && targetId) {
-      const target = properties.value.find((p) => p.id === targetId)
+      const target = accommodations.value.find((p) => p.id === targetId)
       if (target) {
-        selectedProperty.value = target
-        flyToProperty(target)
+        selectedAccommodation.value = target
+        flyToAccommodation(target)
       }
     }
   }
@@ -294,7 +296,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
-.property-panel {
+.accommodation-panel {
   flex: 1 1 auto;
   min-height: 0;
   border-radius: 16px;
@@ -324,21 +326,58 @@ onBeforeUnmount(() => {
   background: #fff;
 }
 
-.style-toggle {
-  border-radius: 12px;
-  border: 1px solid var(--c-border-strong, #e6e8eb);
-  overflow: hidden;
+.map-style-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid color-mix(in srgb, var(--c-border-strong) 88%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--c-surface-2) 92%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
 }
-.style-toggle .active-style {
-  background: #0d9488;
-  color: #fff;
+.map-style-option {
+  min-height: 38px;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 8px !important;
+  color: var(--c-muted);
+  font-size: 12px;
   font-weight: 700;
-  font-size: 12px;
+  transition: background var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast), color var(--t-fast), transform 80ms ease-out;
 }
-.style-toggle .inactive-style {
-  background: #fff;
-  color: #555;
-  font-size: 12px;
+.map-style-option:hover {
+  color: var(--c-primary-ink);
+}
+.map-style-option:active {
+  transform: scale(.97);
+}
+.map-style-option:focus-visible {
+  outline: 3px solid var(--c-primary);
+  outline-offset: 2px;
+}
+.map-style-option.is-active {
+  border-color: color-mix(in srgb, var(--c-primary) 30%, transparent);
+  background: var(--c-surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--c-primary-ink);
+}
+.map-style-option.is-active :deep(.iconify) {
+  color: var(--c-primary);
+}
+
+@media (max-width: 600px) {
+  .map-style-options {
+    right: 16px !important;
+    top: 16px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-style-option {
+    transition: none;
+  }
 }
 
 :deep(.mapboxgl-ctrl-attrib) { font-size: 10px; }

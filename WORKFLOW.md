@@ -14,7 +14,7 @@ development           ← active development, auto-deploys via Vercel
 ```
 
 - Always branch off `development`
-- Branch naming: `feat/<short-description>` (e.g., `feat/property-list`, `feat/tenant-table`)
+- Branch naming: `feat/<short-description>` (e.g., `feat/accommodation-list`, `feat/tenant-table`)
 - PR into `development` — needs 1 review from a mobile teammate
 
 ---
@@ -22,7 +22,7 @@ development           ← active development, auto-deploys via Vercel
 ## 2. Workflow
 
 1. **Create an Issue** on GitHub for each task
-2. **Branch:** `git checkout -b feat/property-list`
+2. **Branch:** `git checkout -b feat/accommodation-list`
 3. **Work** — commit + push regularly
 4. **PR:** Open PR → assign mobile dev as reviewer
 5. **Merge:** Squash and merge after approval

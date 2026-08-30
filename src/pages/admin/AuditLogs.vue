@@ -6,15 +6,7 @@
       <TabNav v-model="activeTab" :tabs="tabs" />
 
       <div class="row q-gutter-x-sm q-mb-md">
-        <q-btn
-          outline
-          color="grey-5"
-          text-color="ink"
-          no-caps
-          class="text-weight-bold bg-surface rounded-button"
-        >
-          <Icon icon="mdi:calendar-range" class="on-left" width="16" height="16" />Last 30 Days
-        </q-btn>
+        <DateRangeButton v-model="dateRange" />
         <q-btn
           unelevated
           color="primary"
@@ -34,8 +26,9 @@
     <TableCard
       v-model:search="searchQuery"
       v-model:page="currentPage"
-      :filters="[]"
-      :active-filters="{ }"
+      :filters="filterConfig"
+      v-model:active-filters="activeFilters"
+      @clear-filters="clearFilters"
       :search-placeholder="'Search user, action, or target...'"
       :total-label="`${filteredLogs.length} events`"
       :rows="paginatedLogs"
@@ -55,8 +48,7 @@
       </template>
 
       <template #body="{ props }">
-        <q-tr :props="props">
-          <q-td v-for="col in props.cols" :key="col.name" :props="props" style="white-space: normal; vertical-align: middle;">
+        <q-td v-for="col in props.cols" :key="col.name" :props="props" style="white-space: normal; vertical-align: middle;">
 
             <!-- Timestamp -->
             <div v-if="col.name === 'timestamp'" class="column">
@@ -114,7 +106,6 @@
             </div>
 
           </q-td>
-        </q-tr>
       </template>
     </TableCard>
 
@@ -122,18 +113,50 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { supabase } from '@/utils/supabase'
 import TabNav from '@/components/ui/TabNav.vue'
 import TableCard from '@/components/table/TableCard.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
-import { type StatusTone } from '@/utils/status.config'
+import DateRangeButton from '@/features/audit/DateRangeButton.vue'
+import { mapLog, getActionColor } from '@/features/audit/logMapping'
 
 const searchQuery = ref('')
 const currentPage = ref(1)
 const activeTab = ref('audit-logs')
 const loading = ref(true)
 const fetchError = ref('')
+const activeFilters = ref<Record<string, any[]>>({})
+const dateRange = ref<{ from: string; to?: string } | null>(null)
+
+const filterConfig = computed(() => {
+  const actions = [...new Set(logs.value.map((l: any) => l.action).filter(Boolean))].sort()
+  const types = [...new Set(logs.value.map((l: any) => l.target.type).filter(Boolean))].sort()
+  return [
+    {
+      label: 'Action',
+      key: 'action',
+      options: actions.map((a: string) => ({ label: a, value: a })),
+    },
+    {
+      label: 'Entity Type',
+      key: 'entityType',
+      options: types.map((t: string) => ({ label: t, value: t })),
+    },
+  ]
+})
+
+function clearFilters() {
+  activeFilters.value = {}
+}
+
+watch(activeFilters, () => {
+  currentPage.value = 1
+})
+
+watch(dateRange, () => {
+  currentPage.value = 1
+})
 
 const tabs = [
   { name: 'audit-logs', label: 'Audit Logs' },
@@ -221,120 +244,24 @@ const columns = [
 
 const logs = ref<any[]>([])
 
-function label(s: string) {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-}
-
-function fmtDate(iso: string) {
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function fmtTime(iso: string) {
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return ''
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
-}
-
-function formatVal(v: unknown) {
-  if (v === null || v === undefined) return '—'
-  if (typeof v === 'object') return JSON.stringify(v)
-  return String(v)
-}
-
-// Columns that change on *every* write (timestamps/sync bookkeeping) and would
-// produce noisy diffs. Skipped so the first meaningful change is surfaced.
-const IGNORED_DIFF_KEYS = new Set([
-  'updated_at', 'last_login_at', 'created_at', 'email_verified_at',
-  'accredited_at', 'verified_at', 'uploaded_at', 'issued_at', 'expires_at'
-])
-
-// Full-row snapshot → a single human-readable change line (first meaningful diff).
-// Aggregate diffs (beyond the first) are summarized as "+N more fields".
-function diffJson(before: any, after: any, entityType: string): any {
-  if (!before || !after || typeof before !== 'object' || typeof after !== 'object') return null
-  const keys = Object.keys({ ...before, ...after }).filter(k => !IGNORED_DIFF_KEYS.has(k))
-
-  if (keys.length === 0) return null
-
-  const changed = keys.filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
-  if (changed.length === 0) return null
-
-  // Prefer a semantic "status" field if it changed, else the first changed field.
-  const preferred = changed.find(k => k === 'status') ?? changed[0]!
-  const first = {
-    field: label(preferred),
-    old: formatVal(before[preferred]),
-    new: formatVal(after[preferred])
-  }
-  return changed.length > 1
-    ? { ...first, more: `${changed.length - 1} more field${changed.length > 2 ? 's' : ''}` }
-    : first
-}
-
-// Derive a human-readable name for the affected entity from the full-row snapshot.
-function entityDisplayName(entityType: string, row: any): string {
-  const json = row && typeof row === 'object' ? row : {}
-  const pick = (...keys: string[]) => {
-    for (const k of keys) {
-      const v = json[k]
-      if (v !== null && v !== undefined && v !== '') return String(v)
-    }
-    return ''
-  }
-  switch (entityType) {
-    case 'users': return pick('full_name', 'email', 'phone')
-    case 'student_profiles':
-    case 'landlord_profiles':
-    case 'admin_profiles': return pick('business_name', 'full_name', 'user_id')
-    case 'properties': return pick('name', 'address', 'city')
-    case 'rooms': return pick('label', 'room_number', 'room_id')
-    case 'leases': return pick('id', 'room_id', 'student_id')
-    case 'payments': return pick('description', 'txn_reference', 'id')
-    case 'complaints': return pick('subject', 'category', 'id')
-    case 'concerns': return pick('description', 'category', 'id')
-    case 'announcements': return pick('title', 'id')
-    case 'policies': return pick('title', 'version', 'id')
-    case 'verification_documents': return pick('filename', 'doc_type', 'id')
-    default: return pick('name', 'title', 'label', 'subject', 'id')
-  }
-}
-
-function mapLog(row: any) {
-  const actor = row.actor
-  const isSystem = !actor
-  const entityType = row.entity_type || 'record'
-  const entityTypeLabel = label(entityType)
-  const sourceJson = row.after_json || row.before_json || {}
-  const entityName = entityDisplayName(entityType, sourceJson) || row.entity_id
-  const changes = diffJson(row.before_json, row.after_json, entityType)
-
-  return {
-    id: row.id,
-    date: fmtDate(row.created_at),
-    time: fmtTime(row.created_at),
-    action: row.action,
-    actor: {
-      name: isSystem ? 'System Automator' : (actor.full_name || 'Unknown User'),
-      initials: isSystem ? '' : (actor.initials || ''),
-      role: isSystem ? 'Automated Process' : label(String(actor.role || '')),
-      color: isSystem ? 'grey-8' : (actor.avatar_color || 'teal-7'),
-      isSystem
-    },
-    target: {
-      type: entityTypeLabel,
-      name: entityName,
-      id: row.entity_id
-    },
-    changes,
-    description: changes ? null : `${row.action} on ${entityTypeLabel}`,
-    ip: row.ip_address || '—'
-  }
-}
-
 const filteredLogs = computed(() => {
   let result = [...logs.value]
+  const f = activeFilters.value
+  const actions = f.action
+  if (actions && actions.length) result = result.filter((log: any) => actions.includes(log.action))
+  const types = f.entityType
+  if (types && types.length) result = result.filter((log: any) => types.includes(log.target.type))
+
+  if (dateRange.value && dateRange.value.from) {
+    const from = new Date(dateRange.value.from + 'T00:00:00')
+    const toStr = dateRange.value.to || dateRange.value.from
+    const to = new Date(toStr + 'T23:59:59')
+    result = result.filter((log: any) => {
+      const d = new Date(log.createdAt)
+      return d >= from && d <= to
+    })
+  }
+
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(log =>
@@ -352,18 +279,6 @@ const paginatedLogs = computed(() => {
   return filteredLogs.value.slice(start, start + 10)
 })
 
-function getActionColor(action: string): { tone: StatusTone } {
-  switch(action) {
-    case 'CREATE': return { tone: 'success' }
-    case 'APPROVE': return { tone: 'success' }
-    case 'UPDATE': return { tone: 'info' }
-    case 'DELETE': return { tone: 'danger' }
-    case 'REJECT': return { tone: 'danger' }
-    case 'AUTH': return { tone: 'warning' }
-    case 'SYSTEM': return { tone: 'primary' }
-    default: return { tone: 'neutral' }
-  }
-}
 </script>
 
 <style scoped>
@@ -372,3 +287,5 @@ function getActionColor(action: string): { tone: StatusTone } {
   height: 100% !important;
 }
 </style>
+
+

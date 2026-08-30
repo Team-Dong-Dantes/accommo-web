@@ -36,11 +36,13 @@ src/pages/admin/UIBible.vue
 
 # Local debugging / DOM-inspection scratch
 *.log
+*.txt
 ddout.txt
 files.txt
 intro.json
 intro-table.json
 *.tsbuildinfo
+.hermes/
 
 # Dev screenshots
 shot-*.png

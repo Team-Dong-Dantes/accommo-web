@@ -38,6 +38,7 @@
 
             <!-- Expandable groups -->
             <template v-for="group in navGroups" :key="group.id">
+              <div class="nav-group">
               <q-item clickable v-ripple class="nav-item q-mt-sm"
                 :class="{ 'active-menu': (miniState || !expanded[group.id]) && isParentActive(group.children.map(c => c.to)) }"
                 @click="toggle(group.id)">
@@ -45,24 +46,45 @@
                   <Icon :icon="group.icon" width="22" height="22" />
                 </q-item-section>
                 <q-item-section class="nav-text text-weight-bold hide-on-mini">{{ group.label }}</q-item-section>
-                <q-item-section side class="hide-on-mini q-pr-sm">
+                <q-item-section side class="nav-group-actions hide-on-mini q-pr-sm">
+                  <q-badge
+                    v-if="!expanded[group.id] && groupWorkCount(group.children.map(child => child.id))"
+                    class="nav-work-badge"
+                    :label="formatWorkCount(groupWorkCount(group.children.map(child => child.id)))"
+                    :aria-label="workLabel(groupWorkCount(group.children.map(child => child.id)))"
+                  />
                   <Icon :icon="expanded[group.id] ? 'mdi:chevron-up' : 'mdi:chevron-down'" color="white" width="18"
                     height="18" />
                 </q-item-section>
               </q-item>
+
+              <q-badge
+                v-if="miniState && !isGroupWorkActive(group.children.map(child => child.to)) && groupWorkCount(group.children.map(child => child.id))"
+                class="nav-work-badge nav-work-badge-mini"
+                :label="formatWorkCount(groupWorkCount(group.children.map(child => child.id)))"
+                :aria-label="workLabel(groupWorkCount(group.children.map(child => child.id)))"
+              />
 
               <div class="hide-on-mini">
                 <q-slide-transition>
                   <div v-show="expanded[group.id]">
                     <q-item v-for="child in group.children" :key="child.id" clickable v-ripple exact :to="child.to"
                       active-class="active-menu" class="nav-item child-item">
-                      <q-item-section avatar class="item-icon">
-                        <Icon :icon="child.icon" width="20" height="20" />
-                      </q-item-section>
-                      <q-item-section class="nav-text text-weight-bold">{{ child.label }}</q-item-section>
-                    </q-item>
+                       <q-item-section avatar class="item-icon">
+                         <Icon :icon="child.icon" width="20" height="20" />
+                       </q-item-section>
+                       <q-item-section class="nav-text text-weight-bold">{{ child.label }}</q-item-section>
+                       <q-item-section v-if="workCount(child.id) && !isActivePath(child.to)" side class="nav-work-side">
+                         <q-badge
+                           class="nav-work-badge"
+                           :label="formatWorkCount(workCount(child.id))"
+                           :aria-label="workLabel(workCount(child.id))"
+                         />
+                       </q-item-section>
+                     </q-item>
                   </div>
                 </q-slide-transition>
+              </div>
               </div>
             </template>
 
@@ -80,6 +102,7 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { navGroups } from './nav-config';
 import CommandPalette from '@/components/ui/CommandPalette.vue';
+import { supabase } from '@/utils/supabase';
 
 const miniState = ref(true);
 const route = useRoute();
@@ -91,6 +114,48 @@ const kbdHint = isMac ? '⌘K' : 'Ctrl K';
 const expanded = reactive<Record<string, boolean>>(
   Object.fromEntries(navGroups.map(g => [g.id, false]))
 );
+const workCounts = ref<Record<string, number>>({
+  verifications: 0,
+  'support-tickets': 0,
+});
+
+function workCount(id: string) {
+  return workCounts.value[id] ?? 0;
+}
+
+function groupWorkCount(childIds: string[]) {
+  return childIds.reduce((total, id) => total + workCount(id), 0);
+}
+
+function formatWorkCount(count: number) {
+  return count > 99 ? '99+' : String(count);
+}
+
+function workLabel(count: number) {
+  return `${count} outstanding ${count === 1 ? 'item' : 'items'}`;
+}
+
+function isActivePath(path: string) {
+  return route.path === path;
+}
+
+function isGroupWorkActive(paths: string[]) {
+  return paths.some(isActivePath);
+}
+
+async function loadWorkCounts() {
+  const [usersResult, propertiesResult, ticketsResult] = await Promise.all([
+    supabase.from('users').select('*', { count: 'exact', head: true }).in('status', ['pending', 'reviewing']),
+    supabase.from('accommodations').select('*', { count: 'exact', head: true }).in('status', ['pending', 'reviewing']),
+    supabase.from('tickets').select('*', { count: 'exact', head: true }).in('status', ['open', 'in_progress']),
+  ]);
+
+  if (!usersResult.error || !propertiesResult.error) {
+    workCounts.value.verifications = (usersResult.error ? 0 : usersResult.count ?? 0)
+      + (propertiesResult.error ? 0 : propertiesResult.count ?? 0);
+  }
+  if (!ticketsResult.error) workCounts.value['support-tickets'] = ticketsResult.count ?? 0;
+}
 
 function toggle(section: string) {
   const wasOpen = expanded[section];
@@ -109,8 +174,23 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onKeydown));
-onUnmounted(() => window.removeEventListener('keydown', onKeydown));
+let workChannel: any = null;
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown);
+  void loadWorkCounts();
+  workChannel = supabase
+    .channel('sidebar-work-counts')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, loadWorkCounts)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'accommodations' }, loadWorkCounts)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, loadWorkCounts)
+    .subscribe();
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown);
+  if (workChannel) supabase.removeChannel(workChannel);
+});
 </script>
 
 <style>
@@ -298,6 +378,46 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
   padding-left: 0;
   opacity: 1;
   transition: opacity 0.2s ease;
+}
+
+.nav-group-actions {
+  gap: var(--sp-2);
+}
+
+.nav-group {
+  position: relative;
+}
+
+.nav-work-side {
+  min-width: 34px;
+  padding-left: var(--sp-2);
+}
+
+.nav-work-badge {
+  min-width: 21px;
+  height: 21px;
+  justify-content: center;
+  padding: 0 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(224, 101, 75, 0.92) !important;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.nav-work-badge-mini {
+  position: absolute;
+  top: 1px;
+  right: 5px;
+  z-index: 1;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  font-size: 9px;
+  pointer-events: none;
 }
 
 /* ----- Active state: pill + left accent bar ----- */

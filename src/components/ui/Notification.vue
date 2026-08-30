@@ -1,65 +1,91 @@
 <template>
-  <q-btn flat dense class="notif-capsule relative-position" style="border-radius: 999px;">
-    <Icon icon="mdi:bell" width="18" height="18" />
+  <q-btn flat dense class="notif-trigger relative-position" aria-label="Open notifications">
+    <Icon icon="mdi:bell-outline" width="19" height="19" aria-hidden="true" />
+    <q-badge v-if="unreadCount > 0" class="notif-count" rounded>{{ unreadCount > 9 ? '9+' : unreadCount }}</q-badge>
 
-    <q-badge v-if="unreadCount > 0" color="red" floating rounded style="top: 0px; right: 0px; font-weight: bold;">
-      {{ unreadCount }}
-    </q-badge>
-
-    <q-menu anchor="bottom right" self="top right" :offset="[0, 12]"
-      style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); width: 340px; max-height: 80vh;">
-      <div class="row items-center justify-between q-pa-md border-bottom bg-surface sticky-top z-top">
-        <div class="text-weight-bold text-subtitle1" style="line-height: 1;">Notifications</div>
-        <q-btn v-if="unreadCount > 0" flat dense size="11px" color="primary" label="Mark all as read"
-          @click="markAllRead" class="text-weight-bold" />
-      </div>
-
-      <q-list class="q-py-xs">
-        <q-item v-for="notif in notifications" :key="notif.id" clickable v-ripple
-          :class="notif.unread ? 'bg-primary-1' : ''" @click="markRead(notif)" class="q-pa-md transition-bg">
-          <q-item-section avatar>
-            <q-avatar :color="notif.color" text-color="white" size="40px" font-size="20px">
-              <Icon :icon="notif.icon" width="20" height="20" />
-            </q-avatar>
-          </q-item-section>
-
-          <q-item-section>
-            <q-item-label class="text-weight-bold" style="font-size: 13px; line-height: 1.3;">{{ notif.title
-              }}</q-item-label>
-            <q-item-label caption class="text-ink q-mt-xs" style="font-size: 11px; line-height: 1.4;">{{
-              notif.message }}</q-item-label>
-            <q-item-label caption class="text-muted q-mt-xs" style="font-size: 10px; font-weight: 600;">{{ notif.time
-              }}</q-item-label>
-          </q-item-section>
-
-          <q-item-section side v-if="notif.unread" class="justify-center">
-            <div class="unread-dot bg-red-5"></div>
-          </q-item-section>
-        </q-item>
-
-        <q-item v-if="notifications.length === 0" class="q-pa-lg flex flex-center">
-          <div class="text-muted text-center">
-            <Icon icon="mdi:bell-off-outline" width="40" height="40" class="q-mb-sm" />
-            <div style="font-size: 12px; font-weight: 600;">You're all caught up!</div>
+    <q-menu
+      anchor="bottom right"
+      self="top right"
+      :offset="[0, 12]"
+      class="notification-menu"
+      style="width: min(390px, calc(100vw - 24px)); max-height: min(610px, calc(100vh - 24px));"
+    >
+      <section class="notification-popover" aria-labelledby="notification-popover-title">
+        <header class="popover-head">
+          <div>
+            <h2 id="notification-popover-title">Notifications</h2>
           </div>
-        </q-item>
-      </q-list>
+          <q-btn
+            v-if="unreadCount > 0"
+            flat
+            dense
+            no-caps
+            class="mark-read-btn"
+            label="Mark all read"
+            @click="markAllRead"
+          />
+        </header>
 
-      <div class="q-pa-sm text-center border-top bg-surface sticky-bottom">
-  <q-btn flat dense color="primary" label="View All Notifications" class="full-width text-weight-bold"
-    style="font-size: 12px;" @click="viewAll" />
-      </div>
+        <div class="popover-summary" role="status" aria-live="polite">
+          <Icon :icon="unreadCount ? 'mdi:bell-badge-outline' : 'mdi:check-circle-outline'" width="17" height="17" aria-hidden="true" />
+          <span>{{ inboxSummary }}</span>
+        </div>
+
+        <q-list v-if="notifications.length" class="popover-list" aria-label="Recent notifications">
+          <q-item
+            v-for="notif in notifications.slice(0, 6)"
+            :key="notif.id"
+            clickable
+            v-ripple
+            v-close-popup
+            class="notification-row"
+            :class="{ 'is-unread': notif.unread }"
+            @click="open(notif)"
+          >
+            <q-item-section avatar top>
+              <q-avatar :color="notif.color" text-color="white" size="34px" font-size="17px">
+                <Icon :icon="notif.icon" width="17" height="17" aria-hidden="true" />
+              </q-avatar>
+            </q-item-section>
+            <q-item-section>
+              <div class="notification-meta">
+                <span class="notification-type">{{ notif.typeLabel }}</span>
+                <time :datetime="notif.createdAt">{{ notif.time }}</time>
+              </div>
+              <q-item-label class="notification-title">{{ notif.title }}</q-item-label>
+              <q-item-label caption class="notification-message">{{ notif.message }}</q-item-label>
+            </q-item-section>
+            <q-item-section side top class="notification-side">
+              <span v-if="notif.unread" class="unread-dot" aria-label="Unread" />
+              <Icon icon="mdi:chevron-right" width="17" height="17" aria-hidden="true" />
+            </q-item-section>
+          </q-item>
+        </q-list>
+
+        <div v-else class="popover-empty">
+          <div class="empty-icon"><Icon icon="mdi:bell-check-outline" width="24" height="24" aria-hidden="true" /></div>
+          <strong>Inbox clear</strong>
+          <span>New operational activity will appear here.</span>
+        </div>
+
+        <footer class="popover-foot">
+          <q-btn flat no-caps class="open-center-btn" @click="viewAll">
+            Open notification center <Icon icon="mdi:arrow-right" width="16" height="16" class="q-ml-xs" aria-hidden="true" />
+          </q-btn>
+        </footer>
+      </section>
     </q-menu>
-
   </q-btn>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { Icon } from '@iconify/vue'
 import { supabase } from '@/utils/supabase'
 import { getTimeAgo } from '@/utils/format'
 import { notificationStyle } from '@/utils/notificationStyle'
+import { notificationTarget } from '@/utils/notificationTarget'
 
 const router = useRouter()
 
@@ -68,26 +94,39 @@ interface Notif {
   title: string
   message: string
   time: string
+  createdAt: string
   icon: string
   color: string
+  typeLabel: string
   unread: boolean
   linkUrl: string
 }
 
 const notifications = ref<Notif[]>([])
-const unreadCount = computed(() => notifications.value.filter((n) => n.unread).length)
+const unreadCount = computed(() => notifications.value.filter((notification) => notification.unread).length)
+const inboxSummary = computed(() =>
+  unreadCount.value
+    ? `${unreadCount.value} item${unreadCount.value === 1 ? '' : 's'} need${unreadCount.value === 1 ? 's' : ''} your attention`
+    : 'You are up to date',
+)
 
-function mapRow(r: any): Notif {
-  const s = notificationStyle(r.type)
+function typeLabel(type: string) {
+  return type ? type.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'System'
+}
+
+function mapRow(row: any): Notif {
+  const style = notificationStyle(row.type)
   return {
-    id: r.id,
-    title: r.title || 'Notification',
-    message: r.body || '',
-    time: getTimeAgo(r.created_at),
-    icon: s.icon,
-    color: s.color,
-    unread: !r.read_at,
-    linkUrl: r.link_url || '',
+    id: row.id,
+    title: row.title || 'Notification',
+    message: row.body || '',
+    time: getTimeAgo(row.created_at),
+    createdAt: row.created_at || '',
+    icon: style.icon,
+    color: style.color,
+    typeLabel: typeLabel(row.type),
+    unread: !row.read_at,
+    linkUrl: row.link_url || '',
   }
 }
 
@@ -97,42 +136,47 @@ async function load() {
   try {
     const user = (await supabase.auth.getUser()).data.user
     if (!user) return
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('notifications')
       .select('id, title, body, type, link_url, read_at, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(20)
-    if (data) notifications.value = (data as any[]).map(mapRow)
-  } catch (e: any) {
-    console.warn('Could not load notifications (apply verification_workflow migration?):', e?.message)
+    if (error) throw error
+    notifications.value = (data ?? []).map(mapRow)
+  } catch (error: any) {
+    console.warn('Could not load notifications:', error?.message)
   }
 }
 
-async function markRead(notif: Notif) {
-  if (!notif.unread) return
-  notif.unread = false
+async function markRead(notification: Notif) {
+  if (!notification.unread) return
+  notification.unread = false
   try {
-    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', notif.id)
-  } catch (e: any) {
-    console.warn('Could not mark notification read:', e?.message)
+    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', notification.id)
+  } catch (error: any) {
+    console.warn('Could not mark notification read:', error?.message)
   }
+}
+
+async function open(notification: Notif) {
+  await markRead(notification)
+  await router.push(notificationTarget(notification.linkUrl))
 }
 
 async function markAllRead() {
   const user = (await supabase.auth.getUser()).data.user
   if (!user) return
-  notifications.value.forEach((n) => (n.unread = false))
+  notifications.value.forEach((notification) => (notification.unread = false))
   try {
-    const now = new Date().toISOString()
-    await supabase.from('notifications').update({ read_at: now }).eq('user_id', user.id).is('read_at', null)
-  } catch (e: any) {
-    console.warn('Could not mark all read:', e?.message)
+    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', user.id).is('read_at', null)
+  } catch (error: any) {
+    console.warn('Could not mark all read:', error?.message)
   }
 }
 
 function viewAll() {
-  router.push('/notifications')
+  void router.push('/notifications')
 }
 
 onMounted(async () => {
@@ -157,44 +201,35 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.border-bottom {
-  border-bottom: 1px solid var(--c-border);
-}
-
-.border-top {
-  border-top: 1px solid var(--c-border);
-}
-
-.unread-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  box-shadow: 0 0 4px rgba(244, 67, 54, 0.4);
-}
-
-.sticky-top {
-  position: sticky;
-  top: 0;
-}
-
-.sticky-bottom {
-  position: sticky;
-  bottom: 0;
-}
-
-.transition-bg {
-  transition: background-color 0.3s ease;
-}
-
-.notif-capsule {
-  border-radius: 999px !important;
-  background: var(--c-surface-2) !important;
-  border: 1px solid var(--c-border) !important;
-  padding: 7px 11px !important;
-  color: var(--c-muted) !important;
-}
-
-.notif-capsule:hover {
-  background: var(--c-border) !important;
-}
+.notif-trigger { min-width: 42px; min-height: 42px; border: 1px solid var(--c-border); border-radius: 999px !important; background: var(--c-surface-2) !important; color: var(--c-muted) !important; transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast), transform var(--t-fast); }
+.notif-trigger:hover { border-color: var(--c-primary); background: var(--c-primary-soft) !important; color: var(--c-primary) !important; }
+.notif-trigger:focus-visible { outline: 3px solid var(--c-primary); outline-offset: 2px; }
+.notif-count { top: -3px !important; right: -3px !important; min-width: 18px; height: 18px; justify-content: center; padding: 0 4px; border: 2px solid var(--c-bg); background: var(--c-danger); color: #fff; font-family: var(--font-mono); font-size: 9px; font-weight: 700; }
+:deep(.notification-menu) { border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-surface); box-shadow: var(--shadow-lg); overflow: hidden; }
+.notification-popover { display: flex; flex-direction: column; max-height: inherit; }
+.popover-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-5) var(--sp-5) var(--sp-3); }
+.popover-head h2 { margin: 0; font-family: var(--font-display); font-size: 1.125rem; line-height: 1.15; color: var(--c-ink); }
+.mark-read-btn { min-height: 34px; margin-top: -4px; padding: 0 var(--sp-2); border-radius: var(--radius-sm); color: var(--c-primary); font-size: 11px; font-weight: 700; }
+.mark-read-btn:hover { background: var(--c-primary-soft); }
+.mark-read-btn:focus-visible, .open-center-btn:focus-visible, .notification-row:focus-visible { outline: 3px solid var(--c-primary); outline-offset: -3px; }
+.popover-summary { display: flex; align-items: center; gap: 7px; margin: 0 var(--sp-5) var(--sp-2); padding: 9px var(--sp-3); border: 1px solid var(--c-border); border-radius: var(--radius-sm); background: var(--c-surface-2); color: var(--c-muted); font-size: 11px; font-weight: 600; }
+.popover-summary .iconify { color: var(--c-primary); }
+.popover-list { overflow-y: auto; padding: var(--sp-2) 0; }
+.notification-row { position: relative; min-height: 76px; padding: var(--sp-3) var(--sp-4); border-left: 3px solid transparent; transition: background var(--t-fast), border-color var(--t-fast); }
+.notification-row:hover { background: var(--c-surface-2); }
+.notification-row.is-unread { border-left-color: var(--c-primary); background: color-mix(in srgb, var(--c-primary-soft) 52%, var(--c-surface)); }
+.notification-meta { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-bottom: 3px; }
+.notification-type { overflow: hidden; color: var(--c-primary); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.notification-meta time { flex-shrink: 0; color: var(--c-muted); font-size: 10px; font-weight: 600; }
+.notification-title { overflow: hidden; color: var(--c-ink); font-size: 12px; font-weight: 700; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.notification-message { display: -webkit-box; overflow: hidden; margin-top: 3px; color: var(--c-text) !important; font-size: 11px; line-height: 1.38; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.notification-side { min-width: 16px; padding-left: var(--sp-1); color: var(--c-muted); }
+.unread-dot { width: 7px; height: 7px; margin: 3px 1px 10px 0; border-radius: 50%; background: var(--c-danger); box-shadow: 0 0 0 3px var(--c-danger-soft); }
+.popover-empty { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: var(--sp-8) var(--sp-5); color: var(--c-muted); font-size: 11px; text-align: center; }
+.popover-empty strong { color: var(--c-ink); font-family: var(--font-display); font-size: 14px; }
+.empty-icon { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 50%; background: var(--c-success-soft); color: var(--c-success); }
+.popover-foot { padding: var(--sp-2); border-top: 1px solid var(--c-border); background: var(--c-surface); }
+.open-center-btn { width: 100%; min-height: 40px; border-radius: var(--radius-sm); color: var(--c-primary); font-size: 12px; font-weight: 700; }
+.open-center-btn:hover { background: var(--c-primary-soft); }
+@media (prefers-reduced-motion: reduce) { .notif-trigger, .notification-row { transition: none; } }
 </style>

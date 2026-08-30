@@ -5,9 +5,8 @@ export interface NotificationStyle {
 
 const STYLES: Record<string, NotificationStyle> = {
   verification: { icon: 'mdi:verified', color: 'teal-5' },
-  concern: { icon: 'mdi:shield-alert', color: 'red-5' },
-  complaint: { icon: 'mdi:gavel', color: 'deep-orange-5' },
-  property: { icon: 'mdi:home-outline', color: 'indigo-5' },
+  ticket: { icon: 'mdi:ticket-outline', color: 'red-5' },
+  accommodation: { icon: 'mdi:home-outline', color: 'indigo-5' },
   payment: { icon: 'mdi:cash-multiple', color: 'green-5' },
   lease: { icon: 'mdi:file-document-outline', color: 'orange-5' },
   message: { icon: 'mdi:message-text-outline', color: 'blue-5' },

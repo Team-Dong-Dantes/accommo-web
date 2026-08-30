@@ -1,235 +1,323 @@
 <template>
-  <div class="q-pa-md full-width bg-surface" style="border-radius: 0 12px 12px 12px;">
+  <teleport to="body">
+    <transition name="tw" :duration="450">
+      <div class="ticket-window" v-if="request">
+        <div class="tw-scrim" @click="closeWindow"></div>
 
-    <div class="row items-center justify-between q-mb-md">
-      <q-btn
-        flat
-        dense
-        color="primary"
-        no-caps
-        class="text-weight-bold"
-        @click="$emit('close')"
-      >
-        <Icon icon="mdi:arrow-left" class="on-left" width="18" height="18" />Back to List
-      </q-btn>
+        <!-- LEFT: status + decision -->
+        <aside class="tw-side">
+          <div class="tw-side-meta">
+            <div class="side-sec-title"><Icon icon="mdi:clipboard-text-outline" width="14" height="14" /> Overview</div>
 
-      <div class="row items-center q-gutter-x-sm">
-        <span class="text-muted text-weight-medium text-caption">Request ID: {{ request?.id || 'REQ-L102' }}</span>
-        <div class="bg-warning-soft text-warning text-caption text-weight-bold q-px-sm q-py-xs rounded-borders">
-          Pending Review
+            <div class="ov-card">
+              <div class="ov-row">
+                <span class="ov-cap"><Icon icon="mdi:circle-medium" width="10" height="10" /> Status</span>
+                <BadgePill :tone="(request?.statusStyle?.tone as any)" :icon="request?.statusStyle?.icon ?? ''" :label="request?.status || 'Unknown'" />
+              </div>
+              <div class="ov-row">
+                <span class="ov-cap"><Icon icon="mdi:gavel" width="13" height="13" /> Verdict</span>
+                <BadgePill :tone="checksRef?.verdict.tone ?? 'success'" :icon="checksRef?.verdict.icon ?? 'mdi:shield-check'" :label="checksRef?.verdict.label ?? 'Ready to verify'" />
+              </div>
+            </div>
+
+            <div class="side-sec-title side-sec-gap"><Icon icon="mdi:scale-balance" width="14" height="14" /> Decision</div>
+
+            <DecisionForm
+              :has-blocking-fail="checksRef?.hasBlockingFail ?? false"
+              :request-key="request?.id ?? null"
+              @submit="(payload) => emit('submit', payload)"
+            />
+          </div>
+        </aside>
+
+        <!-- CENTER: document under review -->
+        <div class="tw-panel">
+          <div class="tw-body">
+            <section class="tw-conv">
+              <header class="conv-profile">
+                <button type="button" class="tw-back" @click="closeWindow" aria-label="Back"><Icon icon="mdi:arrow-left" width="20" height="20" /></button>
+                <div class="cp-av" :style="{ background: request?.avatarColor || 'teal-6' }">{{ request?.initials }}</div>
+                <div class="cp-meta">
+                  <div class="cp-name">{{ request?.name }}</div>
+                  <div class="cp-sub">{{ request?.type }} · {{ request?.email || request?.owner || 'No contact info' }}</div>
+                </div>
+              </header>
+
+              <DocumentViewer
+                v-model:index="currentFile"
+                :files="files"
+                :request-key="request?.id ?? null"
+                :empty-caption="isAccommodation ? 'Accommodation accreditation is verified from OSAS records, not uploads.' : 'No files were attached to this request.'"
+              />
+            </section>
+
+            <!-- RIGHT: request details + automated evidence -->
+            <aside class="tw-details">
+              <div class="tw-details-head">Request Details</div>
+
+              <div class="rd-card">
+                <div class="rd-row"><span class="rd-key">{{ isAccommodation ? 'Accommodation' : 'Applicant' }}</span><span class="rd-val">{{ request?.name || '—' }}</span></div>
+                <div class="rd-row" v-if="request?.email"><span class="rd-key">Email</span><span class="rd-val">{{ request?.email }}</span></div>
+                <div class="rd-row"><span class="rd-key">Type</span><span class="rd-val">{{ request?.type || '—' }}</span></div>
+                <div class="rd-row"><span class="rd-key">Received</span><span class="rd-val">{{ request?.submitted || '—' }}</span></div>
+                <div class="rd-row" v-if="isAccommodation && request?.owner"><span class="rd-key">Accommodation Manager</span><span class="rd-val">{{ request?.owner }}</span></div>
+              </div>
+
+              <div class="rd-card">
+                <div class="rd-card-title">Documents</div>
+                <div v-if="files.length" class="doc-list">
+                  <div v-for="(f, i) in files" :key="i" class="doc-item" :class="{ 'doc-item--active': i === currentFile }">
+                    <Icon :icon="fileIcon(f.name)" width="18" height="18" class="doc-item-ico" />
+                    <div class="doc-item-name ellipsis">{{ f.name }}</div>
+                    <button type="button" class="doc-eye" @click="openDoc(i)" aria-label="Preview document"><Icon icon="mdi:eye-outline" width="18" height="18" /></button>
+                    <a class="doc-ext" :href="f.url" target="_blank" rel="noopener" aria-label="Open in new tab"><Icon icon="mdi:open-in-new" width="18" height="18" /></a>
+                  </div>
+                </div>
+                <div v-else class="text-caption text-muted q-py-xs">{{ isAccommodation ? 'Accommodation accreditation is verified from OSAS records.' : 'No documents attached.' }}</div>
+              </div>
+
+              <div class="rd-card" v-if="extractedName || docId">
+                <div class="rd-card-title">OCR Extracted</div>
+                <div class="rd-row"><span class="rd-key">Name</span><span class="rd-val">{{ extractedName || '—' }}</span></div>
+                <div class="rd-row"><span class="rd-key">ID</span><span class="rd-val">{{ docId || '—' }}</span></div>
+              </div>
+
+              <VerificationChecks
+                ref="checksRef"
+                :request="request"
+                :is-accommodation="isAccommodation"
+                :extracted-name="extractedName"
+                :doc-id="docId"
+                :request-key="request?.id ?? null"
+              />
+            </aside>
+          </div>
         </div>
       </div>
-    </div>
-
-    <div class="row q-col-gutter-md">
-
-      <div class="col-12 col-md-8">
-        <q-card flat bordered class="bg-surface document-container">
-
-          <div class="row justify-between items-center q-pa-sm border-bottom">
-            <div class="text-weight-bold text-ink q-ml-sm">
-              Attached_Document.pdf
-            </div>
-            <div class="row q-gutter-x-xs">
-              <q-btn flat dense color="grey-7" size="sm"><Icon icon="mdi:rotate-right" width="18" height="18" /></q-btn>
-              <q-btn flat dense color="grey-7" size="sm"><Icon icon="mdi:tune-vertical" width="18" height="18" /></q-btn>
-              <q-separator vertical class="q-mx-xs" />
-              <q-btn flat dense color="grey-7" size="sm"><Icon icon="mdi:magnify-plus" width="18" height="18" /></q-btn>
-              <q-btn flat dense color="grey-7" size="sm"><Icon icon="mdi:magnify-minus" width="18" height="18" /></q-btn>
-            </div>
-          </div>
-
-          <div class="col bg-surface-2 flex flex-center relative-position">
-            <Icon icon="mdi:file-document-outline" width="64" height="64" color="var(--c-border-strong)" />
-            <div class="absolute-bottom text-center q-pb-md text-muted text-caption">
-              Simulated Document Viewer
-            </div>
-          </div>
-
-        </q-card>
-      </div>
-
-      <div class="col-12 col-md-4 column q-gutter-y-md">
-
-        <q-card flat bordered class="q-pa-md panel-card">
-          <div class="text-caption text-muted text-weight-bold q-mb-md text-uppercase">Applicant</div>
-
-          <div class="row items-center no-wrap">
-            <q-avatar size="48px" :color="request?.avatarColor || 'teal-6'" text-color="white" class="text-weight-bold q-mr-md">
-              {{ request?.initials || '??' }}
-            </q-avatar>
-            <div class="column">
-              <div class="text-weight-bold text-ink" style="font-size: 16px">{{ request?.name || 'Applicant Name' }}</div>
-              <div class="text-muted" style="font-size: 13px">{{ request?.email || request?.owner || 'Contact Info' }}</div>
-            </div>
-          </div>
-        </q-card>
-
-        <q-card flat bordered class="q-pa-md panel-card">
-          <div class="row justify-between items-center q-mb-md">
-            <div class="text-caption text-muted text-weight-bold text-uppercase">System Match Verification</div>
-            <div class="text-caption text-primary text-weight-bold bg-primary-soft q-px-sm q-py-xs rounded-borders">
-              Auto-Checked
-            </div>
-          </div>
-
-          <div class="column q-gutter-y-sm">
-
-            <div class="row items-center justify-between bg-surface-2 q-pa-sm rounded-borders">
-              <div class="column">
-                <span class="text-caption text-muted">Registered Name</span>
-                <span class="text-weight-bold text-ink" style="font-size: 13px">{{ request?.name }}</span>
-              </div>
-              <Icon icon="mdi:check-circle" color="#66bb6a" width="18" height="18" />
-            </div>
-
-            <div class="row items-center justify-between bg-surface-2 q-pa-sm rounded-borders">
-              <div class="column">
-                <span class="text-caption text-muted">Document Status</span>
-                <span class="text-weight-bold text-ink" style="font-size: 13px">Valid until Dec 2026</span>
-              </div>
-              <Icon icon="mdi:check-circle" color="#66bb6a" width="18" height="18" />
-            </div>
-
-          </div>
-        </q-card>
-
-        <q-card flat bordered class="q-pa-md col flex column panel-card">
-          <div class="text-caption text-muted text-weight-bold q-mb-md text-uppercase">Decision</div>
-
-          <div class="row q-gutter-x-sm q-mb-md">
-            <q-btn
-              outline
-              :color="decision === 'approve' ? 'primary' : 'grey-5'"
-              :class="{'bg-primary-soft': decision === 'approve'}"
-              label="Approve"
-              class="col text-weight-bold"
-              no-caps
-              @click="setDecision('approve')"
-            />
-            <q-btn
-              outline
-              :color="decision === 'reject' ? 'negative' : 'grey-5'"
-              :class="{'bg-danger-soft': decision === 'reject'}"
-              label="Reject"
-              class="col text-weight-bold"
-              no-caps
-              @click="setDecision('reject')"
-            />
-          </div>
-
-          <div v-if="decision === 'reject'" class="q-mb-md">
-            <div class="text-caption text-ink q-mb-sm text-weight-medium">Select Rejection Reasons</div>
-            <div class="row q-gutter-sm">
-              <q-chip
-                v-for="tag in availableTags"
-                :key="tag"
-                clickable
-                :color="selectedTags.includes(tag) ? 'red-5' : 'grey-2'"
-                :text-color="selectedTags.includes(tag) ? 'white' : 'dark'"
-                @click="toggleTag(tag)"
-                class="text-weight-medium"
-              >
-                {{ tag }}
-              </q-chip>
-            </div>
-          </div>
-
-          <div v-if="decision" class="q-mb-md">
-            <div class="text-caption text-ink q-mb-sm text-weight-medium">Additional Notes</div>
-            <q-input
-              v-model="notes"
-              outlined
-              type="textarea"
-              dense
-              placeholder="Leave an internal note regarding this decision..."
-              rows="2"
-            />
-          </div>
-
-          <q-space />
-
-          <q-btn
-            unelevated
-            :color="decision ? 'primary' : 'grey-4'"
-            :text-color="decision ? 'white' : 'grey-6'"
-            :disable="!decision"
-            label="Submit Verification"
-            class="full-width text-weight-bold submit-btn"
-            no-caps
-            @click="$emit('submit', { decision, notes, tags: selectedTags })"
-          />
-        </q-card>
-
-      </div>
-    </div>
-  </div>
+    </transition>
+  </teleport>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch, type PropType } from 'vue'
+import { Icon } from '@iconify/vue'
+import BadgePill from '@/components/user/BadgePill.vue'
+import DocumentViewer from '@/features/verifications/DocumentViewer.vue'
+import DecisionForm from '@/features/verifications/DecisionForm.vue'
+import VerificationChecks from '@/features/verifications/VerificationChecks.vue'
+import type { DecisionPayload } from '@/features/verifications/DecisionForm.vue'
+import { fileIcon } from '@/features/verifications/fileUtils'
 
-defineProps({
+const props = defineProps({
   request: {
-    type: Object,
-    default: null
-  }
+    type: Object as PropType<Record<string, any> | null>,
+    default: null,
+  },
 })
+const emit = defineEmits(['close', 'submit'])
 
-defineEmits(['close', 'submit'])
+// Checks panel (verdict + blocking-fail state live there now).
+const checksRef = ref<InstanceType<typeof VerificationChecks> | null>(null)
 
-const decision = ref<string | null>(null)
-const notes = ref('')
-const selectedTags = ref<string[]>([])
-
-const availableTags = [
-  'Blurry Image',
-  'Name Mismatch',
-  'Expired Document',
-  'Missing Signature',
-  'Wrong Document Type'
-]
-
-function setDecision(val: string) {
-  decision.value = val
-  if (val === 'approve') {
-    selectedTags.value = []
-  }
+function closeWindow() {
+  emit('close')
 }
 
-function toggleTag(tag: string) {
-  const index = selectedTags.value.indexOf(tag)
-  if (index > -1) {
-    selectedTags.value.splice(index, 1)
-  } else {
-    selectedTags.value.push(tag)
-  }
+/* ---- Document viewer wiring --------------------------------------------- */
+const files = computed<any[]>(() => props.request?.files ?? [])
+const currentFile = ref(0)
+
+const isAccommodation = computed(() => props.request?.id?.startsWith('REQ-AC'))
+const extractedName = computed(() => (props.request as any)?.extractedName || '')
+const docId = computed(() => (props.request as any)?.extractedSchoolId || (props.request as any)?.extractedGovId || '')
+
+function openDoc(i: number) {
+  if (i >= 0 && i < files.value.length) currentFile.value = i
 }
+
+// Reset the active file when the reviewed request changes (children reset
+// their own state via the requestKey prop).
+watch(
+  () => props.request?.id,
+  () => {
+    currentFile.value = 0
+  },
+)
 </script>
 
 <style scoped>
-.document-container {
-  border-radius: 12px;
-  height: calc(95vh - 180px);
-  min-height: 500px;
+/* ===== Ticket-window LAYOUT (mirrors SupportTickets.vue shell) ===== */
+.ticket-window {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  overflow: hidden;
+}
+.tw-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+.tw-panel {
+  position: absolute;
+  top: var(--sp-6);
+  right: var(--sp-6);
+  bottom: var(--sp-6);
+  left: calc(var(--sp-6) + 320px + var(--sp-4));
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  box-shadow: -24px 0 60px rgba(15, 23, 42, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.tw-side {
+  position: absolute;
+  top: var(--sp-6);
+  left: var(--sp-6);
+  bottom: var(--sp-6);
+  width: 320px;
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  box-shadow: var(--shadow-sm);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  overflow-y: auto;
+  z-index: 1;
+}
+.tw-side-meta { display: flex; flex-direction: column; gap: var(--sp-3); }
+.side-sec-title { display: flex; align-items: center; gap: 6px; font-family: var(--font-display); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); padding: 0 2px; }
+.side-sec-title .iconify { opacity: 0.85; }
+.side-sec-gap { margin-top: var(--sp-2); }
+.ov-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius-sm); padding: 2px 12px; display: flex; flex-direction: column; }
+.ov-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: 11px 0; border-bottom: 1px solid var(--c-border); }
+.ov-row:last-child { border-bottom: none; }
+.ov-cap { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--c-muted); }
+.ov-cap .iconify { color: var(--c-border-strong); }
+
+.tw-enter-from .tw-panel,
+.tw-leave-to .tw-panel { transform: translateX(100%); }
+.tw-enter-active .tw-panel,
+.tw-leave-active .tw-panel { transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1); }
+.tw-enter-from .tw-side,
+.tw-leave-to .tw-side { transform: translateX(-100%); opacity: 0; }
+.tw-enter-active .tw-side,
+.tw-leave-active .tw-side { transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.42s ease; }
+.tw-enter-from .tw-scrim,
+.tw-leave-to .tw-scrim { opacity: 0; }
+.tw-enter-active .tw-scrim,
+.tw-leave-active .tw-scrim { transition: opacity 0.42s ease; }
+.tw-enter-from,
+.tw-leave-to { opacity: 0; }
+.tw-enter-active,
+.tw-leave-active { transition: opacity 0.42s ease; }
+
+.tw-back {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface-2);
+  color: var(--c-muted);
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  flex-shrink: 0;
+}
+.tw-back:hover { color: var(--c-ink); border-color: var(--c-border-strong); }
+
+.tw-body { flex: 1 1 0; min-height: 0; display: flex; gap: var(--sp-4); padding: var(--sp-4); }
+.tw-conv { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; background: var(--c-bg); border: 1px solid var(--c-border); border-radius: var(--radius); overflow: hidden; }
+.conv-profile {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+}
+.cp-av {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  flex-shrink: 0;
+}
+.cp-meta { min-width: 0; }
+.cp-name { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--c-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-sub { font-size: 12px; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.tw-details { width: 380px; flex-shrink: 0; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-surface); overflow-y: auto; padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
+.tw-details-head { font-family: var(--font-display); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); margin-bottom: 10px; }
+.tw-details, .tw-side { scrollbar-width: thin; scrollbar-color: var(--c-border-strong) transparent; }
+.tw-details::-webkit-scrollbar, .tw-side::-webkit-scrollbar { width: 8px; }
+.tw-details::-webkit-scrollbar-thumb, .tw-side::-webkit-scrollbar-thumb { background: var(--c-border-strong); border-radius: 999px; }
+.tw-details::-webkit-scrollbar-track, .tw-side::-webkit-scrollbar-track { background: transparent; }
+
+/* Clean admin detail cards (replaces the ticket receipt) */
+.rd-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
 }
+.rd-card-title { font-size: 11px; font-weight: 700; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.rd-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); padding: 7px 0; border-bottom: 1px solid var(--c-border); }
+.rd-row:last-child { border-bottom: none; }
+.rd-key { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); flex-shrink: 0; }
+.rd-val { font-size: 13px; color: var(--c-ink); text-align: right; word-break: break-word; }
 
-.panel-card {
-  border-radius: 12px;
-}
-
-.border-bottom {
-  border-bottom: 1px solid var(--c-border);
-}
-
-.rounded-borders {
+/* Uploaded documents list */
+.doc-list { display: flex; flex-direction: column; gap: 6px; }
+.doc-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
+  background: var(--c-surface-2);
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
-
-.submit-btn {
+.doc-item--active { border-color: var(--c-primary); background: color-mix(in srgb, var(--c-primary) 10%, transparent); }
+.doc-item-ico { flex: 0 0 auto; color: var(--c-muted); }
+.doc-item-name { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--c-ink); }
+.doc-eye,
+.doc-ext {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 30px; height: 30px;
   border-radius: 8px;
-  height: 44px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.doc-eye:hover,
+.doc-ext:hover { color: var(--c-primary); border-color: var(--c-primary); }
+.doc-ext { text-decoration: none; }
+
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 1100px) {
+  .tw-panel {
+    top: var(--sp-2);
+    right: var(--sp-2);
+    bottom: var(--sp-2);
+    left: calc(var(--sp-2) + 260px + var(--sp-2));
+    border-radius: var(--radius);
+  }
+  .tw-side { top: var(--sp-2); left: var(--sp-2); bottom: var(--sp-2); width: 260px; }
+  .tw-details { display: none; }
 }
 </style>

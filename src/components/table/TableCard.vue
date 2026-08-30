@@ -27,6 +27,8 @@
         :row-key="rowKey"
         :loading="loading"
         :pagination="{ rowsPerPage: rowsPerPage }"
+        :row-class="rowClass"
+        @row-click="$emit('row-click', $event)"
       >
         <template v-if="$slots.empty" #no-data>
           <slot name="empty" />
@@ -68,6 +70,7 @@ withDefaults(defineProps<{
   totalItems: number
   itemName: string
   page: number
+  rowClass?: (row: any) => string
 }>(), {
   rowsPerPage: 10,
   searchPlaceholder: '',
@@ -83,6 +86,7 @@ defineEmits<{
   (e: 'clearFilters'): void
   (e: 'refresh'): void
   (e: 'update:page', value: number): void
+  (e: 'row-click', value: any): void
 }>()
 </script>
 

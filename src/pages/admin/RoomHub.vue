@@ -1,151 +1,188 @@
 <template>
   <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
-    <PageHeader
-      :title="property ? property.name : 'Room Hub'"
-      :subtitle="property ? propertyAddress : 'All rooms for the selected boarding house'"
-      v-bind="property ? { eyebrow: 'Room Hub' } : {}"
-    >
-      <template #actions>
-        <q-btn
-          v-if="property"
-          unelevated
-          color="teal-7"
-          no-caps
-          class="text-weight-bold rounded-button"
-          @click="router.push(`/property-hub?property=${property.id}`)"
-        >
-          <Icon icon="mdi:home-search-outline" class="on-left" width="18" height="18" />Property Hub
-        </q-btn>
-      </template>
-    </PageHeader>
-
-    <div v-if="loading" class="row justify-center q-pa-xl">
-      <q-spinner color="primary" size="32px" />
+    <div class="row justify-between items-end non-shrink">
+      <TabNav v-model="activeTab" :tabs="tabs" />
     </div>
 
-    <EmptyState
-      v-else-if="!property"
-      variant="rich"
-      icon="mdi:door-open"
-      title="No property selected"
-      message="Open a user's detail drawer, hover a property card, and choose 'View on Room Hub' to see its rooms here."
-    />
-
-    <template v-else>
-      <!-- Property summary -->
-      <div class="border-all rounded-borders rh-prop q-mb-md" style="border-radius: var(--radius-sm);">
-        <div class="row justify-between items-center q-pa-md">
-          <div>
-            <div class="text-h6 text-weight-bold" style="color: var(--c-text)">{{ property.name }}</div>
-            <div class="text-caption" style="color: var(--c-muted)">{{ propertyAddress }}</div>
-          </div>
-          <BadgePill
-            :tone="verified ? 'success' : 'warning'"
-            :icon="verified ? 'mdi:check-circle' : 'mdi:clock-outline'"
-            :label="verified ? 'Accredited' : 'Pending'"
-          />
-        </div>
-        <div class="row q-pa-sm rh-stats">
-          <div class="col q-pa-sm">
-            <div class="dd-muted text-caption q-mb-xs">Type</div>
-            <div class="text-weight-medium">{{ cap(property.room_type) }}</div>
-          </div>
-          <div class="col q-pa-sm border-left">
-            <div class="dd-muted text-caption q-mb-xs">Total Rooms</div>
-            <div class="text-weight-medium">{{ property.total_rooms ?? '—' }}</div>
-          </div>
-          <div class="col q-pa-sm border-left">
-            <div class="dd-muted text-caption q-mb-xs">Occupancy</div>
-            <div class="text-weight-medium">{{ occupiedCount }} / {{ totalCapacity }}</div>
-          </div>
-          <div class="col q-pa-sm border-left">
-            <div class="dd-muted text-caption q-mb-xs">Rating</div>
-            <div class="text-weight-medium">{{ property.rating_avg != null ? `${property.rating_avg.toFixed(1)} ★` : 'No rating' }}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Rooms -->
-      <div class="dd-ink dd-display text-subtitle1 text-weight-bold q-mb-sm">
-        Rooms <span class="text-muted">({{ rooms.length }})</span>
-      </div>
-
-      <div
-        v-if="!rooms.length"
-        class="border-all rounded-borders column flex-center text-muted q-pa-xl"
-        style="border-radius: var(--radius-sm);"
+    <div class="prop-hub-body">
+      <TableCard
+        v-model:search="search"
+        :search-placeholder="'Search room, accommodation, student, or manager…'"
+        :filters="filterConfig"
+        v-model:active-filters="activeFilters"
+        @clear-filters="clearFilters"
+        :loading="loading"
+        :total-label="`${filteredRooms.length} room${filteredRooms.length === 1 ? '' : 's'}`"
+        :total-items="filteredRooms.length"
+        item-name="rooms"
+        :rows="paginatedRooms"
+        :columns="columns"
+        row-key="id"
+        :rows-per-page="10"
+        :page="currentPage"
+        @refresh="fetchRooms"
+        @update:page="currentPage = $event"
       >
-        <Icon icon="mdi:door-closed" width="40" height="40" class="q-mb-md" />
-        <div class="text-h6 text-weight-bold text-ink">No rooms listed</div>
-        <div class="text-caption">This property doesn't have any rooms yet.</div>
-      </div>
+        <template #body="{ props }">
+          <q-tr
+            :props="props"
+            class="smart-row cursor-pointer"
+            @click.stop="openRoom(props.row)"
+          >
+            <q-td key="room" :props="props">
+              <UserInfoCell
+                :initials="props.row.initials"
+                :name="props.row.name"
+                :subtitle="props.row.accommodation"
+                :avatar-color="'teal-6'"
+                size="36px"
+                font-size="13px"
+              />
+            </q-td>
+            <q-td key="accommodation" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accommodation }}</q-td>
+            <q-td key="floor" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.floor != null ? props.row.floor : '—' }}</q-td>
+            <q-td key="capacity" :props="props" class="text-center text-ink" style="font-size: 13px;">{{ props.row.capacity ?? '—' }}</q-td>
+            <q-td key="occupants" :props="props" class="text-center text-ink" style="font-size: 13px;">{{ props.row.occupants ?? 0 }}</q-td>
+            <q-td key="rent" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.rent != null ? '₱' + props.row.rent.toLocaleString() : '—' }}</q-td>
+            <q-td key="status" :props="props">
+              <BadgePill :tone="roomTone(props.row.status)" :label="cap(props.row.status)" />
+            </q-td>
+          </q-tr>
+        </template>
+      </TableCard>
 
-      <div v-else class="rh-grid">
-        <div
-          v-for="r in rooms"
-          :key="r.id"
-          class="border-all rounded-borders rh-room"
-          style="border-radius: var(--radius-sm);"
-        >
-          <div class="row justify-between items-center q-pa-md">
-            <div>
-              <div class="text-body1 text-weight-bold" style="color: var(--c-text)">
-                {{ r.label || ('Room ' + (r.room_number || '—')) }}
-              </div>
-              <div class="text-caption" style="color: var(--c-muted)">
-                {{ [r.room_number ? 'Unit ' + r.room_number : null, r.floor != null ? 'Floor ' + r.floor : null].filter(Boolean).join(' · ') || '—' }}
-              </div>
-            </div>
-            <BadgePill :tone="roomTone(r.status)" :label="cap(r.status)" />
-          </div>
-          <div class="row q-pa-sm border-top rh-room-stats">
-            <div class="col q-pa-xs">
-              <div class="dd-muted text-caption">Capacity</div>
-              <div class="text-weight-medium">{{ r.capacity ?? '—' }}</div>
-            </div>
-            <div class="col q-pa-xs border-left">
-              <div class="dd-muted text-caption">Occupants</div>
-              <div class="text-weight-medium">{{ r.current_pax ?? 0 }}</div>
-            </div>
-            <div class="col q-pa-xs border-left">
-              <div class="dd-muted text-caption">Monthly Rent</div>
-              <div class="text-weight-medium">{{ r.monthly_rent != null ? '₱' + r.monthly_rent.toLocaleString() : '—' }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </template>
+      <DetailDrawer
+        v-model="drawerOpen"
+        :width="'540px'"
+        anchored
+        position="right"
+        close-on-backdrop
+        :loading="detailLoading"
+        :preview="roomPreview"
+      />
+    </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { supabase } from '@/utils/supabase'
-import { Icon } from '@iconify/vue'
-import PageHeader from '@/components/ui/PageHeader.vue'
-import EmptyState from '@/components/ui/EmptyState.vue'
-import BadgePill from '@/components/user/BadgePill.vue'
-import type { StatusTone } from '@/utils/status.config'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 
 const route = useRoute()
-const router = useRouter()
+import { supabase } from '@/utils/supabase'
+import TabNav from '@/components/ui/TabNav.vue'
+import TableCard from '@/components/table/TableCard.vue'
+import DataTable from '@/components/table/DataTable.vue'
+import BadgePill from '@/components/user/BadgePill.vue'
+import UserInfoCell from '@/components/user/UserInfoCell.vue'
+import DetailDrawer from '@/components/ui/DetailDrawer.vue'
+import type { DrawerPreview, PreviewChip } from '@/components/ui/DetailDrawer.vue'
+import type { StatusTone } from '@/utils/status.config'
+import { getInitialsWide as initialsOf } from '@/utils/format'
 
 const loading = ref(true)
-const property = ref<any | null>(null)
+const search = ref('')
+const currentPage = ref(1)
+
+const activeTab = ref('rooms')
+const tabs = [
+  { name: 'rooms', label: 'Rooms' },
+]
+
+const activeFilters = ref<Record<string, any[]>>({})
+
+const filterConfig = computed(() => {
+  const statuses = [...new Set(rooms.value.map((r: any) => r.status).filter(Boolean))].sort()
+  return [
+    {
+      label: 'Status',
+      key: 'status',
+      options: statuses.map((s: string) => ({ label: cap(s), value: s })),
+    },
+  ]
+})
+
+function clearFilters() {
+  activeFilters.value = {}
+}
+watch(activeFilters, () => {
+  currentPage.value = 1
+})
+
 const rooms = ref<any[]>([])
 
-const propertyAddress = computed(() => {
-  const p = property.value
-  if (!p) return ''
-  return [p.address, p.barangay, p.city].filter(Boolean).join(', ')
-})
-const verified = computed(() => {
-  const s = (property.value?.status || '').toLowerCase()
-  return s.includes('verif') || s.includes('accred')
-})
-const occupiedCount = computed(() => rooms.value.reduce((s, r) => s + (r.current_pax || 0), 0))
-const totalCapacity = computed(() => rooms.value.reduce((s, r) => s + (r.capacity || 0), 0))
+const drawerOpen = ref(false)
+const detailLoading = ref(false)
+const selectedRoom = ref<any | null>(null)
+function openRoom(r: any) {
+  const raw = r._raw
+  selectedRoom.value = raw
+  drawerOpen.value = true
+  void fetchRoomDetail(raw)
+}
+
+async function fetchRoomDetail(raw: any) {
+  detailLoading.value = true
+  try {
+    const { data: room, error } = await supabase
+      .from('rooms')
+       .select('id, label, room_number, floor, capacity, current_pax, monthly_rent, status, accommodation_id, accommodation:accommodation_id ( name, accommodation_manager:accommodation_manager_id ( full_name ) )')
+      .eq('id', raw.id)
+      .single()
+    if (error) throw error
+    if (room) {
+      const accommodation = Array.isArray(room.accommodation) ? room.accommodation[0] : room.accommodation
+      const accommodationName = accommodation?.name || (typeof raw.accommodation === 'string' ? raw.accommodation : raw.accommodation?.name) || '—'
+      const manager = Array.isArray(accommodation?.accommodation_manager) ? accommodation.accommodation_manager[0] : accommodation?.accommodation_manager
+      const accommodationManagerName = manager?.full_name || null
+      selectedRoom.value = { ...raw, ...room, accommodation: accommodationName, accommodationManager: accommodationManagerName }
+    }
+
+    const { data: leases, error: leasesError } = await supabase
+      .from('leases')
+      .select(
+        `id, status, start_date,
+         student:users!leases_student_id_fkey(id, full_name, initials, sex)`,
+      )
+      .eq('room_id', raw.id)
+      .in('status', ['active', 'leave_requested'])
+    if (!leasesError && leases) {
+      const occ = (leases as any[]).map((l) => {
+        const student = Array.isArray(l.student) ? l.student[0] : l.student
+        const name = student?.full_name || 'Unknown'
+        const initials = student?.initials || initialsOf(name)
+        return {
+          id: l.id,
+          name,
+          initials,
+          gender: student?.sex || null,
+          since: l.start_date || null,
+          status: l.status,
+          statusTone: roomTone(l.status),
+        }
+      })
+      selectedRoom.value = { ...selectedRoom.value, occupants: occ }
+    }
+
+    const { data: photos, error: photosError } = await supabase
+      .from('room_images')
+      .select('id, url, sort_order')
+      .eq('room_id', raw.id)
+      .order('sort_order', { ascending: true })
+    if (!photosError && photos) {
+      const imgs = (photos as any[])
+        .filter((p) => p.url)
+        .map((p) => ({ id: p.id, url: p.url }))
+      selectedRoom.value = { ...selectedRoom.value, photos: imgs }
+    }
+  } catch (e) {
+    // keep the raw row already assigned above
+  } finally {
+    detailLoading.value = false
+  }
+}
+const avatarUrl = (name: string) =>
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=160&background=0F766E&color=fff&bold=true`
 
 function cap(s: string | null | undefined) {
   if (!s) return '—'
@@ -158,50 +195,174 @@ function roomTone(status: string | null | undefined): StatusTone {
   return 'neutral'
 }
 
-async function load() {
-  loading.value = true
-  const id = route.query.property
-  if (typeof id !== 'string' || !id) {
-    property.value = null
-    rooms.value = []
-    loading.value = false
-    return
-  }
-  const { data: p } = await supabase
-    .from('properties')
-    .select('id, name, status, room_type, total_rooms, address, barangay, city, rating_avg, reviews_count')
-    .eq('id', id)
-    .maybeSingle()
-  property.value = p
+const columns = [
+  { name: 'room', align: 'left', label: 'Room', field: 'name', headerStyle: 'width: 26%' },
+  { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'accommodation', headerStyle: 'width: 20%' },
+  { name: 'floor', align: 'left', label: 'Floor', field: 'floor', headerStyle: 'width: 10%' },
+  { name: 'capacity', align: 'center', label: 'Capacity', field: 'capacity', headerStyle: 'width: 12%' },
+  { name: 'occupants', align: 'center', label: 'Occupants', field: 'occupants', headerStyle: 'width: 12%' },
+  { name: 'rent', align: 'left', label: 'Monthly Rent', field: 'rent', headerStyle: 'width: 14%' },
+  { name: 'status', align: 'left', label: 'Status', field: 'status', headerStyle: 'width: 14%' },
+]
 
-  const { data: rs } = await supabase
-    .from('rooms')
-    .select('id, label, room_number, floor, capacity, current_pax, monthly_rent, status')
-    .eq('property_id', id)
-    .order('room_number', { ascending: true })
-  rooms.value = rs || []
-  loading.value = false
+async function fetchRooms() {
+  loading.value = true
+  try {
+    const [roomsRes, leasesRes] = await Promise.all([
+      supabase
+        .from('rooms')
+        .select(
+           'id, label, room_number, floor, capacity, current_pax, monthly_rent, status, accommodation_id, accommodation:accommodation_id ( name, accommodation_manager:accommodation_manager_id ( full_name ) )',
+        )
+        .order('room_number', { ascending: true }),
+      supabase
+        .from('leases')
+        .select('room_id, student:users!leases_student_id_fkey(full_name)')
+        .in('status', ['active', 'leave_requested']),
+    ])
+    const { data, error } = roomsRes
+    if (error) {
+      console.error('Error fetching rooms:', error.message)
+      return
+    }
+    const leases = (leasesRes.data || []) as any[]
+    const occMap = new Map<string, string[]>()
+    for (const l of leases) {
+      const student = Array.isArray(l.student) ? l.student[0] : l.student
+      const nm = student?.full_name
+      if (nm && l.room_id) {
+        if (!occMap.has(l.room_id)) occMap.set(l.room_id, [])
+        occMap.get(l.room_id)!.push(nm)
+      }
+    }
+    rooms.value = (data || []).map((r: any) => {
+      const accommodation = Array.isArray(r.accommodation) ? r.accommodation[0] : r.accommodation
+      const accommodationName = accommodation?.name || '—'
+      const manager = Array.isArray(accommodation?.accommodation_manager) ? accommodation.accommodation_manager[0] : accommodation?.accommodation_manager
+      const accommodationManagerName = manager?.full_name || ''
+      const name = r.label || 'Room ' + (r.room_number || '—')
+      const initials = name
+        .split(/\s+/)
+        .map((w: string) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+      return {
+        id: r.id,
+        name,
+        initials,
+        accommodation: accommodationName,
+        accommodationId: r.accommodation_id,
+        accommodationManager: accommodationManagerName,
+        occupantNames: occMap.get(r.id) || [],
+        floor: r.floor,
+        capacity: r.capacity,
+        occupants: r.current_pax,
+        rent: r.monthly_rent,
+        status: r.status,
+        _raw: r,
+      }
+    })
+  } finally {
+    loading.value = false
+  }
 }
 
-onMounted(load)
-watch(() => route.query.property, load)
+const filteredRooms = computed(() => {
+  let result = rooms.value
+  const f = activeFilters.value
+  const statuses = f.status
+  if (statuses && statuses.length) {
+    result = result.filter((r: any) => statuses.includes(r.status))
+  }
+  const q = search.value.toLowerCase().trim()
+  if (q) {
+    result = result.filter(
+      (r) =>
+        r.name.toLowerCase().includes(q) ||
+        r.accommodation.toLowerCase().includes(q) ||
+        (r.accommodationManager || '').toLowerCase().includes(q) ||
+        (r.status || '').toLowerCase().includes(q) ||
+        r.occupantNames.some((n: string) => n.toLowerCase().includes(q)),
+    )
+  }
+  return result
+})
+const paginatedRooms = computed(() => {
+  const start = (currentPage.value - 1) * 10
+  return filteredRooms.value.slice(start, start + 10)
+})
+watch(search, () => {
+  currentPage.value = 1
+})
+
+const roomPreview = computed<DrawerPreview>(() => {
+  const r = selectedRoom.value
+  if (!r) return { kind: 'room', title: 'Room Preview', name: '', avatar: '' }
+  const name = r.label || 'Room ' + (r.room_number || '—')
+  const statusTone = roomTone(r.status)
+  const chips: PreviewChip[] = [
+    { text: cap(r.status) || 'Unknown', tone: statusTone, icon: 'mdi:door' },
+    { text: r.floor != null ? `Floor ${r.floor}` : 'No floor', tone: 'neutral', icon: 'mdi:stairs' },
+  ]
+  const stats = [
+    { label: 'Capacity', value: r.capacity ?? '—' },
+    { label: 'Occupants', value: r.current_pax ?? 0 },
+    { label: 'Monthly Rent', value: r.monthly_rent != null ? `₱${r.monthly_rent.toLocaleString()}` : '—' },
+  ]
+  const details = [
+    { label: 'Room Number', value: r.room_number ? String(r.room_number) : '—' },
+    { label: 'Floor', value: r.floor != null ? String(r.floor) : '—' },
+    { label: 'Capacity', value: String(r.capacity ?? '—') },
+    { label: 'Occupants', value: String(r.current_pax ?? 0) },
+    { label: 'Monthly Rent', value: r.monthly_rent != null ? `₱${r.monthly_rent.toLocaleString()}` : '—' },
+    { label: 'Status', value: cap(r.status) || '—' },
+    { label: 'Accommodation', value: selectedRoom.value?.accommodation || '—' },
+    { label: 'Accommodation Manager', value: (selectedRoom.value?.accommodationManager as string) || '—' },
+  ]
+  return {
+    kind: 'room',
+    title: 'Room Preview',
+    name,
+    avatar: avatarUrl(name),
+    chips,
+    stats,
+    details,
+    occupants: (r.occupants as any[]) || undefined,
+    photos: (r.photos as any[]) || undefined,
+  }
+})
+
+onMounted(async () => {
+  await fetchRooms()
+  const rid = route.query.room
+  if (rid != null) {
+    const found = rooms.value.find((r) => r.id === String(rid))
+    if (found) openRoom(found)
+  }
+})
 </script>
 
 <style scoped>
-.rh-prop,
-.rh-room {
-  background: var(--c-surface);
+.users-page {
+  overflow: hidden !important;
+  height: 100% !important;
 }
-.rh-stats,
-.rh-room-stats {
-  border-top: 1px solid var(--c-border);
+
+/* Holds the table + the right-docked detail drawer together so the drawer
+   anchors flush to the table's right edge (no margin, inside the card area). */
+.prop-hub-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
-.rh-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
+
+.smart-row {
+  transition: background-color 0.2s ease;
 }
-.border-left {
-  border-left: 1px solid var(--c-border);
+.smart-row:hover {
+  background-color: var(--c-surface-2) !important;
 }
 </style>

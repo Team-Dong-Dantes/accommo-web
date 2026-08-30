@@ -2,24 +2,29 @@
   <div class="column no-wrap full-height bg-surface" style="border-radius: 12px; overflow: hidden;">
 
     <div class="list-head q-px-md q-py-sm border-bottom bg-surface shrink-0">
-      <div class="text-weight-bold text-ink" style="font-size: 15px;">Properties</div>
-      <div class="text-caption text-muted" style="line-height: 1.2;">{{ properties.length }} listings</div>
+      <div class="row items-center no-wrap">
+        <Icon icon="mdi:home-city-outline" width="18" height="18" color="var(--c-primary)" class="q-mr-sm" />
+        <div class="text-weight-bold text-ink" style="font-size: 15px;">Accommodations</div>
+        <span class="count-badge q-ml-xs">{{ accommodations.length }}</span>
+      </div>
+      <div class="text-caption text-muted" style="line-height: 1.2;">Tap an accommodation to view its details</div>
     </div>
 
     <q-scroll-area class="col">
-      <q-list separator class="map-list" v-if="properties.length">
+      <div class="q-pa-sm column" v-if="accommodations.length">
 
         <q-item
-          v-for="prop in properties"
+          v-for="prop in accommodations"
           :key="prop.id"
           clickable
           v-ripple
-          class="q-py-md q-px-sm property-item"
+          class="accommodation-row q-mb-sm q-pa-sm"
           @click="$emit('select', prop)"
         >
-          <q-item-section avatar class="q-pr-sm" style="min-width: 50px;">
-            <q-avatar size="46px" class="shadow-1" style="border-radius: 12px;">
-              <img :src="prop.image" />
+          <q-item-section avatar class="q-pr-sm" style="min-width: 52px;">
+            <q-avatar size="46px" class="shadow-1 accommodation-avatar" style="border-radius: 12px;">
+              <img v-if="prop.image" :src="prop.image" />
+              <span v-else class="avatar-fallback text-weight-bold">{{ initials(prop.name) }}</span>
             </q-avatar>
           </q-item-section>
 
@@ -27,7 +32,7 @@
             <div class="text-weight-bold text-ink ellipsis" style="font-size: 14px; line-height: 1.2;">{{ prop.name }}</div>
             <div class="text-muted q-mt-xs ellipsis" style="font-size: 11px;">
               <span class="text-weight-bold text-muted">{{ prop.type }}</span>
-              <template v-if="prop.landlord"> · {{ prop.landlord }}</template>
+              <template v-if="prop.accommodationManager"> · {{ prop.accommodationManager }}</template>
             </div>
 
             <div class="row items-center q-mt-sm no-wrap" style="gap: 6px;">
@@ -40,22 +45,22 @@
             </div>
           </q-item-section>
 
-          <q-item-section side class="row items-center no-wrap q-pl-none" style="width: auto;">
-            <div class="column items-center justify-center q-mr-xs" style="width: 48px;">
-              <div class="text-ink text-weight-bold" style="font-size: 13px; line-height: 1;">{{ prop.totalStudents || 0 }}/{{ prop.totalCapacity || 0 }}</div>
-              <div class="text-muted q-mb-xs" style="font-size: 9px;">occupied</div>
-              <q-linear-progress :value="prop.totalCapacity ? (prop.totalStudents || 0) / prop.totalCapacity : 0" color="primary" class="full-width" style="border-radius: var(--radius-sm);" size="4px" />
-            </div>
-            <Icon icon="mdi:chevron-right" color="var(--c-border-strong)" width="18" height="18" />
+          <q-item-section side class="column items-end justify-center q-pl-none q-ml-md" style="width: 66px;">
+            <div class="text-ink text-weight-bold" style="font-size: 13px; line-height: 1;">{{ prop.totalStudents || 0 }}/{{ prop.totalCapacity || 0 }}</div>
+            <div class="text-muted q-mb-xs" style="font-size: 9px;">occupied</div>
+            <q-linear-progress :value="prop.totalCapacity ? (prop.totalStudents || 0) / prop.totalCapacity : 0" color="primary" class="full-width" style="border-radius: var(--radius-sm);" size="4px" />
           </q-item-section>
 
+          <q-item-section side class="q-pl-sm" style="width: auto;">
+            <Icon icon="mdi:chevron-right" color="var(--c-border-strong)" width="18" height="18" />
+          </q-item-section>
         </q-item>
 
-      </q-list>
+      </div>
 
       <div v-else class="q-pa-lg text-center text-muted text-caption">
         <Icon icon="mdi:map-search-outline" width="34" height="34" color="var(--c-muted)" class="q-mb-sm" />
-        <div>No properties match.</div>
+        <div>No accommodations match.</div>
       </div>
     </q-scroll-area>
   </div>
@@ -65,11 +70,11 @@
 import { PropType } from 'vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 
-interface PropertyItem {
+interface AccommodationItem {
   id: string | number
   name: string
   type?: string
-  landlord?: string
+  accommodationManager?: string
   image?: string
   verified?: boolean
   rating?: string | number | null
@@ -78,27 +83,73 @@ interface PropertyItem {
 }
 
 defineProps({
-  properties: { type: Array as PropType<PropertyItem[]>, required: true }
+  accommodations: { type: Array as PropType<AccommodationItem[]>, required: true }
 })
 
 defineEmits(['select'])
+
+function initials(name?: string): string {
+  if (!name) return '?'
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('')
+}
 </script>
 
 <style scoped>
 .shrink-0 { flex-shrink: 0; }
 .border-bottom { border-bottom: 1px solid var(--c-border); }
 
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--c-primary-soft, #e6f4f3);
+  color: var(--c-primary);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .list-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
 }
 
-.property-item { transition: background-color 0.2s ease, padding-left 0.15s ease; }
-.property-item:hover {
-  background-color: var(--c-surface-2);
+/* Card-style rows — reads like a table but stays a scrollable list. */
+.accommodation-row {
+  border-radius: 12px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  transition: background-color var(--t-fast, 0.15s) ease, border-color var(--t-fast, 0.15s) ease, transform var(--t-fast, 0.15s) ease;
 }
-.property-item:active { background-color: var(--c-primary-soft, #e6f4f3); }
+.accommodation-row:hover {
+  background: var(--c-surface-2);
+  border-color: var(--c-border-strong);
+}
+.accommodation-row:active {
+  background: var(--c-primary-soft, #e6f4f3);
+  transform: translateY(1px);
+}
 
-.map-list { padding-bottom: 4px; }
+.accommodation-avatar { background: var(--c-primary-soft, #e6f4f3); }
+.avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 15px;
+}
 </style>

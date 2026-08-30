@@ -13,27 +13,40 @@
 
     <template v-slot:header="props">
       <q-tr :props="props" :key="'header'" class="bg-surface-2 border-bottom">
-        <q-th v-for="col in props.cols" :key="col.name" :props="props" class="text-muted text-weight-bold text-uppercase custom-th">
+        <q-th v-for="col in props.cols" :key="col.name" :props="{ ...props, col }" class="text-muted text-weight-bold text-uppercase custom-th">
           {{ col.label }}
         </q-th>
       </q-tr>
     </template>
 
+    <!-- Single root <q-tr> per row: avoids the duplicate-key warning that a
+         v-if/v-else chain at the slot root would trigger, and keeps rows
+         rendered (a bare <template> wrapper renders as display:none). -->
     <template v-slot:body="props">
+      <q-tr
+        :props="props"
+        :key="props.row.id || props.row[rowKey] || `row-${props.rowIndex}`"
+        :class="[
+          'body-row',
+          rowClass ? rowClass(props.row) : '',
+          { 'skeleton-row': loading, 'empty-row bg-surface': props.row._isEmpty }
+        ]"
+        @click="!loading && !props.row._isEmpty && emit('row-click', props.row)"
+      >
+        <template v-if="loading">
+          <q-td v-for="col in columns" :key="col.name" :props="props" class="skeleton-cell">
+            <q-skeleton type="rect" animation="wave" class="cell-skeleton" />
+          </q-td>
+        </template>
 
-      <!-- Skeleton placeholder cells while loading -->
-      <q-tr v-if="loading" :props="props" :key="`skel-${props.rowIndex}`" class="skeleton-row">
-        <q-td v-for="col in columns" :key="col.name" :props="props" class="skeleton-cell">
-          <q-skeleton type="rect" animation="wave" class="cell-skeleton" />
-        </q-td>
+        <template v-else-if="props.row._isEmpty">
+          <q-td v-for="col in columns" :key="col.name" :props="props"></q-td>
+        </template>
+
+        <template v-else>
+          <slot name="body" :props="props"></slot>
+        </template>
       </q-tr>
-
-      <q-tr v-else-if="props.row._isEmpty" :props="props" :key="props.row[rowKey]" class="empty-row bg-surface">
-        <q-td v-for="col in columns" :key="col.name" :props="props"></q-td>
-      </q-tr>
-
-      <slot v-else name="body" :props="props"></slot>
-
     </template>
 
   </q-table>
@@ -47,8 +60,13 @@ const props = defineProps({
   columns: { type: Array as PropType<any[]>, required: true },
   rowKey: { type: String, default: 'id' },
   pagination: { type: Object, default: () => ({ rowsPerPage: 10 }) },
-  loading: { type: Boolean, default: false }
+  loading: { type: Boolean, default: false },
+  rowClass: { type: Function as PropType<((row: any) => string) | undefined>, default: undefined }
 })
+
+const emit = defineEmits<{
+  (e: 'row-click', row: any): void
+}>()
 
 const paddedRows = computed(() => {
   const perPage = props.pagination.rowsPerPage || 10

@@ -76,14 +76,14 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/property-hub',
+    path: '/accommodation-hub',
     component: () => import('@/layouts/MainLayout.vue'),
     meta: { requiresAuth: true, role: 'admin' },
     children: [
       {
         path: '',
         component: () => import('@/pages/admin/PropertyHub.vue'),
-        meta: { title: 'Property Hub' },
+        meta: { title: 'Accommodation Hub' },
       },
     ],
   },
@@ -100,16 +100,28 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/concerns',
+    path: '/support-tickets',
     component: () => import('@/layouts/MainLayout.vue'),
     meta: { requiresAuth: true, role: 'admin' },
     children: [
       {
         path: '',
-        component: () => import('@/pages/admin/Concerns.vue'),
+        component: () => import('@/pages/admin/SupportTickets.vue'),
         meta: { title: 'Support Tickets' },
       },
     ],
+  },
+  {
+    path: '/property-hub',
+    redirect: (to) => ({ path: '/accommodation-hub', query: to.query, hash: to.hash }),
+  },
+  {
+    path: '/complaints/:id',
+    redirect: (to) => ({ path: '/support-tickets', query: { focus: `ticket:${String(to.params.id ?? '')}` } }),
+  },
+  {
+    path: '/concerns',
+    redirect: (to) => ({ path: '/support-tickets', query: to.query, hash: to.hash }),
   },
   {
     path: '/announcements',

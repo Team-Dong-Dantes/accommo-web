@@ -26,11 +26,11 @@ export interface Ticket {
   reporterName: string
   reporterEmail: string
   reporterPhone: string
-  reporterRole: 'student' | 'landlord' | 'user'
-  propertyName: string | null
-  propertyId: string | null
+  reporterRole: 'student' | 'accommodation_manager' | 'user'
+  accommodationName: string | null
+  accommodationId: string | null
   room: string
-  landlordName: string | null
+  accommodationManagerName: string | null
   initials: string
   avatarColor: string
   reportedAt: string
@@ -50,12 +50,14 @@ function avatarColorFor(id: string) {
 }
 
 const ENRICHED_SELECT = `
-  id, subject, description, category, priority, status, assignee_id, reported_at, updated_at, resolved_at, photo_urls, lease_id,
+  id, subject, description, category, priority, status, assignee_id, reporter_name, reported_at, updated_at, resolved_at, photo_urls, lease_id, student_id, accommodation_id, accommodation_manager_id,
   lease:lease_id (
     id,
     student:student_id ( id, full_name, email, phone, student_profiles ( program, college ) ),
-    room:room_id ( id, label, property:property_id ( id, name, landlord:landlord_id ( full_name ) ) )
+    room:room_id ( id, label, accommodation:accommodation_id ( id, name, accommodation_manager:accommodation_manager_id ( full_name ) ) )
   ),
+  reporter:student_id ( id, full_name, email, phone, role ),
+  accommodation:accommodation_id ( id, name, accommodation_manager:accommodation_manager_id ( full_name ) ),
   assignee:assignee_id ( id, full_name ),
   ticket_messages (
     id, body, author_role, is_internal, attachment_urls, created_at,
@@ -64,12 +66,14 @@ const ENRICHED_SELECT = `
 `
 
 const BASE_SELECT = `
-  id, description, category, status, reported_at, resolved_at, photo_urls, lease_id,
+  id, subject, description, category, priority, status, reporter_name, reported_at, updated_at, resolved_at, photo_urls, lease_id, student_id, accommodation_id, accommodation_manager_id,
   lease:lease_id (
     id,
     student:student_id ( id, full_name, email, phone, student_profiles ( program, college ) ),
-    room:room_id ( id, label, property:property_id ( id, name, landlord:landlord_id ( full_name ) ) )
-  )
+    room:room_id ( id, label, accommodation:accommodation_id ( id, name, accommodation_manager:accommodation_manager_id ( full_name ) ) )
+  ),
+  reporter:student_id ( id, full_name, email, phone, role ),
+  accommodation:accommodation_id ( id, name, accommodation_manager:accommodation_manager_id ( full_name ) )
 `
 
 function safeGet<T = any>(val: any): T | null {
@@ -82,15 +86,17 @@ function mapTicket(r: any): Ticket {
   const student = safeGet(lease.student) || {}
   const studentProfile = safeGet(student.student_profiles) || {}
   const room = safeGet(lease.room) || {}
-  const property = safeGet(room.property) || {}
-  const landlord = safeGet(property.landlord) || {}
+  const leaseAccommodation = safeGet(room.accommodation) || {}
+  const directAccommodation = safeGet(r.accommodation) || {}
+  const accommodation = directAccommodation.id ? directAccommodation : leaseAccommodation
+  const accommodationManager = safeGet(accommodation.accommodation_manager) || {}
   const reporter = safeGet(r.reporter) || {}
   const assignee = safeGet(r.assignee) || {}
 
   const hasLease = !!lease.id
-  const reporterName = reporter.full_name || student.full_name || 'Unknown user'
-  const reporterRole: 'student' | 'landlord' | 'user' =
-    (reporter.role as 'student' | 'landlord' | 'user') || (hasLease ? 'student' : 'user')
+  const reporterName = r.reporter_name || reporter.full_name || student.full_name || 'Unknown user'
+  const reporterRole: 'student' | 'accommodation_manager' | 'user' =
+    (reporter.role as 'student' | 'accommodation_manager' | 'user') || (hasLease ? 'student' : 'user')
 
   const rawMessages: any[] = r.ticket_messages || []
   const messages: TicketMessage[] = rawMessages
@@ -113,7 +119,7 @@ function mapTicket(r: any): Ticket {
   })
   const unread = messages.filter((m, i) => m.authorRole === 'student' && i > lastAgentIdx).length
 
-  const subject = r.subject || r.description?.slice(0, 60) || 'Untitled concern'
+  const subject = r.subject || r.description?.slice(0, 60) || 'Untitled ticket'
   const lastPreview = messages.length ? (messages.at(-1)?.body ?? '') : (r.description || '')
 
   return {
@@ -130,10 +136,10 @@ function mapTicket(r: any): Ticket {
     reporterEmail: reporter.email || student.email || '',
     reporterPhone: reporter.phone || student.phone || '',
     reporterRole,
-    propertyName: hasLease ? (property.name || 'Unknown property') : null,
-    propertyId: hasLease ? (property.id || null) : null,
+    accommodationName: accommodation.name || null,
+    accommodationId: accommodation.id || r.accommodation_id || null,
     room: hasLease ? (room.label || '—') : '—',
-    landlordName: hasLease ? (landlord.full_name || 'Unknown landlord') : null,
+    accommodationManagerName: accommodationManager.full_name || null,
     initials: getInitials(reporterName ?? ''),
     avatarColor: avatarColorFor(r.id),
     reportedAt: r.reported_at,
@@ -180,7 +186,7 @@ export function useTickets() {
         t.subject.toLowerCase().includes(q) ||
         t.reporterName.toLowerCase().includes(q) ||
         t.ref.toLowerCase().includes(q) ||
-        (t.propertyName?.toLowerCase().includes(q) ?? false),
+        (t.accommodationName?.toLowerCase().includes(q) ?? false),
       )
     }
     return list.slice().sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
@@ -213,71 +219,55 @@ export function useTickets() {
     await ensureUser()
     await fetchAgents()
 
-    let result: any = await (supabase as any).from('tickets').select(ENRICHED_SELECT).order('updated_at', { ascending: false })
-    // Fallback when the ticket_support migration hasn't been applied yet
-    // (missing subject/priority/assignee_id columns or ticket_messages table).
-    if (result.error) {
-      const msg = result.error.message || ''
-      if (/does not exist|ticket_messages|priority|subject/.test(msg)) {
-        result = await (supabase as any).from('tickets').select(BASE_SELECT).order('reported_at', { ascending: false })
-        if (!result.error) {
-          error.value =
-            'Ticket features are limited — apply the 20260821_ticket_support migration to enable threads, priority & assignment.'
-        }
-      }
-    }
+    const result = await supabase.from('tickets').select(ENRICHED_SELECT).order('updated_at', { ascending: false })
 
     if (result.error) {
       console.error('Error fetching tickets:', result.error.message)
       const msg = result.error.message || ''
-      if (/does not exist|could not find the table|ticket_messages|priority|subject/i.test(msg)) {
-        error.value =
-          'Ticket support tables are not set up yet — apply the 20260821_ticket_support migration (supabase db push) to enable the inbox.'
-      } else {
-        error.value = msg
-      }
+      error.value = msg
     } else if (result.data) {
-      tickets.value = (result.data as any[]).map(mapTicket)
+      tickets.value = (result.data ?? []).map(mapTicket)
     }
     loading.value = false
   }
 
-  async function sendMessage(body: string, opts: { isInternal?: boolean; thenStatus?: string } = {}) {
+  async function sendMessage(body: string, opts: { isInternal?: boolean; thenStatus?: string } = {}): Promise<boolean> {
     const ticket = selectedTicket.value
-    if (!ticket || !body.trim()) return
+    if (!ticket || !body.trim()) return false
     await ensureUser()
     try {
-      const { error: insErr } = await (supabase as any).from('ticket_messages').insert({
+      const { error: insErr } = await supabase.from('ticket_messages').insert({
         ticket_id: ticket.id,
         author_id: currentUserId.value,
         author_role: 'agent',
         body: body.trim(),
         is_internal: !!opts.isInternal,
-      } as any)
+      })
       if (insErr) {
         notify.error('Could not send', insErr.message)
-        return
+        return false
       }
       if (opts.thenStatus && opts.thenStatus !== ticket.status) {
         await updateStatus(opts.thenStatus)
       }
       await fetch()
-      notify.success(opts.isInternal ? 'Internal note saved' : 'Reply sent')
+      return true
     } catch (e: any) {
       notify.error('Failed to send', e?.message)
+      return false
     }
   }
 
   async function updateStatus(status: string) {
     const ticket = selectedTicket.value
     if (!ticket) return
-    const { error: e } = await (supabase as any).from('tickets').update({ status } as any).eq('id', ticket.id)
+    const { error: e } = await supabase.from('tickets').update({ status }).eq('id', ticket.id)
     if (e) notify.error('Could not update status', e.message)
     else await fetch()
   }
 
   async function setStatus(id: string, status: string) {
-    const { error: e } = await (supabase as any).from('tickets').update({ status } as any).eq('id', id)
+    const { error: e } = await supabase.from('tickets').update({ status }).eq('id', id)
     if (e) notify.error('Could not update status', e.message)
     else await fetch()
   }
@@ -285,7 +275,7 @@ export function useTickets() {
   async function updatePriority(priority: string) {
     const ticket = selectedTicket.value
     if (!ticket) return
-    const { error: e } = await (supabase as any).from('tickets').update({ priority } as any).eq('id', ticket.id)
+    const { error: e } = await supabase.from('tickets').update({ priority }).eq('id', ticket.id)
     if (e) notify.error('Could not update priority', e.message)
     else await fetch()
   }
@@ -293,7 +283,7 @@ export function useTickets() {
   async function assignTo(assigneeId: string | null) {
     const ticket = selectedTicket.value
     if (!ticket) return
-    const { error: e } = await (supabase as any).from('tickets').update({ assignee_id: assigneeId } as any).eq('id', ticket.id)
+    const { error: e } = await supabase.from('tickets').update({ assignee_id: assigneeId }).eq('id', ticket.id)
     if (e) notify.error('Could not assign', e.message)
     else await fetch()
   }
