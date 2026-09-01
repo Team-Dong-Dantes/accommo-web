@@ -13,9 +13,10 @@
 
         <div class="tw-panel">
           <header class="tw-head">
-            <button class="tw-back" @click="$emit('close')" aria-label="Back"><Icon icon="mdi:arrow-left" width="20" height="20" /></button>
+            <button class="tw-back" @click="$emit('close')" aria-label="Close ticket"><Icon icon="mdi:arrow-left" width="20" height="20" /></button>
             <div class="tw-head-main">
-              <div class="tw-subject">{{ ticket.subject }}</div>
+              <span class="tw-ref">{{ ticket.ref }}</span>
+              <h1 class="tw-subject">{{ ticket.subject }}</h1>
             </div>
           </header>
 
@@ -124,7 +125,8 @@ defineEmits<{
   background: var(--c-surface);
 }
 .tw-head-main { min-width: 0; }
-.tw-subject { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--c-ink); }
+.tw-ref { display: block; color: var(--c-muted); font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: .06em; }
+.tw-subject { overflow: hidden; margin: 2px 0 0; color: var(--c-ink); font-family: var(--font-display); font-size: 20px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .tw-back {
   border: 1px solid var(--c-border);
   background: var(--c-surface-2);
@@ -148,5 +150,27 @@ defineEmits<{
     left: calc(var(--sp-2) + 260px + var(--sp-2));
     border-radius: var(--radius);
   }
+}
+@media (max-width: 760px) {
+  .tw-panel {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 0;
+  }
+  .tw-head { padding: var(--sp-3); }
+  .tw-subject { font-size: 17px; }
+  .tw-body { padding: var(--sp-2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tw-enter-active .tw-panel,
+  .tw-leave-active .tw-panel,
+  .tw-enter-active .tw-side,
+  .tw-leave-active .tw-side,
+  .tw-enter-active .tw-scrim,
+  .tw-leave-active .tw-scrim,
+  .tw-enter-active,
+  .tw-leave-active { transition: none; }
 }
 </style>

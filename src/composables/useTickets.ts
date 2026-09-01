@@ -81,7 +81,7 @@ function safeGet<T = any>(val: any): T | null {
   return Array.isArray(val) ? (val[0] ?? null) : val
 }
 
-function mapTicket(r: any): Ticket {
+function mapTicket(r: any, seenRequesterMessageIds: Set<string> = new Set()): Ticket {
   const lease = safeGet(r.lease) || {}
   const student = safeGet(lease.student) || {}
   const studentProfile = safeGet(student.student_profiles) || {}
@@ -117,7 +117,12 @@ function mapTicket(r: any): Ticket {
   messages.forEach((m, i) => {
     if (m.authorRole === 'agent' && !m.isInternal) lastAgentIdx = i
   })
-  const unread = messages.filter((m, i) => m.authorRole === 'student' && i > lastAgentIdx).length
+  const unread = messages.filter(
+    (message, index) =>
+      message.authorRole === 'student' &&
+      index > lastAgentIdx &&
+      !seenRequesterMessageIds.has(message.id),
+  ).length
 
   const subject = r.subject || r.description?.slice(0, 60) || 'Untitled ticket'
   const lastPreview = messages.length ? (messages.at(-1)?.body ?? '') : (r.description || '')
@@ -161,6 +166,7 @@ export function useTickets() {
   const selectedId = ref<string | null>(null)
   const tickets = ref<Ticket[]>([])
   const agents = ref<{ id: string; full_name: string }[]>([])
+  const seenRequesterMessageIds = new Set<string>()
 
   const currentUserId = ref<string | null>(null)
 
@@ -226,7 +232,7 @@ export function useTickets() {
       const msg = result.error.message || ''
       error.value = msg
     } else if (result.data) {
-      tickets.value = (result.data ?? []).map(mapTicket)
+      tickets.value = (result.data ?? []).map((row) => mapTicket(row, seenRequesterMessageIds))
     }
     loading.value = false
   }
@@ -289,6 +295,19 @@ export function useTickets() {
   }
 
   function selectTicket(id: string) {
+    const ticket = tickets.value.find((item) => item.id === id)
+    if (ticket) {
+      let lastPublicAgentIndex = -1
+      ticket.messages.forEach((message, index) => {
+        if (message.authorRole === 'agent' && !message.isInternal) lastPublicAgentIndex = index
+      })
+      ticket.messages.forEach((message, index) => {
+        if (message.authorRole === 'student' && index > lastPublicAgentIndex) {
+          seenRequesterMessageIds.add(message.id)
+        }
+      })
+      ticket.unread = 0
+    }
     selectedId.value = id
   }
 

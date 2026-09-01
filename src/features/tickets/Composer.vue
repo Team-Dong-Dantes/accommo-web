@@ -1,39 +1,61 @@
 <template>
-  <div class="tw-composer" :class="{ 'is-internal': replyMode === 'internal' }">
-    <div class="cmp-toolbar">
-      <div class="reply-toggle">
-        <button class="rt-btn" :class="{ 'is-active': replyMode === 'public' }" @click="replyMode = 'public'"><Icon icon="mdi:reply-outline" width="15" height="15" /> Public reply</button>
-        <button class="rt-btn internal" :class="{ 'is-active': replyMode === 'internal' }" @click="replyMode = 'internal'"><Icon icon="mdi:lock-outline" width="15" height="15" /> Internal note</button>
-      </div>
-      <span class="composer-hint" :class="{ int: replyMode === 'internal' }">
-        <Icon :icon="replyMode === 'internal' ? 'mdi:lock-outline' : 'mdi:eye-outline'" width="14" height="14" />
-        {{ replyMode === 'internal' ? 'Internal only' : 'Visible to requester' }}
-      </span>
-    </div>
+  <form class="reply-draft" :class="{ 'is-note': replyMode === 'internal' }" @submit.prevent="submit">
+    <header class="draft-head">
+      <q-btn flat dense no-caps class="draft-mode">
+        <Icon :icon="replyMode === 'internal' ? 'mdi:lock-outline' : 'mdi:reply-outline'" width="16" height="16" aria-hidden="true" />
+        {{ replyMode === 'internal' ? 'Internal note' : `Reply to ${ticket.reporterName}` }}
+        <Icon icon="mdi:chevron-down" width="15" height="15" aria-hidden="true" />
+        <q-menu anchor="top left" self="bottom left" class="reply-mode-menu">
+          <button v-close-popup type="button" class="reply-mode-option" :class="{ 'is-active': replyMode === 'public' }" @click="replyMode = 'public'">
+            <Icon icon="mdi:reply-outline" width="16" height="16" aria-hidden="true" /><span><strong>Reply to requester</strong><small>{{ ticket.reporterName }}</small></span>
+          </button>
+          <button v-close-popup type="button" class="reply-mode-option" :class="{ 'is-active': replyMode === 'internal' }" @click="replyMode = 'internal'">
+            <Icon icon="mdi:lock-outline" width="16" height="16" aria-hidden="true" /><span><strong>Internal note</strong><small>Visible to support staff only</small></span>
+          </button>
+        </q-menu>
+      </q-btn>
+      <span v-if="replyMode === 'internal'" class="draft-private"><Icon icon="mdi:eye-off-outline" width="14" height="14" aria-hidden="true" />Not visible to requester</span>
+    </header>
 
-    <div class="cmp-quick">
-      <span class="tpl-label">Quick replies</span>
-      <div class="tpl-row" v-if="templates.length">
-        <button v-for="t in templates" :key="t.key" class="tpl-chip" @click="draft = t.text">{{ t.label }}</button>
-      </div>
-    </div>
+    <q-input
+      v-model="draft"
+      type="textarea"
+      autogrow
+      borderless
+      class="draft-editor"
+      :placeholder="replyMode === 'internal' ? 'Add a note for your team...' : 'Write a reply...'"
+      :aria-label="replyMode === 'internal' ? 'Internal note' : `Reply to ${ticket.reporterName}`"
+    />
 
-    <div class="cmp-box">
-      <q-input v-model="draft" type="textarea" autogrow borderless :placeholder="replyMode === 'internal' ? 'Write an internal note (not visible to requester)…' : 'Write a reply to the requester…'" class="conv-input" />
-      <button class="send-fab" :disabled="!draft.trim() || sending" @click="submit" :title="replyMode === 'internal' ? 'Add note' : 'Send reply'">
-        <Icon :icon="replyMode === 'internal' ? 'mdi:note-plus-outline' : 'mdi:send-outline'" width="18" height="18" />
+    <footer class="draft-footer">
+      <q-btn flat round dense class="template-button" aria-label="Insert a quick reply template">
+        <Icon icon="mdi:lightning-bolt-outline" width="17" height="17" aria-hidden="true" />
+        <q-tooltip>Insert template</q-tooltip>
+        <q-menu anchor="top left" self="bottom left" class="template-menu">
+          <button v-close-popup v-for="template in templates" :key="template.key" type="button" class="template-item" @click="insertTemplate(template.text)">
+            <strong>{{ template.label }}</strong>
+            <span>{{ template.text }}</span>
+          </button>
+        </q-menu>
+      </q-btn>
+      <button class="draft-send" type="submit" :disabled="!draft.trim() || sending">
+        {{ sending ? 'Sending' : replyMode === 'internal' ? 'Add note' : 'Send' }}
+        <Icon v-if="sending" icon="mdi:loading" width="17" height="17" class="is-spinning" aria-hidden="true" />
+        <Icon v-else :icon="replyMode === 'internal' ? 'mdi:note-plus-outline' : 'mdi:send-outline'" width="17" height="17" aria-hidden="true" />
       </button>
-    </div>
-  </div>
+    </footer>
+  </form>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import { REPLY_TEMPLATES, type ReplyTemplate } from './types'
+import type { Ticket } from '@/composables/useTickets'
 
 withDefaults(
   defineProps<{
+    ticket: Ticket
     sending?: boolean
   }>(),
   { sending: false },
@@ -47,6 +69,10 @@ const replyMode = ref<'public' | 'internal'>('public')
 const draft = ref('')
 const templates: ReplyTemplate[] = REPLY_TEMPLATES
 
+function insertTemplate(text: string) {
+  draft.value = draft.value ? `${draft.value}\n\n${text}` : text
+}
+
 function submit() {
   const body = draft.value.trim()
   if (!body) return
@@ -56,41 +82,6 @@ function submit() {
 </script>
 
 <style scoped>
-.tw-composer {
-  flex-shrink: 0;
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--c-surface);
-  border-top: 1px solid var(--c-border);
-  transition: background var(--t-fast);
-  position: relative;
-}
-.tw-composer.is-internal { background: linear-gradient(0deg, rgba(245, 158, 11, 0.06), rgba(245, 158, 11, 0.06)), var(--c-surface); }
-
-.cmp-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: var(--sp-2); }
-.reply-toggle { display: inline-flex; background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: 999px; padding: 3px; gap: 2px; }
-.rt-btn { display: inline-flex; align-items: center; gap: 5px; border: none; background: transparent; color: var(--c-muted); font-size: 12px; font-weight: 600; padding: 5px 13px; border-radius: 999px; cursor: pointer; transition: background var(--t-fast), color var(--t-fast); }
-.rt-btn.is-active { background: var(--c-primary); color: #fff; box-shadow: var(--shadow-sm); }
-.rt-btn.internal.is-active { background: var(--c-warning); color: #1F2937; }
-
-.cmp-quick { margin-bottom: var(--sp-2); }
-.tpl-label { display: block; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-muted); font-weight: 700; margin-bottom: 6px; }
-.tpl-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.tpl-chip { display: inline-flex; align-items: center; gap: 5px; border: 1px dashed var(--c-border-strong); background: var(--c-surface-2); color: var(--c-muted); font-size: 11px; font-weight: 600; padding: 5px 11px; border-radius: 999px; cursor: pointer; transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast); }
-.tpl-chip:hover { color: var(--c-ink); border-color: var(--c-primary); background: var(--c-primary-soft); }
-.tpl-chip.resolve { border-style: solid; border-color: var(--c-success); color: var(--c-success); background: rgba(16, 185, 129, 0.12); }
-.tpl-chip.resolve:hover { filter: brightness(0.97); }
-
-.cmp-box { position: relative; display: flex; align-items: flex-end; gap: 10px; background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--radius-sm); padding: 8px 8px 8px 12px; transition: border-color var(--t-fast), box-shadow var(--t-fast); }
-.cmp-box:focus-within { border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-soft); }
-.tw-composer.is-internal .cmp-box:focus-within { border-color: var(--c-warning); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25); }
-.conv-input { flex: 1 1 auto; background: transparent; border: none; padding: 4px 0; }
-.conv-input :deep(.q-field__control) { border-radius: 0; }
-.conv-input :deep(textarea) { min-height: 44px; }
-.send-fab { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--c-primary); color: #fff; display: grid; place-items: center; cursor: pointer; transition: filter var(--t-fast), transform var(--t-fast); }
-.send-fab:disabled { opacity: 0.45; cursor: not-allowed; }
-.send-fab:not(:disabled):hover { filter: brightness(1.05); transform: translateY(-1px); }
-.tw-composer.is-internal .send-fab { background: var(--c-warning); color: #1F2937; }
-
-.composer-hint { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--c-info); font-weight: 600; background: rgba(59, 130, 246, 0.12); padding: 4px 10px; border-radius: 999px; }
-.composer-hint.int { color: #B45309; background: rgba(245, 158, 11, 0.14); }
+.reply-draft { flex: 0 0 auto; margin: var(--sp-3); overflow: hidden; border: 1px solid var(--c-border-strong); border-radius: var(--radius-sm); background: var(--c-surface); }.draft-head { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: 0 var(--sp-2) 0 var(--sp-3); border-bottom: 1px solid var(--c-border); background: var(--c-surface-2); }.draft-mode { min-width: 0; min-height: 36px; color: var(--c-ink); font-size: 12px; font-weight: 750; }.draft-mode :deep(.q-btn__content) { gap: 6px; }.reply-draft.is-note .draft-mode { color: #92400e; }.draft-private { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 5px; color: #92400e; font-size: 11px; font-weight: 700; }.draft-editor { padding: var(--sp-2) var(--sp-3); }.draft-editor :deep(.q-field__control) { min-height: 96px; }.draft-editor :deep(textarea) { min-height: 80px; color: var(--c-text); font-size: 14px; line-height: 1.65; resize: none; }.draft-footer { display: flex; min-height: 48px; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-2) var(--sp-2); }.draft-send { display: inline-flex; min-width: 84px; min-height: 34px; align-items: center; justify-content: center; gap: 7px; margin-left: auto; border: 0; border-radius: var(--radius-btn); background: var(--c-primary); color: #fff; cursor: pointer; font-size: 12px; font-weight: 800; padding: 0 var(--sp-3); }.draft-send:disabled { cursor: not-allowed; opacity: .45; }.reply-draft.is-note .draft-send { background: var(--c-warning); color: #3a2a00; }.template-button { min-width: 34px; min-height: 34px; color: var(--c-muted); }.template-button:hover { background: var(--c-primary-soft); color: var(--c-primary); }
+.reply-mode-menu, .template-menu { width: min(320px, calc(100vw - 32px)); overflow: hidden; border: 1px solid var(--c-border); border-radius: var(--radius-sm); background: var(--c-surface); box-shadow: var(--shadow-lg); padding: var(--sp-1); }.reply-mode-option { display: grid; width: 100%; grid-template-columns: 20px minmax(0, 1fr); gap: var(--sp-2); border: 0; border-radius: 6px; background: transparent; color: var(--c-muted); cursor: pointer; padding: var(--sp-3); text-align: left; }.reply-mode-option:hover, .reply-mode-option.is-active { background: var(--c-surface-2); color: var(--c-primary); }.reply-mode-option > span { display: flex; min-width: 0; flex-direction: column; }.reply-mode-option strong { color: var(--c-ink); font-size: 12px; }.reply-mode-option small { overflow: hidden; margin-top: 2px; color: var(--c-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.template-item { display: flex; width: 100%; flex-direction: column; gap: 3px; border: 0; border-radius: 6px; background: transparent; color: var(--c-text); cursor: pointer; padding: var(--sp-3); text-align: left; }.template-item:hover { background: var(--c-surface-2); }.template-item strong { color: var(--c-ink); font-size: 12px; }.template-item span { display: -webkit-box; overflow: hidden; color: var(--c-muted); font-size: 11px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }.is-spinning { animation: reply-spin .8s linear infinite; }@keyframes reply-spin { to { transform: rotate(360deg); } }.draft-send:focus-visible { outline: 3px solid var(--c-primary); outline-offset: 2px; }@media (max-width: 760px) { .reply-draft { margin: var(--sp-2); }.draft-private { display: none; } }@media (prefers-reduced-motion: reduce) { .is-spinning { animation: none; } }
 </style>
