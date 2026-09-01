@@ -18,7 +18,7 @@
           <div v-if="i > 0" class="dd-hc-line dd-hc-line--up"></div>
         </template>
       </div>
-      <div class="dd-hc-card dd-card border-all rounded-borders" style="border-radius: var(--radius-sm); flex: 1 1 auto; background: var(--c-surface);" :class="{ 'dd-card--linkless': !hc.accommodationId }">
+      <div class="dd-hc-card dd-card border-all rounded-borders" style="border-radius: var(--radius-sm); flex: 1 1 auto; background: var(--c-surface-2);" :class="{ 'dd-card--linkless': !hc.accommodationId }">
         <div class="row justify-between items-center">
           <div class="text-weight-bold" style="color: var(--c-text)">{{ hc.title }}</div>
           <BadgePill :tone="hc.statusTone || 'primary'" :label="hc.status" />
@@ -29,10 +29,11 @@
           </div>
           <div v-if="hc.date" class="text-caption text-right" style="color: var(--c-muted)">{{ hc.date }}</div>
         </div>
-        <div v-if="hc.accommodationId" class="dd-card-overlay">
-          <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'map', hc.accommodationId)"><Icon icon="mdi:map-marker" width="15" height="15" />View on Map</button>
-          <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'accommodation', hc.accommodationId)"><Icon icon="mdi:home-search-outline" width="15" height="15" />View on Accommodation Hub</button>
-          <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'room', hc.accommodationId)"><Icon icon="mdi:door" width="15" height="15" />View on Room Hub</button>
+        <div v-if="hc.accommodationId && preview.kind === 'user'" class="dd-card-overlay">
+          <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'map', hc.accommodationId)"><Icon icon="mdi:map-marker" width="15" height="15" />Map</button>
+          <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'accommodation', hc.accommodationId)"><Icon icon="mdi:home-search-outline" width="15" height="15" />Accommodation Hub</button>
+          <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'room', hc.accommodationId)"><Icon icon="mdi:door" width="15" height="15" />Rooms Hub</button>
+          <button type="button" class="dd-hover-btn" @click.stop="$emit('view-payments', hc.accommodationId)"><Icon icon="mdi:cash-multiple" width="15" height="15" />Payment History</button>
         </div>
       </div>
     </div>
@@ -77,9 +78,9 @@
         </div>
       </div>
       <div v-if="preview.card?.accommodationId" class="dd-card-overlay">
-        <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'map', preview.card.accommodationId)"><Icon icon="mdi:map-marker" width="15" height="15" />View on Map</button>
-        <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'accommodation', preview.card.accommodationId)"><Icon icon="mdi:home-search-outline" width="15" height="15" />View on Accommodation Hub</button>
-        <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'room', preview.card.accommodationId)"><Icon icon="mdi:door" width="15" height="15" />View on Room Hub</button>
+        <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'map', preview.card.accommodationId)"><Icon icon="mdi:map-marker" width="15" height="15" />Map</button>
+        <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'accommodation', preview.card.accommodationId)"><Icon icon="mdi:home-search-outline" width="15" height="15" />Accommodation Hub</button>
+        <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'room', preview.card.accommodationId)"><Icon icon="mdi:door" width="15" height="15" />Rooms Hub</button>
       </div>
     </div>
   </div>
@@ -130,6 +131,7 @@ defineProps<{
 
 defineEmits<{
   (e: 'go-hub', kind: HubKind, accommodationId?: string): void
+  (e: 'view-payments', accommodationId: string): void
 }>()
 </script>
 
@@ -183,8 +185,8 @@ defineEmits<{
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 1px solid var(--c-border);
-  background: var(--c-surface-2);
+  border: 1px solid color-mix(in srgb, var(--c-primary) 26%, transparent);
+  background: color-mix(in srgb, var(--c-primary) 12%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -194,6 +196,7 @@ defineEmits<{
 }
 .dd-hc-row--active .dd-hc-icon {
   border-color: var(--c-success);
+  background: var(--c-success);
 }
 .dd-hc-line {
   position: absolute;
@@ -216,6 +219,11 @@ defineEmits<{
   display: flex;
   flex-direction: column;
   gap: 6px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.dd-hc-card:not(.dd-card--linkless):hover {
+  border-color: var(--c-primary);
+  background: var(--c-surface);
 }
 
 /* Hover overlay: accommodation quick-links (Map / Accommodation Hub / Room Hub). */

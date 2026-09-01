@@ -25,7 +25,7 @@
     <template v-slot:body="props">
       <q-tr
         :props="props"
-        :key="props.row.id || props.row[rowKey] || `row-${props.rowIndex}`"
+        :key="props.row[rowKey] || props.row.id || `row-${props.rowIndex}`"
         :class="[
           'body-row',
           rowClass ? rowClass(props.row) : '',

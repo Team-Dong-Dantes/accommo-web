@@ -1,7 +1,7 @@
 <template>
-  <q-btn flat dense class="notif-trigger relative-position" aria-label="Open notifications">
+  <q-btn flat dense class="notif-trigger relative-position" :aria-label="notificationTriggerLabel">
     <Icon icon="mdi:bell-outline" width="19" height="19" aria-hidden="true" />
-    <q-badge v-if="unreadCount > 0" class="notif-count" rounded>{{ unreadCount > 9 ? '9+' : unreadCount }}</q-badge>
+    <q-badge v-if="unreadCount > 0" floating class="notif-count" rounded>{{ unreadCount > 9 ? '9+' : unreadCount }}</q-badge>
 
     <q-menu
       anchor="bottom right"
@@ -104,6 +104,11 @@ interface Notif {
 
 const notifications = ref<Notif[]>([])
 const unreadCount = computed(() => notifications.value.filter((notification) => notification.unread).length)
+const notificationTriggerLabel = computed(() =>
+  unreadCount.value
+    ? `Open notifications. ${unreadCount.value} unread.`
+    : 'Open notifications. No unread notifications.',
+)
 const inboxSummary = computed(() =>
   unreadCount.value
     ? `${unreadCount.value} item${unreadCount.value === 1 ? '' : 's'} need${unreadCount.value === 1 ? 's' : ''} your attention`
@@ -204,7 +209,7 @@ onUnmounted(() => {
 .notif-trigger { min-width: 42px; min-height: 42px; border: 1px solid var(--c-border); border-radius: 999px !important; background: var(--c-surface-2) !important; color: var(--c-muted) !important; transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast), transform var(--t-fast); }
 .notif-trigger:hover { border-color: var(--c-primary); background: var(--c-primary-soft) !important; color: var(--c-primary) !important; }
 .notif-trigger:focus-visible { outline: 3px solid var(--c-primary); outline-offset: 2px; }
-.notif-count { top: -3px !important; right: -3px !important; min-width: 18px; height: 18px; justify-content: center; padding: 0 4px; border: 2px solid var(--c-bg); background: var(--c-danger); color: #fff; font-family: var(--font-mono); font-size: 9px; font-weight: 700; }
+.notif-count { display: inline-flex; box-sizing: border-box; top: 1px !important; right: 3px !important; width: 16px; min-width: 16px; height: 16px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: var(--c-danger); box-shadow: 0 1px 3px color-mix(in srgb, var(--c-danger) 35%, transparent); color: #fff; font-family: var(--font-body); font-size: 9px; font-weight: 800; letter-spacing: 0; line-height: 1; }
 :deep(.notification-menu) { border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-surface); box-shadow: var(--shadow-lg); overflow: hidden; }
 .notification-popover { display: flex; flex-direction: column; max-height: inherit; }
 .popover-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-5) var(--sp-5) var(--sp-3); }

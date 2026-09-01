@@ -1,15 +1,19 @@
 <template>
-  <div class="row items-center no-wrap cursor-pointer profile-capsule" tabindex="0">
+  <div
+    class="row items-center no-wrap cursor-pointer profile-capsule"
+    :class="{ 'is-open': menuOpen }"
+    tabindex="0"
+  >
 
     <q-avatar size="42px" color="primary" text-color="white" class="text-weight-bold" style="font-size: 18px;">
       {{ authStore.user?.initials || 'MA' }}
     </q-avatar>
 
     <div class="column q-ml-sm q-mr-xs">
-      <div class="text-weight-bold text-ink ellipsis" style="font-size: 14px; line-height: 1.15; max-width: 150px;">
+      <div class="text-weight-bold ellipsis" style="font-size: 14px; line-height: 1.15; max-width: 150px;">
         {{ authStore.user?.full_name || 'Maria Admin' }}
       </div>
-      <div class="text-muted ellipsis" style="font-size: 11px; font-weight: 600; max-width: 150px;">
+      <div class="ellipsis" style="font-size: 11px; font-weight: 600; max-width: 150px;">
         {{ authStore.roleLabel(authStore.user?.role || 'admin') }}
       </div>
     </div>
@@ -19,7 +23,8 @@
     </span>
 
     <q-menu anchor="bottom right" self="top right" :offset="[0, 12]"
-      class="profile-menu" transition-show="jump-down" transition-hide="jump-up">
+      class="profile-menu" transition-show="jump-down" transition-hide="jump-up"
+      v-model="menuOpen">
       <q-list class="q-py-xs">
         <q-item clickable v-ripple to="/settings" class="menu-row">
           <q-item-section avatar class="menu-ico">
@@ -42,6 +47,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useNotify } from '@/utils/notify';
@@ -49,6 +55,8 @@ import { useNotify } from '@/utils/notify';
 const router = useRouter();
 const authStore = useAuthStore();
 const { error: notifyError } = useNotify();
+
+const menuOpen = ref(false);
 
 async function handleLogout() {
   try {
@@ -66,12 +74,26 @@ async function handleLogout() {
   background: var(--c-surface-2);
   border: 1px solid var(--c-border);
   padding: 4px 12px 4px 4px;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  color: var(--c-text);
 }
 
 .profile-capsule:hover,
+.profile-capsule.is-open,
 .profile-capsule:focus-within {
-  background: var(--c-border);
+  border-color: var(--c-primary);
+  background: var(--c-primary-soft);
+}
+
+.profile-capsule:hover .menu-chevron,
+.profile-capsule.is-open .menu-chevron,
+.profile-capsule:focus-within .menu-chevron {
+  color: var(--c-primary);
+}
+
+.profile-capsule:focus-visible {
+  outline: 3px solid var(--c-primary);
+  outline-offset: 2px;
 }
 
 .menu-chevron {

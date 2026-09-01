@@ -21,17 +21,17 @@
               style="height: 100%; border-radius: var(--radius); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden; font-family: var(--font-body);"
             >
               <PreviewSkeleton v-if="loading" :kind="preview?.kind" />
-              <PreviewBody
-                v-else-if="preview"
-                :preview="preview"
-                :loading="loading"
-                :management-actions="managementActions"
-                v-model:tab="ddTab"
-                @close="close"
-                @manage="onManage"
-                @go-hub="goToHub"
-                @go-room="goToRoom"
-              />
+               <PreviewBody
+                 v-else-if="preview"
+                 :preview="preview"
+                 :loading="loading"
+                 :management-actions="managementActions"
+                 v-model:tab="ddTab"
+                 @close="close"
+                 @manage="onManage"
+                 @go-hub="goToHub"
+                 @go-room="goToRoom"
+               />
             </q-card>
 
             <!-- Generic slot mode (backward compatible, on-brand) -->
@@ -110,6 +110,8 @@ export type {
   PreviewPhoto,
   PreviewTimelineItem,
   PreviewPlacement,
+  PreviewLease,
+  PreviewPayment,
   HubKind,
 } from '@/features/drawer/preview'
 

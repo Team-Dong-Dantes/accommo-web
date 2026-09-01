@@ -87,6 +87,7 @@ import { getStatus, getTone, type StatusTone } from '@/utils/status.config'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
 import { buildUserPreview, cap, composeAddress, fmtDate, periodLabel } from '@/features/users/userPreview'
+import { fetchStudentLeaseHistory, fetchPaymentsForLeases } from '@/api/leases'
 import type { DrawerPreview } from '@/components/ui/DetailDrawer.vue'
 
 const loading = ref(true)
@@ -109,6 +110,8 @@ const sectionTab = ref<string>('overview')
 const housing = ref<any | null>(null)
 const boardingHistory = ref<any[]>([])
 const accommodationRows = ref<any[]>([])
+const leases = ref<any[]>([])
+const payments = ref<any[]>([])
 
 const tabs = [
   { name: 'users', label: 'Users' },
@@ -215,6 +218,8 @@ async function openUser(row: any) {
   boardingHistory.value = []
   accommodationRows.value = []
   userReviews.value = []
+  leases.value = []
+  payments.value = []
   sectionTab.value = 'overview'
   drawerExpanded.value = false
   drawerOpen.value = true
@@ -268,6 +273,14 @@ async function fetchDetail(userId: string, role: string) {
         address: composeAddress(h.accommodation),
         period: periodLabel(h.period_start, h.period_end),
       }))
+
+      // Lease history + payments (student detail drawer)
+      const leaseHist = await fetchStudentLeaseHistory(userId)
+      leases.value = leaseHist
+      const leaseIds = leaseHist.map((l) => l.id)
+      if (leaseIds.length) {
+        payments.value = await fetchPaymentsForLeases(leaseIds)
+      }
     } else if (normalized === 'accommodation_manager') {
       const { data } = await supabase
         .from('accommodation_manager_profiles')
@@ -411,6 +424,8 @@ const userPreview = computed<DrawerPreview>(() =>
     boardingHistory: boardingHistory.value,
     accommodationRows: accommodationRows.value,
     userReviews: userReviews.value,
+    leases: leases.value,
+    payments: payments.value,
   })
 )
 

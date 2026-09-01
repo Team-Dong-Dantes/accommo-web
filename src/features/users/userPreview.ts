@@ -3,7 +3,7 @@
 // logic and passes its refs' values in.
 
 import { getTone, getStatus, type StatusTone } from '@/utils/status.config'
-import type { DrawerPreview, PreviewChip } from '@/features/drawer/preview'
+import type { DrawerPreview, PreviewChip, PreviewLease, PreviewPayment } from '@/features/drawer/preview'
 
 export function cap(s: string | null | undefined) {
   if (!s) return '—'
@@ -44,6 +44,51 @@ function statusChip(label: string, tone: StatusTone, icon?: string): PreviewChip
   return c
 }
 
+function leaseStatusTone(status: string): StatusTone {
+  switch (status) {
+    case 'active': return 'success'
+    case 'terminated': return 'danger'
+    case 'leave_requested': return 'warning'
+    default: return 'neutral'
+  }
+}
+
+function paymentStatusTone(status: string): StatusTone {
+  switch (status) {
+    case 'paid': return 'success'
+    case 'overdue': return 'danger'
+    case 'due':
+    case 'pending_verification': return 'warning'
+    default: return 'neutral'
+  }
+}
+
+function paymentMethodLabel(method: string): string {
+  switch (method) {
+    case 'gcash': return 'GCash'
+    case 'maya': return 'Maya'
+    case 'bank': return 'Bank Transfer'
+    case 'cash': return 'Cash'
+    case 'others': return 'Other'
+    default: return cap(method) || '—'
+  }
+}
+
+function fmtCurrency(amount: number | null | undefined): string {
+  if (amount == null) return '—'
+  return `₱${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function fmtMonth(month: string): string {
+  if (!month) return '—'
+  const [year, m] = month.split('-')
+  if (!year || !m) return month
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const mi = parseInt(m, 10) - 1
+  if (mi < 0 || mi > 11) return month
+  return `${months[mi]} ${year}`
+}
+
 export interface UserDetailInput {
   selectedUser: any | null
   userDetail: any | null
@@ -51,10 +96,12 @@ export interface UserDetailInput {
   boardingHistory: any[]
   accommodationRows: any[]
   userReviews: any[]
+  leases?: any[]
+  payments?: any[]
 }
 
 export function buildUserPreview(input: UserDetailInput): DrawerPreview {
-  const { selectedUser: u, userDetail: detail, housing, boardingHistory, accommodationRows, userReviews } = input
+  const { selectedUser: u, userDetail: detail, housing, boardingHistory, accommodationRows, userReviews, leases, payments } = input
   if (!u) return { title: 'User Preview', name: '', avatar: '', stats: [], details: [] }
 
   const isStudent = (u.role || '').toLowerCase() === 'student'
@@ -274,6 +321,57 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     })
   }
 
+    
+
+  const leaseRows: PreviewLease[] = isStudent
+    ? (leases || []).map((l: any) => {
+        const acc = l.room?.accommodation
+        return {
+          id: l.id,
+          accommodationId: acc?.id ?? '',
+          accommodationName: acc?.name || l.accommodationName || '—',
+          accommodationManagerName: l.accommodation_manager?.full_name,
+          roomName: l.room?.room_number ?? l.room?.label,
+          roomType: acc?.room_type,
+          startDate: l.start_date,
+          endDate: l.end_date,
+          status: l.status,
+          statusTone: leaseStatusTone(l.status),
+          statusLabel: cap(l.status),
+          // Room rent is the source of truth; the lease-level rent may be unset.
+          monthlyRent: l.monthly_rent ?? l.room?.monthly_rent ?? null,
+          periodLabel: periodLabel(l.start_date, l.end_date),
+        }
+      })
+    : []
+
+  const leaseById = new Map<string, PreviewLease>()
+  leaseRows.forEach((l) => leaseById.set(l.id, l))
+
+  const paymentRows: PreviewPayment[] = (payments || []).map((p: any) => {
+    const lease = leaseById.get(p.lease_id)
+    const row: PreviewPayment = {
+      id: p.id,
+      leaseId: p.lease_id,
+      accommodationId: lease?.accommodationId ?? '',
+      month: p.month,
+      monthLabel: fmtMonth(p.month),
+      amount: p.amount,
+      amountLabel: fmtCurrency(p.amount),
+      status: p.status,
+      statusTone: paymentStatusTone(p.status),
+      statusLabel: cap(p.status),
+      paidAt: p.paid_at,
+      method: p.method,
+      methodLabel: paymentMethodLabel(p.method),
+      proofUrl: p.proof_url,
+      txnReference: p.txn_reference,
+      description: p.description,
+    }
+    if (p.paid_at) row.paidAtLabel = fmtDate(p.paid_at)
+    return row
+  })
+
   const result: DrawerPreview = {
     title: 'User Preview',
     viewDetailsLabel: 'View Full Details',
@@ -286,10 +384,13 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
   }
   if (card) result.card = card
   if (isStudent) {
-    result.history = history
-    result.historyCards = historyCards
-    if (placement) result.placement = placement
-  }
+       result.history = history
+       result.historyCards = historyCards
+       if (placement) result.placement = placement
+       result.leases = leaseRows
+       result.payments = paymentRows
+       result.kind = 'user'
+   }
   result.files = files
   result.reviews = reviews
   return result

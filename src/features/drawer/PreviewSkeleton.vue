@@ -167,6 +167,7 @@
           <q-skeleton type="rect" width="120px" height="30px" style="border-radius: 8px;" />
           <q-skeleton type="rect" width="96px" height="30px" style="border-radius: 8px;" />
           <q-skeleton type="rect" width="84px" height="30px" style="border-radius: 8px;" />
+          <q-skeleton type="rect" width="96px" height="30px" style="border-radius: 8px;" />
         </div>
         <!-- Boarding-history / Active-Listing card timeline -->
         <div class="dd-hc-list">
@@ -182,6 +183,29 @@
               <div class="row justify-between items-end">
                 <q-skeleton type="text" width="40%" height="12px" />
                 <q-skeleton type="text" width="28%" height="12px" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Payment lease card skeleton -->
+        <div class="dd-payments-skel border-all rounded-borders" style="border-radius: var(--radius-sm);">
+          <div class="row justify-between items-center q-pa-sm border-bottom">
+            <div class="row items-center q-gutter-x-sm">
+              <q-skeleton type="circle" size="18px" />
+              <q-skeleton type="text" width="45%" height="16px" />
+              <q-skeleton type="rect" width="60px" height="20px" style="border-radius: 999px;" />
+            </div>
+            <q-skeleton type="text" width="55%" height="12px" />
+          </div>
+          <div class="q-pa-sm">
+            <div v-for="n in 2" :key="n" class="row items-center justify-between q-py-sm">
+              <div class="row items-center q-gutter-x-sm">
+                <q-skeleton type="text" width="60px" height="14px" />
+                <q-skeleton type="rect" width="56px" height="18px" style="border-radius: 999px;" />
+              </div>
+              <div class="row items-center q-gutter-x-sm">
+                <q-skeleton type="text" width="50px" height="14px" />
+                <q-skeleton type="text" width="60px" height="12px" />
               </div>
             </div>
           </div>

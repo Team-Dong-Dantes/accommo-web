@@ -339,6 +339,14 @@ onMounted(async () => {
   if (rid != null) {
     const found = rooms.value.find((r) => r.id === String(rid))
     if (found) openRoom(found)
+    return
+  }
+  // Arriving from a boarding-history "Rooms Hub" link with only an
+  // accommodation id → open the room detail drawer immediately.
+  const accQuery = route.query.accommodation
+  if (accQuery != null) {
+    const accRooms = rooms.value.filter((r: any) => r.accommodationId === String(accQuery))
+    if (accRooms.length) openRoom(accRooms[0])
   }
 })
 </script>

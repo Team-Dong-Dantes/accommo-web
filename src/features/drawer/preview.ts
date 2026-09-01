@@ -23,7 +23,7 @@ export interface PreviewDetail {
   link?: string
   tone?: StatusTone
   icon?: string
-  avatar?: { initials: string }
+  avatar?: { initials: string; name?: string }
 }
 export interface PreviewCardCell {
   label: string
@@ -107,6 +107,44 @@ export interface PreviewPlacement {
   address?: string
   moveIn?: string
 }
+
+export interface PreviewLease {
+  id: string
+  accommodationId: string
+  accommodationName: string
+  accommodationManagerName?: string
+  roomName?: string
+  roomType?: string | null
+  startDate: string | null
+  endDate: string | null
+  status: string
+  statusTone?: StatusTone
+  statusLabel?: string
+  monthlyRent?: number | null
+  moveInLabel?: string
+  periodLabel?: string
+}
+
+export interface PreviewPayment {
+  id: string
+  leaseId: string
+  accommodationId: string
+  month: string
+  monthLabel: string
+  amount: number
+  amountLabel: string
+  status: string
+  statusTone?: StatusTone
+  statusLabel?: string
+  paidAt?: string | null
+  paidAtLabel?: string
+  method: string
+  methodLabel?: string
+  proofUrl?: string | null
+  txnReference?: string | null
+  description?: string | null
+}
+
 export interface DrawerPreview {
   kind?: 'user' | 'accommodation' | 'room'
   title?: string
@@ -130,6 +168,9 @@ export interface DrawerPreview {
   activity?: PreviewActivity[]
   reviews?: PreviewReview[]
   historyCards?: PreviewHistoryCard[]
+  /** Student boarding history with payment data (student detail drawer). */
+  leases?: PreviewLease[]
+  payments?: PreviewPayment[]
 }
 
 /** Hub destinations reachable from hover-overlays and room rows. */
