@@ -8,6 +8,15 @@
       <button type="button" class="dash-retry" @click="load">Retry</button>
     </div>
 
+    <DashboardSkeleton v-if="loading && !hasLoaded" />
+
+    <main
+      v-else
+      class="dash-content"
+      :class="{ 'is-refreshing': loading, 'has-arrived': hasLoaded }"
+      :key="dashboardVersion"
+      :aria-busy="loading"
+    >
     <!-- ── Action center ─────────────────────────────────────── -->
     <section class="action-center" aria-labelledby="briefing-title">
       <header class="briefing-intro">
@@ -260,22 +269,31 @@
         </section>
       </div>
     </div>
+    </main>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue'
+import { onMounted, computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { useDashboardStats } from '@/composables/useDashboardStats'
 import ChartCard from '@/components/charts/ChartCard.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import DateRangeButton from '@/features/audit/DateRangeButton.vue'
+import DashboardSkeleton from '@/features/dashboard/DashboardSkeleton.vue'
 import type { StatusTone } from '@/utils/status.config'
 import { getTimeAgoShort as timeAgo } from '@/utils/format'
 import { cssVar } from '@/utils/chartTheme'
 
-const { loading, error, data, load } = useDashboardStats()
+const { loading, error, data, hasLoaded, load } = useDashboardStats()
+const dashboardVersion = ref(0)
 onMounted(load)
+
+watch(loading, (isLoading, wasLoading) => {
+  if (!isLoading && wasLoading && hasLoaded.value) {
+    dashboardVersion.value += 1
+  }
+})
 
 /* ── Shift context ── */
 const firstName = computed(() => (data.adminName || 'Admin').split(' ')[0])
@@ -314,7 +332,7 @@ const actionRegister = computed(() => {
     },
     {
       key: 'accreditation',
-      to: '/accommodation-hub',
+      to: '/verifications',
       label: 'Accommodation accreditation',
       detail: `${data.accreditationQueue.withPermits} of ${data.accreditationQueue.total} ready to review · ${data.accreditationQueue.total - data.accreditationQueue.withPermits} need documents`,
       value: data.accreditationQueue.total,
@@ -375,7 +393,7 @@ const nextAction = computed(() => {
       detail: `${data.accreditationQueue.withPermits} complete document set${data.accreditationQueue.withPermits === 1 ? '' : 's'} ready to review.`,
       action: 'Review accommodations',
       icon: 'mdi:home-check-outline',
-      to: '/accommodation-hub',
+      to: '/verifications',
       tone: 'warning' as BriefingTone,
     }
   }
@@ -755,6 +773,8 @@ const documentGapWidth = (accommodations: number) => {
   position: relative;
 }
 .dash-load { position: absolute; top: 0; left: 0; right: 0; }
+.dash-content { animation: dashboard-arrive 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.dash-content.is-refreshing { opacity: 0.7; pointer-events: none; }
 .dash-error {
   background: var(--c-danger);
   color: #fff;
@@ -1002,6 +1022,7 @@ const documentGapWidth = (accommodations: number) => {
 @media (max-width: 900px) { .student-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); } .student-primary-stat { grid-column: span 2; border-bottom: 1px solid var(--c-border); } .student-action-stat:nth-child(2) { border-left: 0; } .student-composition { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .dash { padding: var(--sp-4); } .panel, .housing-panel { padding: var(--sp-4); } .panel-head { align-items: flex-start; } .student-overview, .housing-overview { grid-template-columns: 1fr; } .student-action-stat, .student-action-stat:last-child, .housing-stat { min-height: 92px; border-top: 1px solid var(--c-border); border-left: 0; } .student-primary-stat, .housing-occupancy { min-height: 106px; } .ticket-triage { grid-template-columns: 1fr; gap: var(--sp-3); } .ticket-open-count { padding: 0 0 var(--sp-3); border-right: 0; border-bottom: 1px solid var(--c-border); } .ticket-facts { grid-template-columns: 1fr; } .ticket-fact, .ticket-fact:first-child { border-top: 1px solid var(--c-border); border-left: 0; } .ticket-fact:first-child { border-top: 0; } .document-gap-row { grid-template-columns: 1fr; gap: var(--sp-2); } .metric-action { opacity: 1; transform: none; } .t-age { display: none; } }
 @media (prefers-reduced-motion: reduce) { .command-action, .command-queue, .command-queue-unit, .command-queue-action, .student-action-stat, .housing-stat-link, .metric-action { transition: none; } }
+@keyframes dashboard-arrive { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
 /* occupancy bar (shared) */
 .band-bar {
@@ -1038,4 +1059,5 @@ const documentGapWidth = (accommodations: number) => {
   font-weight: 600;
   color: var(--c-ink);
 }
+@media (prefers-reduced-motion: reduce) { .dash-content { animation: none; } }
 </style>

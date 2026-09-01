@@ -500,6 +500,7 @@ function computeTrends(
 
 export function useDashboardStats() {
   const loading = ref(true)
+  const hasLoaded = ref(false)
   const error = ref<string | null>(null)
   const lastUpdated = ref<Date | null>(null)
   const data = reactive<DashboardStats>(emptyStats())
@@ -653,10 +654,11 @@ export function useDashboardStats() {
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load dashboard data'
     } finally {
+      hasLoaded.value = true
       loading.value = false
       lastUpdated.value = new Date()
     }
   }
 
-  return { loading, error, data, lastUpdated, load }
+  return { loading, error, data, hasLoaded, lastUpdated, load }
 }
