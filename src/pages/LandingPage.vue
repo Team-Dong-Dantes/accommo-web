@@ -105,7 +105,7 @@
         </p>
 
         <div style="display:flex; justify-content:center; gap:14px; flex-wrap:wrap;">
-          <q-btn unelevated color="primary" class="text-weight-bold" size="lg" href="/accommo.apk" download style="border-radius:12px; padding:14px 28px;">
+          <q-btn unelevated color="primary" class="text-weight-bold" size="lg" :href="APK_URL" target="_blank" rel="noopener" style="border-radius:12px; padding:14px 28px;">
             <Icon icon="mdi:android" width="20" height="20" class="q-mr-sm" />
             Download APK
           </q-btn>
@@ -163,7 +163,7 @@
         </div>
         <div>
           <div class="foot-h">Get the app</div>
-          <a href="/accommo.apk" download>Android (APK)</a>
+          <a :href="APK_URL" target="_blank" rel="noopener">Android (APK)</a>
         </div>
       </div>
       <div class="container foot-bar">
@@ -185,6 +185,8 @@ import { ref, onMounted, onUnmounted } from 'vue';
 
 const year = new Date().getFullYear();
 const showTop = ref(false);
+// Latest signed release APK, published by the mobile repo's CI.
+const APK_URL = 'https://github.com/Team-Dong-Dantes/accommo-mobile/releases/latest/download/app-release.apk';
 const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 function onScroll() { showTop.value = window.scrollY > 600; }
 
