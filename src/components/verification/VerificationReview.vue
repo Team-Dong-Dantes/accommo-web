@@ -22,9 +22,10 @@
 
             <div class="side-sec-title side-sec-gap"><Icon icon="mdi:scale-balance" width="14" height="14" /> Decision</div>
 
-            <DecisionForm
-              :has-blocking-fail="checksRef?.hasBlockingFail ?? false"
-              :request-key="request?.id ?? null"
+              <DecisionForm
+                :has-blocking-fail="checksRef?.hasBlockingFail ?? false"
+                :allow-override="true"
+                :request-key="request?.id ?? null"
               @submit="(payload) => emit('submit', payload)"
             />
           </div>

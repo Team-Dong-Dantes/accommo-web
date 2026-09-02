@@ -25,9 +25,9 @@
             {{ tag }}
           </q-chip>
         </div>
-        <label v-if="pendingDecision === 'approve' && hasBlockingFail" class="rv-override">
+        <label v-if="pendingDecision === 'approve' && hasBlockingFail && allowOverride" class="rv-override">
           <q-checkbox v-model="overrideConfirm" dense style="color: var(--c-ink)" />
-          Override mismatch — I verified the documents manually
+          Override failed requirements - I verified this manually
         </label>
         <button
           type="button"
@@ -68,16 +68,19 @@ export interface DecisionPayload {
   notes: string
   tags: string[]
   allowResubmission: boolean
+  override: boolean
 }
 
 const props = withDefaults(
   defineProps<{
     hasBlockingFail?: boolean
+    allowOverride?: boolean
     /** Changes when the reviewed request changes — resets the form. */
     requestKey?: string | null
   }>(),
   {
     hasBlockingFail: false,
+    allowOverride: true,
     requestKey: null,
   },
 )
@@ -115,12 +118,13 @@ function submit() {
     notes: notes.value.trim(),
     tags: selectedTags.value,
     allowResubmission: false,
+    override: overrideConfirm.value,
   })
 }
 
 const canSubmit = computed(() => {
   if (!pendingDecision.value) return false
-  if (pendingDecision.value === 'approve' && props.hasBlockingFail && !overrideConfirm.value) return false
+  if (pendingDecision.value === 'approve' && props.hasBlockingFail && (!props.allowOverride || !overrideConfirm.value)) return false
   return true
 })
 

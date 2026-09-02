@@ -12,7 +12,7 @@ export interface VerificationRequest {
   owner: string
   initials: string
   type: string
-  files: { name: string; url: string }[]
+  files: { name: string; url: string; type?: string }[]
   status: string
   statusStyle: { tone: string; icon: string }
   submitted: string
@@ -28,6 +28,13 @@ function getStatusStyle(status: string) {
   const def = getStatus(status)
   return { tone: def.tone, icon: def.icon || 'mdi:clock-outline' }
 }
+
+const ACCOMMODATION_PERMITS = [
+  { type: 'sanitary_permit', label: 'Sanitary permit' },
+  { type: 'fire_safety', label: 'Fire safety permit' },
+  { type: 'business_permit', label: 'Business permit' },
+  { type: 'building_permit', label: 'Building permit' },
+]
 
 export function useVerifications() {
   const loading = ref(true)
@@ -176,8 +183,29 @@ export function useVerifications() {
       if (accommodationError) {
         console.warn('Could not fetch accommodations:', accommodationError.message)
       } else if (accommodations) {
+        const accommodationIds = (accommodations as any[]).map((accommodation) => accommodation.id)
+        const { data: documents, error: documentError } = accommodationIds.length
+          ? await supabase
+            .from('accommodation_documents')
+            .select('accommodation_id, doc_type, file_url')
+            .in('accommodation_id', accommodationIds)
+          : { data: [], error: null }
+        if (documentError) console.warn('Could not fetch accommodation permits:', documentError.message)
+        const documentsByAccommodation = new Map<string, any[]>()
+        for (const document of documents ?? []) {
+          if (!document.accommodation_id) continue
+          documentsByAccommodation.set(document.accommodation_id, [
+            ...(documentsByAccommodation.get(document.accommodation_id) ?? []),
+            document,
+          ])
+        }
         accommodationRequests.value = (accommodations as any[]).map((p: any) => {
           const ownerName = Array.isArray(p.manager) ? p.manager[0]?.full_name : (p.manager as any)?.full_name || 'Unknown Accommodation Manager'
+          const files = (documentsByAccommodation.get(p.id) ?? []).map((document) => ({
+            name: ACCOMMODATION_PERMITS.find((permit) => permit.type === document.doc_type)?.label ?? document.doc_type,
+            type: document.doc_type,
+            url: document.file_url,
+          }))
           return {
             id: `REQ-AC${p.id.substring(0, 4).toUpperCase()}`,
             rawId: p.id,
@@ -187,7 +215,7 @@ export function useVerifications() {
             ownerId: p.accommodation_manager_id,
             initials: getInitials(p.name),
             type: 'OSAS Accreditation',
-            files: [],
+            files,
             status: capitalize(p.status),
             statusStyle: getStatusStyle(p.status),
             submitted: 'Unknown',
@@ -327,6 +355,7 @@ export function useVerifications() {
           after_json: {
             status: newStatus,
             decision,
+            override: decisionPayload?.override === true,
             allow_resubmission: allowResub,
             tags: decisionPayload?.tags ?? null,
             notes: decisionPayload?.notes ?? null,

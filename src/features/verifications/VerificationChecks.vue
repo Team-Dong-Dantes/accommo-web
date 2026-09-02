@@ -112,7 +112,31 @@ async function runAutoChecks() {
   const docsOk = props.isAccommodation ? true : have >= need
 
   if (props.isAccommodation) {
-    list.push({ label: 'OSAS accreditation', status: 'pass', detail: 'Verified from OSAS records.' })
+    const requiredPermits = [
+      { type: 'sanitary_permit', label: 'Sanitary permit' },
+      { type: 'fire_safety', label: 'Fire safety permit' },
+      { type: 'business_permit', label: 'Business permit' },
+      { type: 'building_permit', label: 'Building permit' },
+    ]
+    const submitted = new Set((r.files ?? []).map((file: any) => file.type))
+    const missing = requiredPermits.filter((permit) => !submitted.has(permit.type))
+    list.push({
+      label: 'Required accommodation permits',
+      status: missing.length ? 'fail' : 'pass',
+      detail: missing.length
+        ? `Missing: ${missing.map((permit) => permit.label).join(', ')}.`
+        : 'Sanitary, fire safety, business, and building permits are attached.',
+    })
+    if (r.files?.length) {
+      const results = await Promise.all((r.files as any[]).map((file) => urlReachable(file.url)))
+      const broken = results.filter((result) => result === false).length
+      const unknown = results.filter((result) => result === null).length
+      list.push(broken
+        ? { label: 'Permit links', status: 'fail', detail: `${broken} permit link(s) are unavailable.` }
+        : unknown
+          ? { label: 'Permit links', status: 'warn', detail: 'Could not verify one or more permit links.' }
+          : { label: 'Permit links', status: 'pass', detail: 'All permit links are reachable.' })
+    }
   } else {
     list.push({
       label: 'Required documents',
