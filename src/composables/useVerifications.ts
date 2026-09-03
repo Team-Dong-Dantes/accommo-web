@@ -95,43 +95,169 @@ export function useVerifications() {
   async function fetch() {
     loading.value = true
     try {
-      const usersSelectEnriched = `
-        id, full_name, email, role, status, created_at,
-        student_profiles ( school_id_url, assessment_of_fees_url, extracted_name, extracted_school_id ),
-        accommodation_manager_profiles ( government_id_url, extracted_name, extracted_gov_id )
-      `
-      const usersSelectBase = `
-        id, full_name, email, role, status, created_at,
-        student_profiles ( school_id_url, assessment_of_fees_url ),
-        accommodation_manager_profiles ( government_id_url )
-      `
-      let usersResult: any = await supabase
-        .from('users')
-        .select(usersSelectEnriched)
-        .in('status', ['pending', 'reviewing'])
-        .order('created_at', { ascending: false })
-      // Fall back when the OCR columns (added by the verification_workflow
-      // migration) are not present yet, so the page still loads.
-      if (usersResult.error && /does not exist/.test(usersResult.error.message)) {
-        usersResult = await supabase
-          .from('users')
-          .select(usersSelectBase)
-          .in('status', ['pending', 'reviewing'])
-          .order('created_at', { ascending: false })
+      const { data: queueRows, error: queueError } = await (supabase as any)
+        .rpc('get_verification_queue')
+
+      if (!queueError && queueRows) {
+        const grouped = new Map<string, any>()
+        for (const row of queueRows as any[]) {
+          const existing = grouped.get(row.user_id) ?? {
+            id: row.user_id,
+            full_name: row.full_name,
+            email: row.email,
+            role: row.role,
+            status: row.user_status,
+            created_at: row.created_at,
+            documents: [],
+          }
+          if (row.file_url) {
+            existing.documents.push({
+              doc_type: row.doc_type,
+              file_url: row.file_url,
+              filename: row.filename,
+            })
+          }
+          grouped.set(row.user_id, existing)
+        }
+
+        const queueUsers = Array.from(grouped.values())
+        const mapRequest = (user: any, manager: boolean) => ({
+          id: `REQ-${manager ? 'AM' : 'S'}${user.id.substring(0, 4).toUpperCase()}`,
+          rawId: user.id,
+          name: user.full_name || (manager ? 'Unknown Accommodation Manager' : 'Unknown Student'),
+          email: user.email,
+          owner: '',
+          initials: getInitials(user.full_name),
+          type: manager ? 'Accommodation Manager Identity' : 'Enrollment Form / COR',
+          files: user.documents.map((document: any) => ({
+            name: document.filename || document.doc_type || 'Verification document',
+            url: document.file_url,
+          })),
+          status: capitalize(user.status),
+          statusStyle: getStatusStyle(user.status),
+          submitted: getTimeAgo(user.created_at),
+          avatarColor: manager ? 'teal-7' : 'blue-6',
+          extractedName: '',
+          ...(manager ? { extractedGovId: '' } : { extractedSchoolId: '' }),
+        })
+        studentRequests.value = queueUsers
+          .filter((user) => String(user.role).toLowerCase().trim() === 'student' || user.documents.some((document: any) =>
+            ['school_id', 'assessment', 'assessment_of_fees', 'cor', 'id_card'].includes(String(document.doc_type).toLowerCase()),
+          ))
+          .map((user) => mapRequest(user, false))
+        accommodationManagerRequests.value = queueUsers
+          .filter((user) => !studentRequests.value.some((request) => request.rawId === user.id))
+          .filter((user) => ['accommodation_manager', 'landlord'].includes(user.role))
+          .map((user) => mapRequest(user, true))
       }
+
+      if (!queueError && queueRows) {
+        // The RPC is authoritative for users and documents. Continue below to
+        // load accommodation requests, but do not overwrite these two lists.
+      } else {
+      // The mobile app stores submitted files in verification_documents. Keep
+      // this queue independent from legacy profile tables so a valid upload is
+      // still reviewable when those optional relations are empty or unavailable.
+      const usersResult: any = await supabase
+        .from('users')
+        .select('id, full_name, email, role, status, created_at')
+        .order('created_at', { ascending: false })
       const users = usersResult.data
       const userError = usersResult.error
 
       if (userError) {
         console.error('Error fetching users for verification:', userError.message)
       } else if (users) {
-        studentRequests.value = users
-          .filter((u: any) => u.role?.toLowerCase() === 'student')
+        // Mobile registration stores uploaded files in verification_documents.
+        // The profile URL columns are legacy and are not populated by the mobile
+        // flow, so load the authoritative document rows for this queue.
+        const userIds = (users as any[]).map((user) => user.id)
+        // Query all pending document rows independently. This avoids losing a
+        // valid request when the user row has an old status or role label.
+        const { data: verificationRows, error: verificationError } = await supabase
+          .from('verification_documents')
+          .select('user_id, doc_type, file_url, filename, status')
+          .eq('status', 'pending')
+
+        const [{ data: studentProfiles, error: studentProfileError }, { data: managerProfiles, error: managerProfileError }] = await Promise.all([
+          userIds.length
+            ? supabase.from('student_profiles').select('user_id, school_id_url, assessment_of_fees_url').in('user_id', userIds)
+            : Promise.resolve({ data: [], error: null }),
+          userIds.length
+            ? supabase.from('accommodation_manager_profiles').select('user_id, government_id_url').in('user_id', userIds)
+            : Promise.resolve({ data: [], error: null }),
+        ])
+
+        if (verificationError) {
+          console.error('Could not fetch verification documents:', verificationError.message)
+          notify.error('Verification documents unavailable', 'Apply the verification_documents admin RLS migration in Supabase.')
+        }
+
+        const documentsByUser = new Map<string, Array<{ doc_type: string | null; file_url: string | null; filename: string | null }>>()
+        for (const document of verificationRows ?? []) {
+          if (!document.user_id || !document.file_url) continue
+          documentsByUser.set(document.user_id, [
+            ...(documentsByUser.get(document.user_id) ?? []),
+            document,
+          ])
+        }
+
+        // Older mobile accounts saved URLs on their profile row before the
+        // verification_documents table became authoritative.
+        for (const profile of studentProfiles ?? []) {
+          if (profile.school_id_url) {
+            documentsByUser.set(profile.user_id, [
+              ...(documentsByUser.get(profile.user_id) ?? []),
+              { doc_type: 'school_id', file_url: profile.school_id_url, filename: 'School ID' },
+            ])
+          }
+          if (profile.assessment_of_fees_url) {
+            documentsByUser.set(profile.user_id, [
+              ...(documentsByUser.get(profile.user_id) ?? []),
+              { doc_type: 'assessment_of_fees', file_url: profile.assessment_of_fees_url, filename: 'Assessment of Fees' },
+            ])
+          }
+        }
+        for (const profile of managerProfiles ?? []) {
+          if (!profile.government_id_url) continue
+          documentsByUser.set(profile.user_id, [
+            ...(documentsByUser.get(profile.user_id) ?? []),
+            { doc_type: 'government_id', file_url: profile.government_id_url, filename: 'Government ID' },
+          ])
+        }
+
+        if (studentProfileError) console.warn('Could not fetch student profile documents:', studentProfileError.message)
+        if (managerProfileError) console.warn('Could not fetch manager profile documents:', managerProfileError.message)
+
+        const usersWithDocuments = new Set(documentsByUser.keys())
+        const userById = new Map((users as any[]).map((user) => [user.id, user]))
+        const studentDocumentUsers = new Set(
+          Array.from(documentsByUser.entries())
+            .filter(([, documents]) => documents.some((document) =>
+              ['school_id', 'assessment', 'assessment_of_fees', 'cor', 'id_card'].includes(
+                String(document.doc_type).toLowerCase().trim(),
+              ),
+            ))
+            .map(([userId]) => userId),
+        )
+        // If document rows are visible but the corresponding user query is
+        // filtered by an old role/status, retain that user in the queue. The
+        // role is normalized below for legacy landlord rows.
+        const documentUsers = Array.from(usersWithDocuments)
+          .map((id) => userById.get(id))
+          .filter(Boolean)
+        const pendingUsers = [...(users as any[]).filter((user) =>
+          ['pending', 'reviewing'].includes(String(user.status).toLowerCase()) || usersWithDocuments.has(user.id),
+        ), ...documentUsers.filter((user) => !usersWithDocuments.has(user.id))]
+
+        studentRequests.value = pendingUsers
+          .filter((u: any) => String(u.role).toLowerCase().trim() === 'student' || studentDocumentUsers.has(u.id))
           .map((s: any) => {
-            const profile = Array.isArray(s.student_profiles) ? s.student_profiles[0] : s.student_profiles || {}
-            const actualFiles: { name: string; url: string }[] = []
-            if (profile.school_id_url) actualFiles.push({ name: 'School ID', url: profile.school_id_url })
-            if (profile.assessment_of_fees_url) actualFiles.push({ name: 'Assessment of Fees', url: profile.assessment_of_fees_url })
+            const uploadedDocuments = documentsByUser.get(s.id) ?? []
+            const actualFiles: { name: string; url: string }[] = uploadedDocuments.map((document) => ({
+              name: document.filename || document.doc_type || 'Verification document',
+              url: document.file_url!,
+            }))
             return {
               id: `REQ-S${s.id.substring(0, 4).toUpperCase()}`,
               rawId: s.id,
@@ -145,17 +271,19 @@ export function useVerifications() {
               statusStyle: getStatusStyle(s.status),
               submitted: getTimeAgo(s.created_at),
               avatarColor: 'blue-6',
-              extractedName: profile.extracted_name || '',
-              extractedSchoolId: profile.extracted_school_id || '',
+              extractedName: '',
+              extractedSchoolId: '',
             }
           })
 
-        accommodationManagerRequests.value = users
-          .filter((u: any) => u.role?.toLowerCase() === 'accommodation_manager')
+        accommodationManagerRequests.value = pendingUsers
+          .filter((u: any) => !studentDocumentUsers.has(u.id) && ['accommodation_manager', 'landlord'].includes(String(u.role).toLowerCase().trim()))
           .map((l: any) => {
-            const profile = Array.isArray(l.accommodation_manager_profiles) ? l.accommodation_manager_profiles[0] : l.accommodation_manager_profiles || {}
-            const actualFiles: { name: string; url: string }[] = []
-            if (profile.government_id_url) actualFiles.push({ name: 'Government ID', url: profile.government_id_url })
+            const uploadedDocuments = documentsByUser.get(l.id) ?? []
+            const actualFiles: { name: string; url: string }[] = uploadedDocuments.map((document) => ({
+              name: document.filename || document.doc_type || 'Verification document',
+              url: document.file_url!,
+            }))
             return {
               id: `REQ-AM${l.id.substring(0, 4).toUpperCase()}`,
               rawId: l.id,
@@ -169,10 +297,11 @@ export function useVerifications() {
               statusStyle: getStatusStyle(l.status),
               submitted: getTimeAgo(l.created_at),
               avatarColor: 'teal-7',
-              extractedName: profile.extracted_name || '',
-              extractedGovId: profile.extracted_gov_id || '',
+              extractedName: '',
+              extractedGovId: '',
             }
           })
+      }
       }
 
       const { data: accommodations, error: accommodationError } = await supabase
@@ -323,6 +452,21 @@ export function useVerifications() {
       const { data, error } = isAccommodation
         ? await supabase.from('accommodations').update({ status: newStatus as 'pending' | 'reviewing' | 'accredited' | 'rejected' }).eq('id', rawId).select()
         : await supabase.from('users').update({ status: newStatus as any }).eq('id', rawId).select()
+
+      // When a STUDENT is approved/verified, stamp student_profiles.osas_verified_at.
+      // The mobile app gates the student QR on that field (not users.status), so a
+      // user could read 'verified' yet never get a QR. Rejecting does not un-stamp —
+      // the field is cleared only if the row is later invalidated by OSAS.
+      if (!isAccommodation && decision === 'approve') {
+        try {
+          const { error: stampErr } = await supabase.from('student_profiles').update({ osas_verified_at: new Date().toISOString() }).eq('user_id', rawId)
+          // Some approved profiles may not exist yet (e.g. Google-OAuth signups with no
+          // ISU enrollment row). Upsert so the stamp is never silently dropped.
+          if (stampErr && String(stampErr.code || '').match(/PGRST(116|117)/)) {
+            await supabase.from('student_profiles').upsert({ user_id: rawId, osas_verified_at: new Date().toISOString() })
+          }
+        } catch { /* non-critical; primary status update already succeeded */ }
+      }
 
       if (error) {
         notify.error('Database error', error.message)
