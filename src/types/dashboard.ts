@@ -1,17 +1,12 @@
 // Shared dashboard types + chart palette.
 // Moved verbatim from composables/useDashboardStats.ts so both the api/ layer
 // and the composable can import them without a circular dependency.
-
-export interface PendingRegistration {
-  initials: string
-  name: string
-  time: string
-  role: string
-  roleColor: string
-  status: string
-  statusColor: string
-  color: string
-}
+//
+// Pruned in the dashboard redesign: twelve fields were computed on every load
+// and rendered nowhere (users, tickets, queue, leaveRequests, trends,
+// unverifiedUsers, pendingRegistrations, accommodationFunnel, roomsByType,
+// ticketsByCategory). They are gone along with the fetchers that fed only them.
+// `topOccupied` was in that set and has been brought back into the page.
 
 export interface DashboardStats {
   loading: boolean
@@ -19,35 +14,58 @@ export interface DashboardStats {
   adminName: string
   accommodations: { total: number; accredited: number; avgRent: number }
   rooms: { total: number; occupied: number; available: number; capacity: number; pax: number; occupancyPct: number }
-  users: { total: number; students: number; accommodationManagers: number; agents: number; admins: number }
-  roomsByType: { type: string; capacity: number; count: number }[]
   topOccupied: { name: string; ratio: string; val: number }[]
   students: { total: number; newThisMonth: number }
-  studentsByCollege: { name: string; val: number; pct: string; ratio: number; color: string }[]
-  studentProfileQuality: { records: number; collegeRecorded: number; collegeMissing: number; yearLevelMissing: number; distinctCollegeValues: number }
+  /** Recorded year levels only; `yearMissing` carries the rest. */
   studentsByYear: { year: string; val: number }[]
-  gender: { female: number; male: number; other: number; unspecified: number }
-  tickets: {
-    total: number
-    open: number
-    inProgress: number
-    resolved: number
-    rejected: number
-    urgent: number
+  /** Recorded colleges only, largest first; `collegeMissing` carries the rest. */
+  studentsByCollege: { name: string; val: number }[]
+  /**
+   * What OSAS holds on file. `documents` is the identity paperwork — the part
+   * that is nearly empty and that verification depends on.
+   */
+  studentProfileQuality: {
+    accounts: number
+    records: number
+    documents: { label: string; recorded: number }[]
+    verified: number
+    verifiedWithoutSchoolId: number
+    yearMissing: number
+    collegeMissing: number
   }
-  ticketsByCategory: { name: string; val: number; ratio: number; color: string }[]
-  pendingRegistrations: PendingRegistration[]
-  unverifiedUsers: { total: number; pending: number; reviewing: number }
+  gender: { female: number; male: number; other: number; unspecified: number }
   activeLeases: number
   registrationsByMonth: { ym: string; month: string; students: number; accommodationManagers: number }[]
-  trends: { users: number[]; tickets: number[]; accommodations: number[]; leases: number[] }
-  queue: { pendingStudents: number; pendingAccommodationManagers: number; pendingAccommodations: number }
+  /**
+   * How long the verification queue has been waiting, not just how deep it is.
+   * A single "69 waiting" hid that 47 of them had sat for over a fortnight.
+   */
+  verificationAges: { label: string; students: number; managers: number; overdue: boolean }[]
+  /** Accreditation pipeline by stage — shows where applications actually stop. */
+  accommodationFunnel: { stage: string; count: number }[]
+  /**
+   * Pending accommodations bucketed by how many of the four permits they have
+   * submitted. A per-permit "which is missing most" chart was tried first and
+   * rendered four identical bars: houses submit everything or nothing, so the
+   * distribution is the informative cut, not the per-permit tally.
+   */
+  permitCompleteness: { submitted: number; accommodations: number }[]
+  ticketsByCategory: { name: string; val: number }[]
+  /**
+   * How long open tickets have waited, in the same buckets the verification
+   * backlog uses. Priority was the old breakdown and it is near-constant —
+   * 17 medium, 1 urgent — while every ticket is weeks past the response target.
+   */
+  ticketAges: { label: string; val: number; overdue: boolean }[]
+  /** The oldest urgent ticket still open, if there is one. */
+  oldestUrgent: { category: string; ageDays: number } | null
+  ticketsByPriority: { name: string; val: number }[]
+  /** Active leases split by the accreditation status of the house they are in. */
+  leasesByAccreditation: { accredited: number; pipeline: number; delisted: number }
   expiringLeases: { id: string; end_date: string | null }[]
   expiringAccreditations: number
   recentTickets: { id: string; subject: string | null; priority: string; status: string; reported_at: string }[]
   accommodationManagerPayments: { pendingVerification: number; overdue: number }
-  leaveRequests: number
-  accommodationFunnel: { pending: number; reviewing: number; accredited: number; rejected: number; delisted: number }
   /** Admin home — triage queues with the oldest rows surfaced. */
   verificationQueue: {
     students: number
@@ -62,8 +80,8 @@ export interface DashboardStats {
   accreditationQueue: {
     total: number
     withPermits: number
-    documentGaps: { label: string; accommodations: number }[]
-    oldest: { name: string; roomType: string | null; hasPermits: boolean }[]
+    /** Pending applications with a complete permit set, by name. */
+    ready: string[]
   }
   ticketQueue: {
     open: number

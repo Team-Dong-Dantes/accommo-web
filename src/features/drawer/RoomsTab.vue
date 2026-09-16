@@ -7,19 +7,20 @@
       class="dd-room"
       @click="$emit('go-room', rm)"
     >
-      <span class="dd-room-icon"><Icon icon="mdi:door" width="20" height="20" /></span>
+      <span class="dd-room-icon"><Icon icon="lucide:door-closed" width="20" height="20" /></span>
       <span class="col min-width-0 text-left">
         <span class="dd-room-name">{{ rm.name }}</span>
         <span class="dd-room-meta">Floor {{ rm.floor ?? '—' }} · {{ rm.pax ?? 0 }}/{{ rm.capacity ?? 0 }} beds</span>
       </span>
       <BadgePill v-if="rm.status" :tone="rm.statusTone || 'neutral'" :label="rm.status" />
-      <Icon icon="mdi:chevron-right" width="18" height="18" class="dd-room-open" />
+      <Icon icon="lucide:chevron-right" width="18" height="18" class="dd-room-open" />
     </button>
   </div>
-  <div v-else class="dd-empty">No rooms for this accommodation.</div>
+  <TabEmptyState v-else icon="lucide:door-open" title="No rooms" message="This accommodation has not listed any rooms yet." />
 </template>
 
 <script setup lang="ts">
+import TabEmptyState from './TabEmptyState.vue'
 import { Icon } from '@iconify/vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import type { DrawerPreview, PreviewRoom } from './preview'
@@ -84,13 +85,5 @@ defineEmits<{
   margin-left: auto;
   color: var(--c-muted);
   flex: 0 0 auto;
-}
-.dd-empty {
-  font-size: 13px;
-  color: var(--c-muted);
-  padding: 10px 12px;
-  border: 1px dashed var(--c-border);
-  border-radius: var(--radius-sm);
-  background: var(--c-surface-2);
 }
 </style>

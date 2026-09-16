@@ -39,15 +39,11 @@ const props = withDefaults(
   defineProps<{
     request: Record<string, any> | null
     isAccommodation?: boolean
-    extractedName?: string
-    docId?: string
     /** Changes when the reviewed request changes — re-runs the checks. */
     requestKey?: string | null
   }>(),
   {
     isAccommodation: false,
-    extractedName: '',
-    docId: '',
     requestKey: null,
   },
 )
@@ -59,10 +55,10 @@ const hasBlockingFail = computed(() => checks.value.some((c) => c.status === 'fa
 
 const verdict = computed<{ tone: 'success' | 'warning' | 'danger'; label: string; icon: string; detail: string }>(() => {
   const fail = checks.value.find((c) => c.status === 'fail')
-  if (fail) return { tone: 'danger', label: 'Not ready', icon: 'mdi:alert-circle', detail: fail.detail }
+  if (fail) return { tone: 'danger', label: 'Not ready', icon: 'lucide:circle-alert', detail: fail.detail }
   const warn = checks.value.find((c) => c.status === 'warn')
-  if (warn) return { tone: 'warning', label: 'Review manually', icon: 'mdi:shield-search', detail: 'Some checks need a human eye.' }
-  return { tone: 'success', label: 'Ready to verify', icon: 'mdi:shield-check', detail: 'All automated checks passed.' }
+  if (warn) return { tone: 'warning', label: 'Review manually', icon: 'lucide:shield-question', detail: 'Some checks need a human eye.' }
+  return { tone: 'success', label: 'Ready to verify', icon: 'lucide:shield-check', detail: 'All automated checks passed.' }
 })
 
 const sortedChecks = computed(() => {
@@ -75,31 +71,10 @@ const checkCounts = computed(() => {
   return c
 })
 function checkIcon(status: string) {
-  return status === 'pass' ? 'mdi:check-circle' : status === 'fail' ? 'mdi:close-circle' : 'mdi:alert-circle'
+  return status === 'pass' ? 'lucide:circle-check' : status === 'fail' ? 'lucide:circle-x' : 'lucide:circle-alert'
 }
 
 /* ---- Check computation (verbatim from VerificationReview.runAutoChecks) -- */
-
-const nameMatch = computed<{ status: 'pass' | 'warn' | 'fail'; detail: string }>(() => {
-  const ext = props.extractedName
-  if (!ext) return { status: 'warn', detail: 'OCR not run — verify the name by eye.' }
-  const entered = String(props.request?.name || '').toLowerCase().split(/\s+/).filter(Boolean) as string[]
-  const found = ext.toLowerCase()
-  const matched = entered.filter((t) => found.includes(t)).length
-  const ratio = entered.length ? matched / entered.length : 0
-  return ratio >= 0.6
-    ? { status: 'pass', detail: `OCR name “${ext}” matches the account.` }
-    : { status: 'fail', detail: `OCR name “${ext}” does not match “${props.request?.name}”.` }
-})
-
-async function urlReachable(url: string): Promise<boolean | null> {
-  try {
-    const res = await fetch(url, { method: 'HEAD' })
-    return res.ok
-  } catch {
-    return null
-  }
-}
 
 async function runAutoChecks() {
   const r = props.request
@@ -128,14 +103,14 @@ async function runAutoChecks() {
         : 'Sanitary, fire safety, business, and building permits are attached.',
     })
     if (r.files?.length) {
-      const results = await Promise.all((r.files as any[]).map((file) => urlReachable(file.url)))
-      const broken = results.filter((result) => result === false).length
-      const unknown = results.filter((result) => result === null).length
-      list.push(broken
-        ? { label: 'Permit links', status: 'fail', detail: `${broken} permit link(s) are unavailable.` }
-        : unknown
-          ? { label: 'Permit links', status: 'warn', detail: 'Could not verify one or more permit links.' }
-          : { label: 'Permit links', status: 'pass', detail: 'All permit links are reachable.' })
+      // A signed URL comes back only when the row exists and this reviewer is
+      // entitled to it, so an empty one is a real failure. (The old check fetched
+      // the file with HEAD, which cannot work cross-origin against the signing
+      // endpoint and would warn every time.)
+      const unopenable = (r.files as any[]).filter((file) => !file.url).length
+      list.push(unopenable
+        ? { label: 'Permit files', status: 'fail', detail: `${unopenable} permit(s) could not be opened.` }
+        : { label: 'Permit files', status: 'pass', detail: 'All permits opened for review.' })
     }
   } else {
     list.push({
@@ -144,24 +119,22 @@ async function runAutoChecks() {
       detail: docsOk ? `All ${need} required document(s) attached.` : `Missing ${need - have} of ${need} required document(s).`,
     })
     if (have) {
-      const results = await Promise.all((r.files as any[]).map((f) => urlReachable(f.url)))
-      const broken = results.filter((x) => x === false).length
-      const unknown = results.filter((x) => x === null).length
-      if (broken === 0 && unknown === 0) list.push({ label: 'Document links', status: 'pass', detail: 'All URLs returned HTTP 200.' })
-      else if (broken > 0) list.push({ label: 'Document links', status: 'fail', detail: `${broken} URL(s) broken (404/403).` })
-      else list.push({ label: 'Document links', status: 'warn', detail: 'Could not verify link reachability.' })
+      const unopenable = (r.files as any[]).filter((f) => !f.url).length
+      list.push(unopenable
+        ? { label: 'Document files', status: 'fail', detail: `${unopenable} document(s) could not be opened.` }
+        : { label: 'Document files', status: 'pass', detail: 'All documents opened for review.' })
     }
   }
 
-  const extName = props.extractedName
-  const extId = props.docId
+  // There is no OCR anywhere in this system. This check used to read fields that
+  // were hardcoded to '' and always degraded to a warn, which dressed up "nobody
+  // looked" as "a check ran". Say what is actually true instead.
   if (!props.isAccommodation) {
-    if (extName || extId) {
-      if (extName) list.push({ label: 'Name matches document', status: nameMatch.value.status, detail: nameMatch.value.detail })
-      if (extId) list.push({ label: 'ID on document', status: 'pass', detail: `OCR ID on file: ${extId}` })
-    } else {
-      list.push({ label: 'Name / ID on document', status: 'warn', detail: 'OCR not yet run — confirm by eye.' })
-    }
+    list.push({
+      label: 'Name and ID on document',
+      status: 'warn',
+      detail: `Confirm the document names “${props.request?.name || 'the applicant'}” and the ID matches.`,
+    })
   }
 
   try {
@@ -189,10 +162,16 @@ async function runAutoChecks() {
   checksLoading.value = false
 }
 
-defineExpose({ hasBlockingFail, verdict })
+// `sortedChecks` is exposed so the review window can show the same checks as
+// a compact row without owning the logic that produces them.
+defineExpose({ hasBlockingFail, verdict, checks: sortedChecks, checksLoading })
 
+// Signed document URLs are minted asynchronously and merged into the request
+// after it opens, so keying only on the request id ran the checks against files
+// whose `url` was still empty and reported every permit as unopenable. Re-run
+// once the signing lands.
 watch(
-  () => props.requestKey,
+  () => `${props.requestKey}:${(props.request?.files ?? []).filter((f: any) => f.url).length}`,
   () => runAutoChecks(),
   { immediate: true },
 )

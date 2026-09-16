@@ -16,6 +16,33 @@ export async function fetchActiveLeaseCount(): Promise<number> {
   return count ?? 0
 }
 
+/**
+ * Active leases grouped by the accreditation status of the accommodation the
+ * student is actually living in.
+ *
+ * The product's premise is that students only ever see accredited houses, so
+ * this should be entirely `accredited`. It currently is not, which is worth
+ * being able to see rather than assume.
+ */
+export async function fetchActiveLeaseAccreditation(): Promise<{ accredited: number; pipeline: number; delisted: number }> {
+  const { data, error } = await supabase
+    .from('leases')
+    .select('id, room:rooms!inner(accommodation:accommodations!inner(status))')
+    .eq('status', 'active')
+  if (error) throw error
+
+  const tally = { accredited: 0, pipeline: 0, delisted: 0 }
+  for (const row of (data ?? []) as any[]) {
+    const room = Array.isArray(row.room) ? row.room[0] : row.room
+    const accommodation = Array.isArray(room?.accommodation) ? room.accommodation[0] : room?.accommodation
+    const status = accommodation?.status
+    if (status === 'accredited') tally.accredited += 1
+    else if (status === 'delisted' || status === 'rejected') tally.delisted += 1
+    else tally.pipeline += 1
+  }
+  return tally
+}
+
 export async function fetchExpiringLeases(nowIso: string, thirtyDaysIso: string): Promise<LeaseExpiryRow[]> {
   const { data, error } = await supabase
     .from('leases')
@@ -27,27 +54,8 @@ export async function fetchExpiringLeases(nowIso: string, thirtyDaysIso: string)
   return (data ?? []) as unknown as LeaseExpiryRow[]
 }
 
-export async function fetchLeaveRequestCount(): Promise<number> {
-  const { count, error } = await supabase
-    .from('leases')
-    .select('id', { count: 'exact', head: true })
-    .eq('status', 'leave_requested')
-  if (error) throw error
-  return count ?? 0
-}
 
-export interface LeaseStartDateRow {
-  start_date: string | null
-}
 
-export async function fetchLeasesSince(sinceIso: string): Promise<LeaseStartDateRow[]> {
-  const { data, error } = await supabase
-    .from('leases')
-    .select('start_date')
-    .gte('start_date', sinceIso)
-  if (error) throw error
-  return (data ?? []) as unknown as LeaseStartDateRow[]
-}
 
 export type LeaseStatus = 'active' | 'ended' | 'terminated' | 'leave_requested' | string
 export type PaymentStatus = 'due' | 'paid' | 'overdue' | 'pending_verification' | string

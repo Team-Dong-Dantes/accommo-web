@@ -19,7 +19,7 @@
           <a class="dl-btn gt-xs" href="#download">Get the app</a>
 
           <button class="menu-btn lt-md" @click="menu = true" aria-label="Menu">
-            <Icon icon="mdi:menu" width="22" height="22" />
+            <Icon icon="lucide:menu" width="22" height="22" />
           </button>
 
           <q-menu v-model="menu" anchor="bottom right" self="top right" class="mobile-menu">

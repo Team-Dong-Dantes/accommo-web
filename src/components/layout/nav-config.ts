@@ -15,7 +15,7 @@ export interface NavGroup {
 export const dashboardLeaf: NavLeaf = {
   id: 'dashboard',
   label: 'Dashboard',
-  icon: 'mdi:view-dashboard-outline',
+  icon: 'lucide:layout-dashboard',
   to: '/dashboard',
 };
 
@@ -23,37 +23,37 @@ export const navGroups: NavGroup[] = [
   {
     id: 'users',
     label: 'Account Management',
-    icon: 'mdi:account-supervisor-outline',
+    icon: 'lucide:users',
     children: [
-      { id: 'users-list', label: 'Users List', icon: 'mdi:account-outline', to: '/users' },
-      { id: 'verifications', label: 'Verification', icon: 'mdi:how-to-reg', to: '/verifications' },
+      { id: 'users-list', label: 'Users List', icon: 'lucide:user', to: '/users' },
+      { id: 'verifications', label: 'Verification', icon: 'lucide:user-check', to: '/verifications' },
     ],
   },
   {
     id: 'accommodations',
     label: 'Accommodations',
-    icon: 'mdi:home-city-outline',
+    icon: 'lucide:building-2',
     children: [
-      { id: 'map-view', label: 'Map View', icon: 'mdi:map-outline', to: '/map-view' },
-      { id: 'accommodation-hub', label: 'Accommodation Hub', icon: 'mdi:home-city-outline', to: '/accommodation-hub' },
-      { id: 'room-hub', label: 'Room Hub', icon: 'mdi:door-open', to: '/room-hub' },
+      { id: 'map-view', label: 'Map View', icon: 'lucide:map', to: '/map-view' },
+      { id: 'accommodation-hub', label: 'Accommodation Hub', icon: 'lucide:building-2', to: '/accommodation-hub' },
+      { id: 'room-hub', label: 'Room Hub', icon: 'lucide:door-open', to: '/room-hub' },
     ],
   },
   {
     id: 'operations',
     label: 'Operations',
-    icon: 'mdi:briefcase-outline',
+    icon: 'lucide:briefcase',
     children: [
-      { id: 'support-tickets', label: 'Support Tickets', icon: 'mdi:headset', to: '/support-tickets' },
-      { id: 'announcements', label: 'Announcements', icon: 'mdi:bullhorn-outline', to: '/announcements' },
+      { id: 'support-tickets', label: 'Support Tickets', icon: 'lucide:headset', to: '/support-tickets' },
+      { id: 'announcements', label: 'Announcements', icon: 'lucide:megaphone', to: '/announcements' },
     ],
   },
   {
     id: 'system',
     label: 'System',
-    icon: 'mdi:tune',
+    icon: 'lucide:sliders-horizontal',
     children: [
-      { id: 'audit-logs', label: 'Audit Logs', icon: 'mdi:clipboard-list-outline', to: '/audit-logs' },
+      { id: 'audit-logs', label: 'Audit Logs', icon: 'lucide:clipboard-list', to: '/audit-logs' },
     ],
   },
 ];

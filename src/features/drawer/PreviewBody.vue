@@ -1,5 +1,5 @@
 <template>
-  <div :key="preview.name" class="dd-content">
+  <div :key="preview.name" :class="['dd-content', { 'dd-room-hero': roomHero }]">
 
     <!-- FULL PAYMENTS MODE: same reference layout as the user preview, with a
          back button before the title to return to boarding history. -->
@@ -7,7 +7,7 @@
       <div class="dd-header row items-center justify-between q-pa-md dd-rise" style="--i: 0">
         <div class="row items-center q-gutter-x-sm">
           <button type="button" class="dd-back-btn" @click="onViewHistory" aria-label="Back to boarding history">
-            <Icon icon="mdi:arrow-left" width="20" height="20" />
+            <Icon icon="lucide:arrow-left" width="20" height="20" />
           </button>
           <div class="dd-ink dd-display text-h6 text-weight-bold">Payment History</div>
         </div>
@@ -27,12 +27,12 @@
     <template v-else>
       <div class="dd-header row items-center justify-between q-pa-md dd-rise" style="--i: 0">
         <div class="row items-center q-gutter-x-sm">
-          <div class="dd-ink dd-display text-h6 text-weight-bold">{{ preview.title || 'Preview' }}</div>
+          <div v-if="!roomHero" class="dd-ink dd-display text-h6 text-weight-bold">{{ preview.title || 'Preview' }}</div>
           <div v-if="preview.positionLabel" class="dd-muted text-caption">{{ preview.positionLabel }}</div>
         </div>
         <div class="row items-center q-gutter-x-sm">
           <q-btn flat round dense color="primary">
-            <Icon icon="mdi:dots-vertical" width="20" height="20" />
+            <Icon icon="lucide:ellipsis-vertical" width="20" height="20" />
             <q-menu>
               <q-list style="min-width: 190px">
                 <q-item
@@ -54,9 +54,31 @@
         </div>
       </div>
 
-      <q-separator style="background: var(--c-border)" />
+      <q-separator v-if="!roomHero" style="background: var(--c-border)" />
 
-      <div class="q-pa-md dd-rise" style="--i: 1">
+      <!-- Rooms lead with their cover photo, ported from accommo-mobile's
+           AccommodationDetail hero: name + status overlaid at the top of the
+           photo, the tab strip pulled up over the photo's bottom edge. -->
+      <div v-if="roomHero" class="dd-hero dd-rise" style="--i: 1">
+        <img v-if="coverUrl" :src="coverUrl" alt="" class="dd-hero-img" />
+        <div v-else class="dd-hero-empty column flex-center dd-muted">
+          <Icon icon="lucide:image-off" width="28" height="28" />
+          <div class="text-caption q-mt-xs">No photo</div>
+        </div>
+        <div class="dd-hero-scrim" />
+        <div class="dd-hero-head row items-center q-gutter-x-sm">
+          <div class="dd-hero-name dd-display">{{ preview.name }}</div>
+          <BadgePill
+            v-for="c in preview.chips"
+            :key="c.text"
+            :tone="c.tone || 'neutral'"
+            :icon="c.icon ?? ''"
+            :label="c.text"
+          />
+        </div>
+      </div>
+
+      <div v-if="!roomHero" class="q-pa-md dd-rise" style="--i: 1">
         <div class="row items-center q-gutter-x-md">
           <q-avatar size="72px">
             <img :src="preview.avatar" :alt="preview.name" />
@@ -76,7 +98,7 @@
         </div>
       </div>
 
-      <div v-if="preview.stats?.length" class="q-px-md q-pb-md dd-rise" style="--i: 2">
+      <div v-if="!roomHero && preview.stats?.length" class="q-px-md q-pb-md dd-rise" style="--i: 2">
         <div class="row border-all rounded-borders q-pa-md text-center" style="border-radius: var(--radius-sm);">
           <div
             v-for="(s, i) in preview.stats"
@@ -111,49 +133,18 @@
         </div>
       </div>
 
-      <div v-if="preview.details?.length" class="q-px-md q-pb-md dd-rise" style="--i: 3">
-        <div class="dd-ink dd-display text-subtitle1 text-weight-bold q-mb-md">Details</div>
-        <div class="row q-col-gutter-x-xl">
-          <div class="col-6">
-            <div
-              v-for="(d, i) in leftDetails"
-              :key="'l' + i"
-              class="row justify-between q-py-sm border-bottom items-center"
-            >
-              <div class="dd-muted">{{ d.label }}</div>
-              <a v-if="d.link" :href="d.link" class="text-link block">{{ d.value }}</a>
-              <div v-else-if="d.avatar" class="row items-center q-gutter-x-sm">
-                <q-avatar size="24px" color="primary" text-color="white" class="text-caption text-weight-bold">{{ d.avatar.initials }}</q-avatar>
-                <div class="text-weight-medium">{{ d.avatar.name }}</div>
-              </div>
-              <div v-else class="text-weight-medium">{{ d.value }}</div>
-            </div>
-          </div>
-          <div class="col-6">
-            <div
-              v-for="(d, i) in rightDetails"
-              :key="'r' + i"
-              class="row justify-between q-py-sm border-bottom items-center"
-            >
-              <div class="dd-muted">{{ d.label }}</div>
-              <a v-if="d.link" :href="d.link" class="text-link block">{{ d.value }}</a>
-              <div v-else-if="d.avatar" class="row items-center q-gutter-x-sm">
-                <q-avatar size="24px" color="primary" text-color="white" class="text-caption text-weight-bold">{{ d.avatar.initials }}</q-avatar>
-                <div class="text-weight-medium">{{ d.avatar.name }}</div>
-              </div>
-              <div v-else class="text-weight-medium">{{ d.value }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <template v-if="hasTabs">
-        <q-separator style="background: var(--c-border)" />
-        <TabNav v-if="multiTab" :model-value="currentTab" @update:model-value="$emit('update:tab', $event)" :tabs="tabs" class="dd-tabs-strip q-mt-md dd-rise" style="--i: 4" />
+        <div v-if="multiTab" class="dd-tabs-wrap" :class="{ 'dd-tabs-over': roomHero }">
+          <TabNav :model-value="currentTab" @update:model-value="$emit('update:tab', $event)" :tabs="tabs" class="dd-tabs-strip dd-rise" style="--i: 4" />
+        </div>
 
         <div class="dd-tab-card dd-rise" style="--i: 4">
           <q-tab-panels v-model="currentTab" animated class="dd-panels">
-            <q-tab-panel name="history" class="q-pa-none">
+            <q-tab-panel name="overview" class="dd-panel">
+              <DetailSections v-if="preview.detailGroups?.length" :groups="preview.detailGroups" />
+            </q-tab-panel>
+
+            <q-tab-panel name="history" class="dd-panel">
               <HistoryTab
                 v-if="!paymentsActive"
                 :preview="preview"
@@ -167,33 +158,30 @@
               />
             </q-tab-panel>
 
-            <q-tab-panel name="documents" class="q-pa-none">
+            <q-tab-panel name="documents" class="dd-panel">
               <FilesTab :preview="preview" />
             </q-tab-panel>
 
-            <q-tab-panel name="rooms" class="q-pa-none">
+            <q-tab-panel name="rooms" class="dd-panel">
               <RoomsTab :preview="preview" @go-room="(rm) => $emit('go-room', rm)" />
             </q-tab-panel>
 
-            <q-tab-panel name="occupants" class="q-pa-none">
+            <q-tab-panel name="occupants" class="dd-panel">
               <OccupantsTab :preview="preview" />
             </q-tab-panel>
 
-            <q-tab-panel name="photos" class="q-pa-none">
+            <q-tab-panel name="photos" class="dd-panel">
               <PhotosTab :preview="preview" />
             </q-tab-panel>
 
-            <q-tab-panel name="activity" class="q-pa-none">
+            <q-tab-panel name="activity" class="dd-panel">
               <ActivityTab :preview="preview" />
             </q-tab-panel>
 
-            <q-tab-panel name="reviews" class="q-pa-none">
+            <q-tab-panel name="reviews" class="dd-panel">
               <ReviewsTab :preview="preview" />
             </q-tab-panel>
           </q-tab-panels>
-          <div class="dd-tab-foot row items-center justify-end">
-            <span class="cursor-pointer text-weight-bold text-caption text-link">View All</span>
-          </div>
         </div>
       </template>
     </template>
@@ -202,6 +190,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import DetailSections from '@/features/drawer/DetailSections.vue'
 import { Icon } from '@iconify/vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import TabNav from '@/components/ui/TabNav.vue'
@@ -257,29 +246,29 @@ function onViewHistory() {
   fullPaymentsMode.value = false
 }
 
-const leftDetails = computed(() => {
-  const d = props.preview.details ?? []
-  return d.slice(0, Math.ceil(d.length / 2))
-})
-const rightDetails = computed(() => {
-  const d = props.preview.details ?? []
-  return d.slice(Math.ceil(d.length / 2))
-})
-
-const showHistoryTab = computed(() => !!(props.preview.card || props.preview.history?.length || props.preview.historyCards?.length))
+const showOverviewTab = computed(() => !!props.preview.detailGroups?.length)
+const showHistoryTab = computed(
+  () =>
+    props.preview.card !== undefined ||
+    props.preview.history !== undefined ||
+    props.preview.historyCards !== undefined,
+)
 const showDocsTab = computed(() => props.preview.files !== undefined && !props.loading)
 const showRoomsTab = computed(() => props.preview.rooms !== undefined && !props.loading)
 const showOccupantsTab = computed(() => props.preview.occupants !== undefined && !props.loading)
+const roomHero = computed(() => props.preview.kind === 'room')
+const coverUrl = computed(() => props.preview.photos?.[0]?.url || '')
 const showPhotosTab = computed(() => props.preview.photos !== undefined && !props.loading)
-const showActivityTab = computed(() => !!(props.preview.activity?.length))
+const showActivityTab = computed(() => props.preview.activity !== undefined)
 const showReviewsTab = computed(() => props.preview.reviews !== undefined && !props.loading)
 const multiTab = computed(
-  () => [showHistoryTab.value, showDocsTab.value, showRoomsTab.value, showOccupantsTab.value, showPhotosTab.value, showActivityTab.value, showReviewsTab.value].filter(Boolean).length >= 2
+  () => [showOverviewTab.value, showHistoryTab.value, showDocsTab.value, showRoomsTab.value, showOccupantsTab.value, showPhotosTab.value, showActivityTab.value, showReviewsTab.value].filter(Boolean).length >= 2
 )
-const hasTabs = computed(() => !!(showHistoryTab.value || showDocsTab.value || showRoomsTab.value || showOccupantsTab.value || showPhotosTab.value || showActivityTab.value || showReviewsTab.value))
+const hasTabs = computed(() => !!(showOverviewTab.value || showHistoryTab.value || showDocsTab.value || showRoomsTab.value || showOccupantsTab.value || showPhotosTab.value || showActivityTab.value || showReviewsTab.value))
 
 const visibleTabs = computed(() => {
   const tabs: string[] = []
+  if (showOverviewTab.value) tabs.push('overview')
   if (showHistoryTab.value) tabs.push('history')
   if (showDocsTab.value) tabs.push('documents')
   if (showRoomsTab.value) tabs.push('rooms')
@@ -293,7 +282,7 @@ const currentTab = computed({
   get: () =>
     props.tab && visibleTabs.value.includes(props.tab)
       ? props.tab
-      : visibleTabs.value[0] || 'history',
+      : visibleTabs.value[0] || 'overview',
   set: (v: string) => {
     emit('update:tab', v)
   },
@@ -301,6 +290,7 @@ const currentTab = computed({
 
 const tabs = computed(() => {
   const t: { name: string; label: string }[] = []
+  if (showOverviewTab.value) t.push({ name: 'overview', label: 'Overview' })
   if (showHistoryTab.value) t.push({ name: 'history', label: props.preview.card?.title || 'Boarding History' })
   if (showDocsTab.value) t.push({ name: 'documents', label: 'Documents' })
   if (showRoomsTab.value) t.push({ name: 'rooms', label: 'Rooms' })
@@ -381,20 +371,9 @@ const placementStats = computed<PreviewStat[]>(() => {
   border: 1px solid var(--c-border);
   border-radius: var(--radius);
   background: var(--c-surface);
-  padding: var(--sp-4);
 }
 .dd-tab-card .q-tab-panel {
   overflow-y: auto;
-}
-.dd-tab-foot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding-top: var(--sp-3);
-  margin-top: var(--sp-3);
-  border-top: 1px solid var(--c-border);
-  min-height: 20px;
 }
 .dd-tabs-strip {
   position: relative;
@@ -427,7 +406,9 @@ const placementStats = computed<PreviewStat[]>(() => {
   background: transparent;
 }
 .dd-panels :deep(.q-tab-panel) {
-  padding: var(--sp-4) 0 0 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-4);
   overflow-y: auto;
 }
 /* Back button in the payment-history header (renders like a preview control). */
@@ -465,5 +446,98 @@ const placementStats = computed<PreviewStat[]>(() => {
   .dd-rise {
     animation: none;
   }
+}
+/* Room hero + tab strip, ported from accommo-mobile's AccommodationDetail:
+   fixed-height cover photo, title overlaid on a top scrim, and a tab strip
+   pulled up over the photo's bottom edge so tabs and panel read as one block
+   rising out of it. */
+/* Like mobile's AccommodationDetail, the room photo IS the top of the panel:
+   the header stops taking its own white strip and floats over the photo with
+   just its menu button, so the picture runs from the very top edge down behind
+   the tab strip. */
+.dd-room-hero {
+  position: relative;
+}
+.dd-room-hero .dd-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  background: transparent;
+  padding: 10px 12px;
+}
+.dd-room-hero .dd-header :deep(.q-btn) {
+  color: #fff;
+  background: rgba(23, 32, 42, 0.55);
+}
+.dd-hero {
+  position: relative;
+  /* flex:0 0 auto — the drawer body is a flex column, so without it the photo
+     gets squeezed by the panel below instead of keeping its height. */
+  flex: 0 0 auto;
+  height: 300px;
+  overflow: hidden;
+  background: var(--c-surface-2);
+}
+.dd-hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.dd-hero-empty {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, var(--c-border), var(--c-surface) 85%);
+}
+.dd-hero-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 45%);
+}
+.dd-hero-head {
+  position: absolute;
+  left: var(--sp-4);
+  right: 54px;
+  top: 14px;
+  z-index: 1;
+}
+.dd-hero-name {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+/* The strip is wrapped in an element this component owns, so the overlap and
+   the over-photo tab styling below never depend on the scope id reaching
+   TabNav's own root — it does not, which is why earlier attempts at this had
+   no effect at all. */
+.dd-tabs-wrap {
+  position: relative;
+  z-index: 2;
+  margin-top: 16px;
+}
+/* The tabs themselves are the plain shared folder tabs, exactly as the user
+   preview has them — only their position changes here, riding the bottom edge
+   of the photo riding a little way up the bottom of the photo. */
+.dd-tabs-over {
+  margin-top: -64px;
+}
+/* Only the fill changes: an unselected tab over the photo is frosted glass, so
+   the picture reads through it. Shape, size and the active tab stay exactly as
+   the user preview's folder tabs. */
+.dd-tabs-over :deep(.folder-tab:not(.q-tab--active)) {
+  color: rgba(255, 255, 255, 0.92);
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.dd-tabs-over :deep(.folder-tab:not(.q-tab--active):hover) {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.24);
 }
 </style>

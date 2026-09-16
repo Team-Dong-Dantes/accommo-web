@@ -1,11 +1,13 @@
 <template>
-  <q-drawer :model-value="true" :mini="miniState" @mouseenter="miniState = false" @mouseleave="miniState = true"
+  <q-drawer :model-value="true" :mini="miniState" @pointerenter="onPointer($event, false)" @pointerleave="onPointer($event, true)"
     :width="248" :mini-width="68" :breakpoint="0" mini-to-overlay class="sidebar-bg">
     <div class="column full-height no-wrap">
 
       <!-- Brand header -->
       <div class="sb-header row items-center no-wrap">
-        <img class="sb-logo" src="/accommo-logo.svg" alt="Accommo">
+        <button class="sb-logo-btn" type="button" :aria-expanded="!miniState" aria-label="Toggle navigation" @click="toggleRail">
+          <img class="sb-logo" src="/accommo-logo.svg" alt="Accommo">
+        </button>
         <div class="sb-brand hide-on-mini">
           <div class="sb-brand-name">accommo</div>
           <div class="sb-brand-sub">OSAS Admin</div>
@@ -15,12 +17,12 @@
       <!-- Search / command trigger -->
       <div class="sb-search-wrap q-px-sm">
         <button class="sb-search hide-on-mini" type="button" @click="paletteOpen = true">
-          <Icon icon="mdi:magnify" width="18" height="18" class="sb-search-magnify" />
+          <Icon icon="lucide:search" width="18" height="18" class="sb-search-magnify" />
           <span class="sb-search-text">Search…</span>
           <kbd class="sb-kbd">{{ kbdHint }}</kbd>
         </button>
         <button class="sb-search-fab show-on-mini" type="button" title="Search (⌘K)" @click="paletteOpen = true">
-          <Icon icon="mdi:magnify" width="20" height="20" />
+          <Icon icon="lucide:search" width="20" height="20" />
         </button>
       </div>
 
@@ -31,7 +33,7 @@
             <!-- Standalone: Dashboard -->
             <q-item clickable v-ripple exact to="/dashboard" active-class="active-menu" class="nav-item">
               <q-item-section avatar class="item-icon">
-                <Icon icon="mdi:view-dashboard-outline" width="22" height="22" />
+                <Icon icon="lucide:layout-dashboard" width="22" height="22" />
               </q-item-section>
               <q-item-section class="nav-text text-weight-bold hide-on-mini">Dashboard</q-item-section>
             </q-item>
@@ -53,7 +55,7 @@
                     :label="formatWorkCount(groupWorkCount(group.children.map(child => child.id)))"
                     :aria-label="workLabel(groupWorkCount(group.children.map(child => child.id)))"
                   />
-                  <Icon :icon="expanded[group.id] ? 'mdi:chevron-up' : 'mdi:chevron-down'" color="white" width="18"
+                  <Icon :icon="expanded[group.id] ? 'lucide:chevron-up' : 'lucide:chevron-down'" color="white" width="18"
                     height="18" />
                 </q-item-section>
               </q-item>
@@ -98,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { navGroups } from './nav-config';
 import CommandPalette from '@/components/ui/CommandPalette.vue';
@@ -106,6 +108,36 @@ import { supabase } from '@/utils/supabase';
 
 const miniState = ref(true);
 const route = useRoute();
+
+// The rail expands on hover, which a tablet cannot do, so the logo is also a
+// toggle. The two have to be told apart per *event*, not per device: an earlier
+// attempt asked `matchMedia('(hover: hover)')` once, and on a tablet that
+// answers yes (a paired trackpad, or a desktop browser in device emulation) the
+// tap's synthetic pointerenter expanded the rail and the click that followed
+// immediately folded it again — so the logo looked dead. Reading
+// `pointerType` instead means a finger never triggers the hover path at all.
+function onPointer(e: PointerEvent, mini: boolean) {
+  if (e.pointerType === 'mouse') {
+    miniState.value = mini;
+    tapOpened.value = false;
+  }
+}
+
+/** True while the rail is open because somebody tapped the logo, not hovered. */
+const tapOpened = ref(false);
+function toggleRail() {
+  miniState.value = !miniState.value;
+  tapOpened.value = !miniState.value;
+}
+// Tapping through to a page ends the interaction: fold the rail back so it stops
+// covering the page it just opened. A mouse user's rail is left alone — their
+// pointer leaving the drawer already closes it.
+watch(() => route.fullPath, () => {
+  if (tapOpened.value) {
+    miniState.value = true;
+    tapOpened.value = false;
+  }
+});
 const paletteOpen = ref(false);
 
 const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -199,6 +231,9 @@ onUnmounted(() => {
   color: var(--c-sidebar-text) !important;
   overflow-x: hidden;
   box-shadow: none !important;
+  /* A defined edge against the pale app background — the rail used to end in a
+     soft gradient with nothing to terminate it. */
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 /* Quasar renders its own drawer shadow inside the drawer (.q-layout__shadow);
@@ -215,12 +250,25 @@ onUnmounted(() => {
 }
 
 .sb-header {
-  padding: 22px 0 14px 18px;
-  gap: 12px;
+  padding: 20px 14px 16px 18px;
+  margin-bottom: 14px;
+  gap: 11px;
+  /* Separates the identity from the navigation instead of letting the two run
+     together down the rail. */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.sb-logo-btn {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
 }
 
 .sb-logo {
-  height: 30px;
+  height: 26px;
   width: auto;
   color: #ffffff;
 }
@@ -235,15 +283,16 @@ onUnmounted(() => {
 .sb-brand-name {
   color: #fff;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 17px;
   font-family: var(--font-display);
+  letter-spacing: -0.025em;
 }
 
 .sb-brand-sub {
+  margin-top: 1px;
   color: var(--c-sidebar-muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 10.5px;
+  font-weight: 500;
 }
 
 /* ----- Search trigger ----- */
@@ -255,9 +304,9 @@ onUnmounted(() => {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: 12px;
+  gap: 9px;
+  padding: 8px 11px;
+  border-radius: 10px;
   background: var(--c-sidebar-search-bg);
   border: 1px solid var(--c-sidebar-search-border);
   color: var(--c-sidebar-muted);
@@ -322,9 +371,9 @@ onUnmounted(() => {
 }
 
 .q-drawer--mini .sb-search-fab {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   background: var(--c-sidebar-search-bg);
   border: 1px solid var(--c-sidebar-search-border);
   color: var(--c-sidebar-text);
@@ -341,26 +390,33 @@ onUnmounted(() => {
   padding: 0;
 }
 
+/* Tighter than the old 46px/14px chunky pills: a console rail should read as
+   precise rather than as a consumer app's tab bar. */
 .nav-item {
-  border-radius: 14px !important;
-  margin: 4px 10px !important;
-  padding: 0 0 0 8px !important;
-  height: 46px !important;
-  min-height: 46px !important;
-  color: var(--c-sidebar-text);
+  position: relative;
+  border-radius: 10px !important;
+  margin: 1px 10px !important;
+  padding: 0 0 0 9px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  /* Not --c-sidebar-muted (0.55 alpha): that token is for captions, and 13px
+     nav labels at that weight sit under AA on this ground. Dimmed enough to let
+     the active row lead, legible enough to read at rest. */
+  color: rgba(234, 244, 241, 0.78);
   display: flex !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  transition: background 0.18s ease, color 0.18s ease;
+  transition: background 0.16s ease, color 0.16s ease;
 }
 
 .nav-item:not(.active-menu):hover {
   background: var(--c-sidebar-hover);
+  color: var(--c-sidebar-text);
 }
 
 .item-icon {
-  min-width: 24px !important;
-  width: 24px !important;
+  min-width: 22px !important;
+  width: 22px !important;
   padding: 0 !important;
   margin-right: 12px !important;
   display: flex !important;
@@ -369,16 +425,21 @@ onUnmounted(() => {
 }
 
 .item-icon .q-icon {
-  font-size: 22px !important;
+  font-size: 20px !important;
 }
 
 .nav-text {
   font-size: 13px;
+  letter-spacing: -0.005em;
   white-space: nowrap;
   padding-left: 0;
   opacity: 1;
   transition: opacity 0.2s ease;
 }
+
+/* Air between groups, so the four sections read as sections rather than one
+   uninterrupted column of rows. */
+.nav-group + .nav-group { margin-top: 2px; }
 
 .nav-group-actions {
   gap: var(--sp-2);
@@ -393,14 +454,16 @@ onUnmounted(() => {
   padding-left: var(--sp-2);
 }
 
+/* Smaller and unbordered: these are counts, not buttons, and the ring around
+   them was making a 21px chip out of a two-digit number. */
 .nav-work-badge {
-  min-width: 21px;
-  height: 21px;
+  min-width: 18px;
+  height: 18px;
   justify-content: center;
-  padding: 0 6px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 0 5px;
+  border: 0;
   border-radius: 999px;
-  background: rgba(224, 101, 75, 0.92) !important;
+  background: var(--c-accent) !important;
   color: #fff;
   font-family: var(--font-mono);
   font-size: 10px;
@@ -420,36 +483,81 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-/* ----- Active state: pill + left accent bar ----- */
+/* ----- Active state: raised surface + left accent bar -----
+   Was a solid #F3F6FA pill, which punched a light-on-dark slab into the rail
+   and made the current page the loudest thing on screen. A lifted translucent
+   surface with a bright accent bar marks it just as clearly and keeps the rail
+   whole. The accent bar is what the old comment here promised and never had. */
 .active-menu {
   position: relative;
-  background-color: var(--c-sidebar-active-bg) !important;
-  color: var(--c-sidebar-active-text) !important;
-  border-radius: 14px !important;
+  background-color: rgba(255, 255, 255, 0.11) !important;
+  color: #ffffff !important;
+  border-radius: 10px !important;
   margin-right: 10px !important;
   font-weight: 700;
 }
 
-.q-drawer--mini .active-menu {
-  border-radius: 14px 0 0 14px !important;
-  margin-right: 0 !important;
+.active-menu::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--c-sidebar-accent);
 }
 
-/* ----- Child items ----- */
+.active-menu .nav-text { font-weight: 700; }
+
+.q-drawer--mini .active-menu {
+  border-radius: 10px !important;
+  margin-right: 10px !important;
+}
+
+/* ----- Child items -----
+   A guide line runs down the open group and the children hang off it, so the
+   nesting is drawn rather than implied by an indent alone. Parent rows stay
+   bold; children drop to regular until active, which is the weight contrast
+   the old 13px-bold / 12px-semibold pairing never really made. */
 .child-item {
-  margin-left: 28px !important;
-  height: 40px !important;
-  min-height: 40px !important;
+  margin-left: 30px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  border-radius: 8px !important;
+}
+
+.child-item::after {
+  content: '';
+  position: absolute;
+  left: -9px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.child-item .item-icon {
+  min-width: 18px !important;
+  width: 18px !important;
+  margin-right: 10px !important;
 }
 
 .child-item .item-icon .q-icon {
-  font-size: 18px !important;
+  font-size: 17px !important;
 }
 
 .child-item .nav-text {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 12.5px;
+  font-weight: 500;
 }
+
+.child-item.active-menu .nav-text { font-weight: 700; }
+/* No accent bar on children: it landed on the guide line and the two fought
+   over the same pixel column. The raised surface and the weight carry it, and
+   the guide stays unbroken. The bar remains a top-level marker. */
+.child-item.active-menu::before { display: none; }
 
 .q-drawer--mini .nav-item {
   justify-content: flex-start !important;

@@ -1,56 +1,66 @@
 <template>
-  <div class="full-width flex column items-center">
+  <div class="signin">
+    <header class="signin-head">
+      <h1>Sign in</h1>
+      <p>Office of Student Affairs and Services. Staff accounts only.</p>
+    </header>
 
-    <div class="row items-center justify-center q-mb-lg">
-      <div class="text-h6 text-white text-weight-bolder" style="letter-spacing: -0.5px;">accommo</div>
-      <div class="admin-badge q-ml-sm text-weight-bold">ADMIN</div>
-    </div>
+    <q-form @submit.prevent="handleLogin" ref="loginFormRef" class="signin-form">
+      <label class="field">
+        <span class="field-label">Email address</span>
+        <AuthInput v-model="email" autocomplete="username" :rules="[(val: string) => !!val || 'Email is required', (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) || 'Enter a valid email address']">
+          <template #prepend><Icon icon="lucide:mail" width="18" height="18" /></template>
+        </AuthInput>
+      </label>
 
-    <q-card class="login-card full-width shadow-15" flat bordered>
-      <q-card-section class="q-pa-md q-pt-lg">
-        <h4 class="text-white text-h6 text-weight-bold q-mt-none q-mb-xs">Sign in</h4>
-        <p class="text-caption q-mb-lg" style="color: #7b8390;">OSAS Staff Portal · ISU Echague</p>
+      <label class="field">
+        <span class="field-label">Password</span>
+        <AuthInput v-model="password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password"
+          :rules="[(val: string) => !!val || 'Password is required']">
+          <template #prepend><Icon icon="lucide:lock" width="18" height="18" /></template>
+          <template #append>
+            <button type="button" class="reveal" :aria-label="showPassword ? 'Hide password' : 'Show password'"
+              @click="showPassword = !showPassword">
+              <Icon :icon="showPassword ? 'lucide:eye-off' : 'lucide:eye'" width="18" height="18" />
+            </button>
+          </template>
+        </AuthInput>
+      </label>
 
-        <q-form @submit.prevent="handleLogin" ref="loginFormRef">
-          <AuthInput v-model="email" label="Email" :rules="[(val: string) => !!val || 'Email is required', (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) || 'Enter a valid email address']">
-            <template #prepend><Icon icon="mdi:email-outline" width="18" height="18" color="#9e9e9e" /></template>
-          </AuthInput>
+      <!-- Recovery link belongs on this row once the reset flow exists; the row
+           is here so adding it later moves nothing else. -->
+      <div class="signin-actions">
+        <AuthButton type="submit" :loading="loading">Sign in</AuthButton>
+      </div>
+    </q-form>
 
-          <AuthInput v-model="password" :type="showPassword ? 'text' : 'password'" label="Password" class="q-mt-sm"
-            :rules="[(val: string) => !!val || 'Password is required']">
-            <template #prepend><Icon icon="mdi:lock-outline" width="18" height="18" color="#9e9e9e" /></template>
-            <template #append>
-              <Icon :icon="showPassword ? 'mdi:eye' : 'mdi:eye-off'" class="cursor-pointer" color="#9e9e9e"
-                width="18" height="18" @click="showPassword = !showPassword" />
-            </template>
-          </AuthInput>
-
-          <AuthButton type="submit" :loading="loading" class="q-mt-lg">
-            Sign In
-            <Icon icon="mdi:arrow-right" width="16" height="16" class="q-ml-sm" />
-          </AuthButton>
-        </q-form>
-      </q-card-section>
-    </q-card>
-
-    <div class="footer-text q-mt-lg text-center">
-      © 2026 Accommo · Restricted access
-    </div>
+    <p class="signin-foot">
+      Access is restricted to accounts an administrator has invited.
+    </p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useQuasar, type QForm } from 'quasar';
 import { useAuthStore } from '@/stores/auth';
 
 import AuthInput from '@/components/auth/AuthInput.vue';
 import AuthButton from '@/components/auth/AuthButton.vue';
 
+const route = useRoute();
 const router = useRouter();
 const $q = useQuasar();
 const authStore = useAuthStore();
+
+// The router guard signs a suspended admin out mid-session and lands them here.
+// Without this they'd arrive at a blank login screen with no idea why.
+onMounted(() => {
+  if (route.query.suspended === 'true') {
+    $q.notify({ message: 'This account has been suspended.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' });
+  }
+});
 
 const email = ref('');
 const password = ref('');
@@ -81,26 +91,69 @@ async function handleLogin() {
 </script>
 
 <style scoped>
-.admin-badge {
-  background-color: #06393b;
-  color: #12c299;
-  font-size: 9px;
-  padding: 2px 6px;
-  border-radius: 8px;
-  letter-spacing: 0.5px;
+/* Light type: the form sits on the photograph behind glass, not on a pale
+   surface. The slate-blue hex this page used to carry is gone either way — it
+   made the staff door a third design language next to the landing page and the
+   console. */
+.signin-head h1 {
+  margin: 0;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 1.95rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.signin-head p {
+  max-width: 34ch;
+  margin: 8px 0 0;
+  /* Over a lighter veil the supporting line needs more weight than 0.76. */
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-shadow: 0 1px 8px rgba(0, 22, 19, 0.5);
+}
+.signin-head h1 { text-shadow: 0 2px 14px rgba(0, 22, 19, 0.45); }
+
+.signin-form {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.login-card {
-  background-color: #1e232b;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  max-width: 360px;
-  /* Made the card narrower */
-  width: 100%;
+/* A real label above each field instead of a floating placeholder: on a form
+   someone fills in monthly, the labels should still be readable once the
+   fields have content in them. */
+.field { display: block; }
+.field-label {
+  display: block;
+  margin-bottom: 7px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
-.footer-text {
-  color: #4b5563;
-  font-size: 11px;
+.reveal {
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+.reveal:hover { color: #ffffff; }
+.reveal:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.85); outline-offset: 1px; }
+
+.signin-actions { margin-top: 10px; }
+
+.signin-foot {
+  margin: 26px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.78rem;
+  line-height: 1.5;
 }
 </style>

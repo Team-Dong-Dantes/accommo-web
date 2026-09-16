@@ -62,6 +62,19 @@ export function getInitialsWide(name: string | null | undefined): string {
   return first.slice(0, 2).toUpperCase()
 }
 
+/**
+ * snake_case database value → human label ("boarding_house" → "Boarding House").
+ *
+ * Lives here rather than beside its first caller because three surfaces render
+ * raw enum values: the audit log's action/entity columns, the accommodation
+ * type in the hub and map, and anything else that reaches a `*_type` column.
+ * `features/audit/logMapping.ts` re-exports it as `label` for its own callers.
+ */
+export function humanizeEnum(value: string | null | undefined): string {
+  if (!value) return '—'
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 export function roleLabel(role: string | null | undefined): string {
   switch (role) {
     case 'admin': return 'Administrator'
@@ -80,6 +93,30 @@ export function formatTime(iso: string): string {
 // Shared ticket activity timeline helpers.
 export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+/**
+ * Escapes a value for interpolation into a string that will be rendered with
+ * `v-html`.
+ *
+ * The drawer's activity feed (features/users/userPreview.ts → ActivityTab.vue)
+ * composes short HTML fragments so a name can be bolded, and the values going
+ * into them are user-written: `full_name` is whatever someone typed at
+ * registration, accommodation names are whatever a manager typed. Unescaped,
+ * a student calling themselves `<img src=x onerror=…>` ran script in an OSAS
+ * admin's session.
+ *
+ * Use this on every value spliced into markup. The markup itself is ours and
+ * stays literal — that is the whole reason the feed uses `v-html` rather than
+ * a text interpolation.
+ */
+export function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 export function dayLabel(day: string, now = new Date()): string {

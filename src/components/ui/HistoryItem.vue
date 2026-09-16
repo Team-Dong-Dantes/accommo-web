@@ -5,7 +5,7 @@
       <span v-if="chip" class="usr-rt-chip">{{ chip }}</span>
     </div>
     <div v-if="subtitle" class="usr-hist-addr text-muted">
-      <Icon v-if="pin" icon="mdi:map-marker" width="13" height="13" class="q-mr-xs" />
+      <Icon v-if="pin" icon="lucide:map-pin" width="13" height="13" class="q-mr-xs" />
       {{ subtitle }}
     </div>
     <div v-if="meta" class="usr-hist-period text-muted">{{ meta }}</div>

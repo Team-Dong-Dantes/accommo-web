@@ -10,7 +10,7 @@
         <div class="center-actions">
           <span class="unread-stat" role="status" aria-live="polite"><b>{{ unreadCount }}</b> unread</span>
           <q-btn v-if="unreadCount" flat no-caps class="mark-all-btn" :loading="markingAll" @click="markAllRead">
-            <Icon icon="mdi:check-all" width="17" height="17" class="q-mr-xs" aria-hidden="true" />Mark all read
+            <Icon icon="lucide:check-check" width="17" height="17" class="q-mr-xs" aria-hidden="true" />Mark all read
           </q-btn>
         </div>
       </header>
@@ -20,7 +20,7 @@
       </section>
 
       <section v-else-if="error" class="notification-card notification-error" role="alert">
-        <Icon icon="mdi:alert-circle-outline" width="22" height="22" aria-hidden="true" />
+        <Icon icon="lucide:circle-alert" width="22" height="22" aria-hidden="true" />
         <div><strong>Notifications could not be loaded.</strong><span>{{ error }}</span></div>
         <q-btn flat no-caps color="primary" label="Try again" @click="load" />
       </section>
@@ -39,7 +39,7 @@
                 <q-item-label class="row-title">{{ notification.title }}</q-item-label>
                 <q-item-label caption class="row-body">{{ notification.body }}</q-item-label>
               </q-item-section>
-              <q-item-section side class="row-action"><span>Open</span><Icon icon="mdi:arrow-right" width="17" height="17" aria-hidden="true" /></q-item-section>
+              <q-item-section side class="row-action"><span>Open</span><Icon icon="lucide:arrow-right" width="17" height="17" aria-hidden="true" /></q-item-section>
             </q-item>
           </q-list>
         </section>
@@ -57,14 +57,14 @@
                 <q-item-label class="row-title">{{ notification.title }}</q-item-label>
                 <q-item-label caption class="row-body">{{ notification.body }}</q-item-label>
               </q-item-section>
-              <q-item-section side class="row-action"><span>Open</span><Icon icon="mdi:arrow-right" width="17" height="17" aria-hidden="true" /></q-item-section>
+              <q-item-section side class="row-action"><span>Open</span><Icon icon="lucide:arrow-right" width="17" height="17" aria-hidden="true" /></q-item-section>
             </q-item>
           </q-list>
         </section>
       </template>
 
       <section v-else class="notification-card empty-state">
-        <div class="empty-mark"><Icon icon="mdi:bell-check-outline" width="31" height="31" aria-hidden="true" /></div>
+        <div class="empty-mark"><Icon icon="lucide:bell-ring" width="31" height="31" aria-hidden="true" /></div>
         <p class="section-kicker">No follow-up needed</p>
         <h2>Your notification center is clear.</h2>
         <p>New verification requests, support tickets, accommodations, payments, and lease activity will appear here.</p>

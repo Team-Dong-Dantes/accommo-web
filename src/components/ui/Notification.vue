@@ -1,6 +1,6 @@
 <template>
   <q-btn flat dense class="notif-trigger relative-position" :aria-label="notificationTriggerLabel">
-    <Icon icon="mdi:bell-outline" width="19" height="19" aria-hidden="true" />
+    <Icon icon="lucide:bell" width="19" height="19" aria-hidden="true" />
     <q-badge v-if="unreadCount > 0" floating class="notif-count" rounded>{{ unreadCount > 9 ? '9+' : unreadCount }}</q-badge>
 
     <q-menu
@@ -27,7 +27,7 @@
         </header>
 
         <div class="popover-summary" role="status" aria-live="polite">
-          <Icon :icon="unreadCount ? 'mdi:bell-badge-outline' : 'mdi:check-circle-outline'" width="17" height="17" aria-hidden="true" />
+          <Icon :icon="unreadCount ? 'lucide:bell-dot' : 'lucide:circle-check'" width="17" height="17" aria-hidden="true" />
           <span>{{ inboxSummary }}</span>
         </div>
 
@@ -57,20 +57,20 @@
             </q-item-section>
             <q-item-section side top class="notification-side">
               <span v-if="notif.unread" class="unread-dot" aria-label="Unread" />
-              <Icon icon="mdi:chevron-right" width="17" height="17" aria-hidden="true" />
+              <Icon icon="lucide:chevron-right" width="17" height="17" aria-hidden="true" />
             </q-item-section>
           </q-item>
         </q-list>
 
         <div v-else class="popover-empty">
-          <div class="empty-icon"><Icon icon="mdi:bell-check-outline" width="24" height="24" aria-hidden="true" /></div>
+          <div class="empty-icon"><Icon icon="lucide:bell-ring" width="24" height="24" aria-hidden="true" /></div>
           <strong>Inbox clear</strong>
           <span>New operational activity will appear here.</span>
         </div>
 
         <footer class="popover-foot">
           <q-btn flat no-caps class="open-center-btn" @click="viewAll">
-            Open notification center <Icon icon="mdi:arrow-right" width="16" height="16" class="q-ml-xs" aria-hidden="true" />
+            Open notification center <Icon icon="lucide:arrow-right" width="16" height="16" class="q-ml-xs" aria-hidden="true" />
           </q-btn>
         </footer>
       </section>

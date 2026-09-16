@@ -7,7 +7,7 @@
           <Icon
             v-for="n in 5"
             :key="n"
-            :icon="n <= r.rating ? 'mdi:star' : 'mdi:star-outline'"
+            :icon="n <= r.rating ? 'lucide:star' : 'lucide:star'"
             width="14"
             height="14"
             :style="{ color: 'var(--c-warning)' }"
@@ -18,10 +18,11 @@
       <div v-if="r.time" class="text-caption dd-muted q-mt-xs">{{ r.time }}</div>
     </div>
   </div>
-  <div v-else class="dd-empty">No reviews yet for this account.</div>
+  <TabEmptyState v-else icon="lucide:star" title="No reviews" message="Nobody has left a review for this account yet." />
 </template>
 
 <script setup lang="ts">
+import TabEmptyState from './TabEmptyState.vue'
 import { Icon } from '@iconify/vue'
 import type { DrawerPreview } from './preview'
 
@@ -45,13 +46,5 @@ defineProps<{ preview: DrawerPreview }>()
 }
 .dd-stars {
   line-height: 1;
-}
-.dd-empty {
-  font-size: 13px;
-  color: var(--c-muted);
-  padding: 10px 12px;
-  border: 1px dashed var(--c-border);
-  border-radius: var(--radius-sm);
-  background: var(--c-surface-2);
 }
 </style>

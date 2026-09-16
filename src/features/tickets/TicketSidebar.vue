@@ -10,7 +10,7 @@
               <span class="ov-cap">Status</span>
               <q-btn unelevated no-caps padding="none" class="chip-trigger" :ripple="false">
                 <BadgePill :tone="getStatus(ticket.status).tone" :icon="getStatus(ticket.status).icon ?? ''" :label="stLabel(ticket.status)" />
-                <Icon icon="mdi:chevron-down" width="14" height="14" class="chip-caret" />
+                <Icon icon="lucide:chevron-down" width="14" height="14" class="chip-caret" />
                 <q-menu anchor="bottom left" self="top left" class="chip-menu">
                   <button v-for="o in STATUS_OPTS" :key="o.value" class="pop-item" :class="{ 'is-active': ticket.status === o.value }" @click="$emit('update:status', o.value)">
                     <span class="pop-dot" :style="{ background: toneVar(getStatus(o.value).tone) }"></span>{{ o.label }}
@@ -23,7 +23,7 @@
               <span class="ov-cap">Priority</span>
               <q-btn unelevated no-caps padding="none" class="chip-trigger" :ripple="false">
                 <BadgePill :tone="getStatus(ticket.priority).tone" :icon="getStatus(ticket.priority).icon ?? ''" :label="stLabel(ticket.priority)" />
-                <Icon icon="mdi:chevron-down" width="14" height="14" class="chip-caret" />
+                <Icon icon="lucide:chevron-down" width="14" height="14" class="chip-caret" />
                 <q-menu anchor="bottom left" self="top left" class="chip-menu">
                   <button v-for="o in PRIORITY_OPTS" :key="o.value" class="pop-item" :class="{ 'is-active': ticket.priority === o.value }" @click="$emit('update:priority', o.value)">
                     <span class="pop-dot" :style="{ background: toneVar(getStatus(o.value).tone) }"></span>{{ o.label }}
@@ -42,8 +42,8 @@
           </div>
         </div>
 
-        <button class="btn-resolve" v-if="ticket.status !== 'resolved'" @click="$emit('resolve')"><Icon icon="mdi:check-circle-outline" width="18" height="18" /> Resolve</button>
-        <span class="resolved-tag" v-else><Icon icon="mdi:check-circle" width="18" height="18" /> Resolved</span>
+        <button class="btn-resolve" v-if="ticket.status !== 'resolved'" @click="$emit('resolve')"><Icon icon="lucide:circle-check" width="18" height="18" /> Resolve</button>
+        <span class="resolved-tag" v-else><Icon icon="lucide:circle-check" width="18" height="18" /> Resolved</span>
       </section>
 
       <div class="rd-section">
@@ -51,7 +51,7 @@
         <div class="rd-timeline">
           <div class="tl-item intro-x" v-for="(a, ai) in activityItems" :key="ai">
             <div class="tl-rail">
-              <span class="tl-icon" :style="activityIconStyle(a)"><Icon :icon="a.icon || 'mdi:circle'" width="16" height="16" /></span>
+              <span class="tl-icon" :style="activityIconStyle(a)"><Icon :icon="a.icon || 'lucide:circle'" width="16" height="16" /></span>
               <span v-if="ai < activityItems.length - 1" class="tl-line"></span>
             </div>
             <div class="tl-body">
@@ -92,9 +92,9 @@ const activityItems = computed(() => {
   const t = props.ticket
   const s = getStatus(t.status)
   return [
-    { icon: s.icon || 'mdi:circle', text: `Status set to ${stLabel(t.status)}`, time: getTimeAgo(t.updatedAt), tone: s.tone },
-    { icon: 'mdi:account-check', text: t.assignee ? `Assigned to ${t.assignee}` : 'Awaiting assignment', time: getTimeAgo(t.updatedAt), tone: t.assignee ? 'success' : 'warning' },
-    { icon: 'mdi:ticket-outline', text: 'Ticket reported', time: formatDateTime(t.reportedAt), tone: 'info' },
+    { icon: s.icon || 'lucide:circle', text: `Status set to ${stLabel(t.status)}`, time: getTimeAgo(t.updatedAt), tone: s.tone },
+    { icon: 'lucide:user-check', text: t.assignee ? `Assigned to ${t.assignee}` : 'Awaiting assignment', time: getTimeAgo(t.updatedAt), tone: t.assignee ? 'success' : 'warning' },
+    { icon: 'lucide:ticket', text: 'Ticket reported', time: formatDateTime(t.reportedAt), tone: 'info' },
   ]
 })
 

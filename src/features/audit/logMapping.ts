@@ -3,9 +3,15 @@
 // realtime INSERT upsert on that page.
 
 import type { StatusTone } from '@/utils/status.config'
+import { humanizeEnum } from '@/utils/format'
 
+// Kept as a named re-export so the existing callers in this feature don't churn;
+// the implementation moved to utils/format.ts, which is where shared string
+// helpers live (ARCHITECTURE.md rule 4).
+// `humanizeEnum` renders a missing value as an em dash; this surface has always
+// rendered it as an empty cell, so keep that rather than change the table.
 export function label(s: string) {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  return s ? humanizeEnum(s) : ''
 }
 
 export function fmtDate(iso: string) {
@@ -35,7 +41,7 @@ const IGNORED_DIFF_KEYS = new Set([
 
 // Full-row snapshot → a single human-readable change line (first meaningful diff).
 // Aggregate diffs (beyond the first) are summarized as "+N more fields".
-function diffJson(before: any, after: any, entityType: string): any {
+function diffJson(before: any, after: any, _entityType: string): any {
   if (!before || !after || typeof before !== 'object' || typeof after !== 'object') return null
   const keys = Object.keys({ ...before, ...after }).filter(k => !IGNORED_DIFF_KEYS.has(k))
 

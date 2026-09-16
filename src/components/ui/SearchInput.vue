@@ -9,7 +9,7 @@
     style="width: 300px;"
   >
     <template v-slot:prepend>
-      <Icon icon="mdi:magnify" width="20" height="20" color="#757575" />
+      <Icon icon="lucide:search" width="20" height="20" color="#757575" />
     </template>
   </q-input>
 </template>

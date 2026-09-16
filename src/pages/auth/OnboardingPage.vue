@@ -1,44 +1,37 @@
 <template>
-  <div class="full-width flex column items-center">
-    <div class="row items-center justify-center q-mb-lg">
-      <div class="text-h6 text-white text-weight-bolder" style="letter-spacing: -0.5px;">accommo</div>
-      <div class="admin-badge q-ml-sm text-weight-bold">ADMIN</div>
-    </div>
+  <!-- The wordmark and the standing line live in AuthLayout now; both auth
+       screens were rendering their own copy. -->
+  <div class="onboard">
+    <header class="onboard-head">
+      <h1>Complete your profile</h1>
+      <p>Set your name so the rest of the team knows who acted on a record.</p>
+    </header>
 
-    <q-card class="onboard-card full-width shadow-15" flat bordered>
-      <q-card-section class="q-pa-md q-pt-lg">
-        <h4 class="text-white text-h6 text-weight-bold q-mt-none q-mb-xs">Complete your profile</h4>
-        <p class="text-caption q-mb-lg" style="color: #7b8390;">
-          Welcome to Accommo. Set your name so the team knows who you are.
-        </p>
+    <q-form @submit.prevent="submit" ref="formRef" class="onboard-form">
+      <label class="field">
+        <span class="field-label">Full name</span>
+        <AuthInput v-model="fullName" autocomplete="name"
+          :rules="[(val: string) => !!val.trim() || 'Please enter your full name']">
+          <template #prepend><Icon icon="lucide:user" width="18" height="18" /></template>
+        </AuthInput>
+      </label>
 
-        <q-form @submit.prevent="submit" ref="formRef">
-          <AuthInput v-model="fullName" label="Full name"
-            :rules="[(val: string) => !!val.trim() || 'Please enter your full name']">
-            <template #prepend><Icon icon="mdi:account-outline" width="18" height="18" color="#9e9e9e" /></template>
-          </AuthInput>
+      <label class="field">
+        <span class="field-label">Phone number <span class="field-optional">optional</span></span>
+        <AuthInput v-model="phone" autocomplete="tel">
+          <template #prepend><Icon icon="lucide:phone" width="18" height="18" /></template>
+        </AuthInput>
+      </label>
 
-          <AuthInput v-model="phone" label="Phone number (optional)" class="q-mt-sm">
-            <template #prepend><Icon icon="mdi:phone-outline" width="18" height="18" color="#9e9e9e" /></template>
-          </AuthInput>
+      <div class="onboard-actions">
+        <AuthButton type="submit" :loading="saving">Finish setup</AuthButton>
+      </div>
+    </q-form>
 
-          <AuthButton type="submit" :loading="saving" class="q-mt-lg">
-            Finish setup
-            <Icon icon="mdi:arrow-right" width="16" height="16" class="q-ml-sm" />
-          </AuthButton>
-        </q-form>
-
-        <div class="text-center q-mt-md">
-          <q-btn flat dense no-caps class="text-grey-6 text-caption" @click="logout">
-            Sign out
-          </q-btn>
-        </div>
-      </q-card-section>
-    </q-card>
-
-    <div class="footer-text q-mt-lg text-center">
-      © 2026 Accommo · Restricted access
-    </div>
+    <p class="onboard-foot">
+      Signed in as the wrong account?
+      <button type="button" class="onboard-signout" @click="logout">Sign out</button>
+    </p>
   </div>
 </template>
 
@@ -113,25 +106,64 @@ async function logout() {
 </script>
 
 <style scoped>
-.admin-badge {
-  background-color: #06393b;
-  color: #12c299;
-  font-size: 9px;
-  padding: 2px 6px;
-  border-radius: 8px;
-  letter-spacing: 0.5px;
+/* Light type — this screen shares AuthLayout's glass panel with the sign-in. */
+.onboard-head h1 {
+  margin: 0;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 1.95rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.onboard-head p {
+  max-width: 34ch;
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
-.onboard-card {
-  background-color: #1e232b;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  max-width: 360px;
-  width: 100%;
+.onboard-form {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.footer-text {
-  color: #4b5563;
-  font-size: 11px;
+.field { display: block; }
+.field-label {
+  display: block;
+  margin-bottom: 7px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.82rem;
+  font-weight: 600;
 }
+.field-optional {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 400;
+}
+
+.onboard-actions { margin-top: 10px; }
+
+.onboard-foot {
+  margin: 26px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.78rem;
+}
+.onboard-signout {
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.onboard-signout:hover { color: rgba(255, 255, 255, 0.8); }
+.onboard-signout:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.85); outline-offset: 1px; }
 </style>

@@ -13,7 +13,7 @@
 
         <div class="tw-panel">
           <header class="tw-head">
-            <button class="tw-back" @click="$emit('close')" aria-label="Close ticket"><Icon icon="mdi:arrow-left" width="20" height="20" /></button>
+            <button class="tw-back" @click="$emit('close')" aria-label="Close ticket"><Icon icon="lucide:arrow-left" width="20" height="20" /></button>
             <div class="tw-head-main">
               <span class="tw-ref">{{ ticket.ref }}</span>
               <h1 class="tw-subject">{{ ticket.subject }}</h1>
@@ -44,7 +44,7 @@
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
-import { useTickets, type Ticket } from '@/composables/useTickets'
+import type { Ticket } from '@/composables/useTickets'
 import TicketSidebar from './TicketSidebar.vue'
 import MessageThread from './MessageThread.vue'
 import TicketDetails from './TicketDetails.vue'

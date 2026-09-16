@@ -8,7 +8,7 @@
           <p class="drill-sub">{{ rows.length }} user{{ rows.length !== 1 ? 's' : '' }} in range</p>
         </div>
         <q-btn flat round dense class="icon-btn" @click="open = false" icon="close">
-          <Icon icon="mdi:close" width="18" height="18" />
+          <Icon icon="lucide:x" width="18" height="18" />
         </q-btn>
       </q-card-section>
 

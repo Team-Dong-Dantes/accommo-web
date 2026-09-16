@@ -1,10 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import {
   dayLabel,
+  escapeHtml,
   getInitials,
   getInitialsWide,
   roleLabel,
 } from './format';
+
+describe('escapeHtml', () => {
+  // The drawer's activity feed renders these strings with v-html, so a name is
+  // an injection point. This is the regression guard for that.
+  it('neutralises a script-bearing display name', () => {
+    expect(escapeHtml('<img src=x onerror=alert(1)>')).toBe(
+      '&lt;img src=x onerror=alert(1)&gt;',
+    );
+  });
+
+  it('escapes quotes so a value cannot break out of an attribute', () => {
+    expect(escapeHtml(`" onmouseover="evil()`)).toBe(
+      '&quot; onmouseover=&quot;evil()',
+    );
+    expect(escapeHtml("O'Brien")).toBe('O&#39;Brien');
+  });
+
+  it('escapes ampersands first so entities are not double-decoded', () => {
+    expect(escapeHtml('&lt;')).toBe('&amp;lt;');
+  });
+
+  it('leaves ordinary names untouched', () => {
+    expect(escapeHtml('Mario Santos')).toBe('Mario Santos');
+  });
+
+  it('renders null and undefined as empty rather than the words', () => {
+    expect(escapeHtml(null)).toBe('');
+    expect(escapeHtml(undefined)).toBe('');
+  });
+});
 
 describe('dayLabel', () => {
   const now = new Date(2026, 7, 30, 12);

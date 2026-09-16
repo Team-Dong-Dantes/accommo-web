@@ -1,5 +1,12 @@
 <template>
-  <div class="dd-activity">
+  <TabEmptyState
+    v-if="!preview.activity?.length"
+    icon="lucide:history"
+    title="No activity"
+    message="Nothing has happened here yet that we keep a record of."
+  />
+
+  <div v-else class="dd-activity">
     <div
       v-for="(a, i) in preview.activity"
       :key="i"
@@ -7,7 +14,7 @@
     >
       <div class="dd-act-rail">
         <span class="dd-act-icon" :style="activityIconStyle(a)">
-          <Icon :icon="a.icon || 'mdi:circle'" width="17" height="17" />
+          <Icon :icon="a.icon || 'lucide:circle'" width="17" height="17" />
         </span>
         <span v-if="preview.activity && i < preview.activity.length - 1" class="dd-act-line"></span>
       </div>
@@ -20,6 +27,7 @@
 </template>
 
 <script setup lang="ts">
+import TabEmptyState from './TabEmptyState.vue'
 import { Icon } from '@iconify/vue'
 import type { DrawerPreview } from './preview'
 import { activityIconStyle } from './preview'

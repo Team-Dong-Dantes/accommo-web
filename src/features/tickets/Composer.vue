@@ -2,19 +2,19 @@
   <form class="reply-draft" :class="{ 'is-note': replyMode === 'internal' }" @submit.prevent="submit">
     <header class="draft-head">
       <q-btn flat dense no-caps class="draft-mode">
-        <Icon :icon="replyMode === 'internal' ? 'mdi:lock-outline' : 'mdi:reply-outline'" width="16" height="16" aria-hidden="true" />
+        <Icon :icon="replyMode === 'internal' ? 'lucide:lock' : 'lucide:reply'" width="16" height="16" aria-hidden="true" />
         {{ replyMode === 'internal' ? 'Internal note' : `Reply to ${ticket.reporterName}` }}
-        <Icon icon="mdi:chevron-down" width="15" height="15" aria-hidden="true" />
+        <Icon icon="lucide:chevron-down" width="15" height="15" aria-hidden="true" />
         <q-menu anchor="top left" self="bottom left" class="reply-mode-menu">
           <button v-close-popup type="button" class="reply-mode-option" :class="{ 'is-active': replyMode === 'public' }" @click="replyMode = 'public'">
-            <Icon icon="mdi:reply-outline" width="16" height="16" aria-hidden="true" /><span><strong>Reply to requester</strong><small>{{ ticket.reporterName }}</small></span>
+            <Icon icon="lucide:reply" width="16" height="16" aria-hidden="true" /><span><strong>Reply to requester</strong><small>{{ ticket.reporterName }}</small></span>
           </button>
           <button v-close-popup type="button" class="reply-mode-option" :class="{ 'is-active': replyMode === 'internal' }" @click="replyMode = 'internal'">
-            <Icon icon="mdi:lock-outline" width="16" height="16" aria-hidden="true" /><span><strong>Internal note</strong><small>Visible to support staff only</small></span>
+            <Icon icon="lucide:lock" width="16" height="16" aria-hidden="true" /><span><strong>Internal note</strong><small>Visible to support staff only</small></span>
           </button>
         </q-menu>
       </q-btn>
-      <span v-if="replyMode === 'internal'" class="draft-private"><Icon icon="mdi:eye-off-outline" width="14" height="14" aria-hidden="true" />Not visible to requester</span>
+      <span v-if="replyMode === 'internal'" class="draft-private"><Icon icon="lucide:eye-off" width="14" height="14" aria-hidden="true" />Not visible to requester</span>
     </header>
 
     <q-input
@@ -29,7 +29,7 @@
 
     <footer class="draft-footer">
       <q-btn flat round dense class="template-button" aria-label="Insert a quick reply template">
-        <Icon icon="mdi:lightning-bolt-outline" width="17" height="17" aria-hidden="true" />
+        <Icon icon="lucide:zap" width="17" height="17" aria-hidden="true" />
         <q-tooltip>Insert template</q-tooltip>
         <q-menu anchor="top left" self="bottom left" class="template-menu">
           <button v-close-popup v-for="template in templates" :key="template.key" type="button" class="template-item" @click="insertTemplate(template.text)">
@@ -40,8 +40,8 @@
       </q-btn>
       <button class="draft-send" type="submit" :disabled="!draft.trim() || sending">
         {{ sending ? 'Sending' : replyMode === 'internal' ? 'Add note' : 'Send' }}
-        <Icon v-if="sending" icon="mdi:loading" width="17" height="17" class="is-spinning" aria-hidden="true" />
-        <Icon v-else :icon="replyMode === 'internal' ? 'mdi:note-plus-outline' : 'mdi:send-outline'" width="17" height="17" aria-hidden="true" />
+        <Icon v-if="sending" icon="lucide:loader-circle" width="17" height="17" class="is-spinning" aria-hidden="true" />
+        <Icon v-else :icon="replyMode === 'internal' ? 'lucide:file-plus' : 'lucide:send'" width="17" height="17" aria-hidden="true" />
       </button>
     </footer>
   </form>

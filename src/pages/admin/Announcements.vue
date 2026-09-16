@@ -16,7 +16,7 @@
           :text-color="showArchived ? 'primary' : 'ink'"
           @click="showArchived = !showArchived"
         >
-          <Icon :icon="showArchived ? 'mdi:archive-off-outline' : 'mdi:archive-outline'" width="20" height="20" />
+          <Icon :icon="showArchived ? 'lucide:archive-x' : 'lucide:archive'" width="20" height="20" />
           <q-badge v-if="showArchived" floating color="primary" rounded transparent class="archive-active-dot" />
           <q-tooltip>{{ showArchived ? 'Active' : 'Archived' }}</q-tooltip>
         </q-btn>
@@ -27,14 +27,14 @@
           class="text-weight-bold rounded-button"
           @click="openCreate()"
         >
-          <Icon :icon="activeTab === 'announcements' ? 'mdi:bullhorn' : 'mdi:gavel'" class="on-left" width="18" height="18" />
+          <Icon :icon="activeTab === 'announcements' ? 'lucide:megaphone' : 'lucide:gavel'" class="on-left" width="18" height="18" />
           {{ activeTab === 'announcements' ? 'New Announcement' : 'New Policy' }}
         </q-btn>
       </div>
     </div>
 
     <div v-if="fetchError" class="text-white bg-negative q-pa-sm q-px-md q-mb-md" style="border-radius: 12px; font-size: 13px;">
-      <Icon icon="mdi:alert-circle-outline" class="q-mr-xs" width="16" height="16" style="vertical-align: middle;" />
+      <Icon icon="lucide:circle-alert" class="q-mr-xs" width="16" height="16" style="vertical-align: middle;" />
       Could not load {{ activeTab === 'announcements' ? 'announcements' : 'policies' }}: {{ fetchError }}
     </div>
 
@@ -57,7 +57,7 @@
             <DataTable :rows="paginatedData" :columns="announcementColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
-                  <Icon icon="mdi:bullhorn-outline" width="48" height="48" class="q-mb-md" />
+                  <Icon icon="lucide:megaphone" width="48" height="48" class="q-mb-md" />
                   <div class="text-h6 text-weight-bold">Nothing here yet</div>
                   <div>No announcements found.</div>
                 </div>
@@ -78,14 +78,14 @@
                   <q-td key="author" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.authorName }}</q-td>
                   <q-td key="date" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.dateLabel }}</q-td>
                   <q-td key="actions" :props="props" class="row items-center justify-end q-gutter-x-sm no-wrap">
-                    <q-btn flat dense color="grey-6" size="sm" class="custom-radius" @click="openView(props.row)"><Icon icon="mdi:eye" width="18" height="18" /><q-tooltip>View</q-tooltip></q-btn>
+                    <q-btn flat dense color="grey-6" size="sm" class="custom-radius" @click="openView(props.row)"><Icon icon="lucide:eye" width="18" height="18" /><q-tooltip>View</q-tooltip></q-btn>
                     <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="togglePublish(props.row)">
-                      <Icon :icon="props.row.status === 'published' ? 'mdi:eye-off-outline' : 'mdi:send-outline'" width="18" height="18" />
+                      <Icon :icon="props.row.status === 'published' ? 'lucide:eye-off' : 'lucide:send'" width="18" height="18" />
                       <q-tooltip>{{ props.row.status === 'published' ? 'Unpublish' : 'Publish' }}</q-tooltip>
                     </q-btn>
-                    <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="openEdit(props.row)"><Icon icon="mdi:pencil" width="18" height="18" /><q-tooltip>Edit</q-tooltip></q-btn>
-                    <q-btn v-if="!showArchived" flat dense color="grey-7" size="sm" class="custom-radius" @click="archiveItem(props.row)"><Icon icon="mdi:archive-outline" width="18" height="18" /><q-tooltip>Archive</q-tooltip></q-btn>
-                    <q-btn v-else flat dense color="primary" size="sm" class="custom-radius" @click="restoreItem(props.row)"><Icon icon="mdi:archive-restore" width="18" height="18" /><q-tooltip>Restore</q-tooltip></q-btn>
+                    <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="openEdit(props.row)"><Icon icon="lucide:pencil" width="18" height="18" /><q-tooltip>Edit</q-tooltip></q-btn>
+                    <q-btn v-if="!showArchived" flat dense color="grey-7" size="sm" class="custom-radius" @click="archiveItem(props.row)"><Icon icon="lucide:archive" width="18" height="18" /><q-tooltip>Archive</q-tooltip></q-btn>
+                    <q-btn v-else flat dense color="primary" size="sm" class="custom-radius" @click="restoreItem(props.row)"><Icon icon="lucide:archive-restore" width="18" height="18" /><q-tooltip>Restore</q-tooltip></q-btn>
                   </q-td>
               </template>
             </DataTable>
@@ -96,7 +96,7 @@
             <DataTable :rows="paginatedData" :columns="policyColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
-                  <Icon icon="mdi:gavel" width="48" height="48" class="q-mb-md" />
+                  <Icon icon="lucide:gavel" width="48" height="48" class="q-mb-md" />
                   <div class="text-h6 text-weight-bold">Nothing here yet</div>
                   <div>No policies found.</div>
                 </div>
@@ -117,10 +117,10 @@
                   <q-td key="updatedAt" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.effectiveLabel }}</q-td>
                   <q-td key="author" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.authorName }}</q-td>
                   <q-td key="actions" :props="props" class="row items-center justify-end q-gutter-x-sm no-wrap">
-                    <q-btn flat dense color="grey-6" size="sm" class="custom-radius" @click="openView(props.row)"><Icon icon="mdi:eye" width="18" height="18" /><q-tooltip>View</q-tooltip></q-btn>
-                    <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="openEdit(props.row)"><Icon icon="mdi:pencil" width="18" height="18" /><q-tooltip>Edit</q-tooltip></q-btn>
-                    <q-btn v-if="!showArchived" flat dense color="grey-7" size="sm" class="custom-radius" @click="archiveItem(props.row)"><Icon icon="mdi:archive-outline" width="18" height="18" /><q-tooltip>Archive</q-tooltip></q-btn>
-                    <q-btn v-else flat dense color="primary" size="sm" class="custom-radius" @click="restoreItem(props.row)"><Icon icon="mdi:archive-restore" width="18" height="18" /><q-tooltip>Restore</q-tooltip></q-btn>
+                    <q-btn flat dense color="grey-6" size="sm" class="custom-radius" @click="openView(props.row)"><Icon icon="lucide:eye" width="18" height="18" /><q-tooltip>View</q-tooltip></q-btn>
+                    <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="openEdit(props.row)"><Icon icon="lucide:pencil" width="18" height="18" /><q-tooltip>Edit</q-tooltip></q-btn>
+                    <q-btn v-if="!showArchived" flat dense color="grey-7" size="sm" class="custom-radius" @click="archiveItem(props.row)"><Icon icon="lucide:archive" width="18" height="18" /><q-tooltip>Archive</q-tooltip></q-btn>
+                    <q-btn v-else flat dense color="primary" size="sm" class="custom-radius" @click="restoreItem(props.row)"><Icon icon="lucide:archive-restore" width="18" height="18" /><q-tooltip>Restore</q-tooltip></q-btn>
                   </q-td>
               </template>
             </DataTable>
@@ -473,9 +473,9 @@ function statusColor(status: string): { tone: StatusTone } {
 }
 
 function statusIcon(status: string) {
-  if (status === 'draft') return 'mdi:note-edit-outline'
-  if (status === 'published') return 'mdi:check-circle'
-  return 'mdi:archive-outline'
+  if (status === 'draft') return 'lucide:file-pen'
+  if (status === 'published') return 'lucide:circle-check'
+  return 'lucide:archive'
 }
 
 function statusLabel(status: string) {

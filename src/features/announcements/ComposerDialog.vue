@@ -16,7 +16,7 @@
             :disable="saving"
             @click="close"
           >
-            <Icon icon="mdi:close" width="20" height="20" aria-hidden="true" />
+            <Icon icon="lucide:x" width="20" height="20" aria-hidden="true" />
           </q-btn>
         </div>
 
@@ -33,7 +33,7 @@
             :aria-current="step === index + 1 ? 'step' : undefined"
           >
             <span class="step-marker" aria-hidden="true">
-              <Icon v-if="step > index + 1" icon="mdi:check" width="15" height="15" />
+              <Icon v-if="step > index + 1" icon="lucide:check" width="15" height="15" />
               <span v-else>{{ index + 1 }}</span>
             </span>
             <span class="step-copy">
@@ -47,7 +47,7 @@
 
       <q-card-section class="composer-body q-px-lg q-py-lg">
         <div v-if="stepError" class="step-error" role="alert">
-          <Icon icon="mdi:alert-circle-outline" width="18" height="18" aria-hidden="true" />
+          <Icon icon="lucide:circle-alert" width="18" height="18" aria-hidden="true" />
           <span>{{ stepError }}</span>
         </div>
 
@@ -308,7 +308,7 @@ const steps = computed<FormStep[]>(() => props.kind === 'announcements'
 const entityLabel = computed(() => props.kind === 'announcements' ? 'announcement' : 'policy')
 const dialogTitle = computed(() => `${mode.value === 'create' ? 'Create' : 'Edit'} ${entityLabel.value}`)
 const currentStep = computed<FormStep>(() => steps.value[step.value - 1] ?? steps.value[0]!)
-const noteIcon = computed(() => props.kind === 'announcements' ? 'mdi:note-edit-outline' : 'mdi:calendar-check-outline')
+const noteIcon = computed(() => props.kind === 'announcements' ? 'lucide:file-pen' : 'lucide:calendar-check')
 const saveLabel = computed(() => {
   if (mode.value === 'edit') return 'Save changes'
   return props.kind === 'announcements' ? 'Save draft' : 'Create policy'

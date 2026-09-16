@@ -9,8 +9,9 @@
         color="teal-7"
         no-caps
         class="text-weight-bold rounded-button q-mb-md"
+        @click="handleExport"
       >
-        <Icon icon="mdi:download" class="on-left" width="18" height="18" />Export
+        <Icon icon="lucide:download" class="on-left" width="18" height="18" />Export
       </q-btn>
     </div>
 
@@ -36,7 +37,7 @@
             <DataTable :rows="paginatedAccommodations" :columns="overviewColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
-                  <Icon icon="mdi:home-search-outline" width="48" height="48" class="q-mb-md" />
+                  <Icon icon="lucide:map-pin-house" width="48" height="48" class="q-mb-md" />
                   <div class="text-h6 text-weight-bold">No accommodations yet</div>
                   <div>Listed accommodations will appear here.</div>
                 </div>
@@ -50,7 +51,7 @@
                   <q-td key="rooms" :props="props" class="text-center text-ink" style="font-size: 13px;">{{ props.row.totalRooms }}</q-td>
                   <q-td key="occupants" :props="props" class="text-center text-ink" style="font-size: 13px;">{{ props.row.totalStudents }}</q-td>
                   <q-td key="status" :props="props">
-                    <BadgePill :tone="props.row.verified ? 'success' : 'warning'" :icon="props.row.verified ? 'mdi:check-circle' : 'mdi:clock-outline'" :label="props.row.verified ? 'Verified' : 'Pending'" />
+                    <BadgePill :tone="props.row.statusStyle.tone" :icon="props.row.statusStyle.icon" :label="props.row.statusLabel" />
                   </q-td>
                 </q-tr>
               </template>
@@ -62,7 +63,7 @@
             <DataTable :rows="paginatedAccommodations" :columns="complianceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
-                  <Icon icon="mdi:file-check-outline" width="48" height="48" class="q-mb-md" />
+                  <Icon icon="lucide:file-check" width="48" height="48" class="q-mb-md" />
                   <div class="text-h6 text-weight-bold">No accommodations yet</div>
                   <div>Permit compliance appears once documents are uploaded.</div>
                 </div>
@@ -89,7 +90,7 @@
             <DataTable :rows="paginatedAccommodations" :columns="performanceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
-                  <Icon icon="mdi:chart-box-outline" width="48" height="48" class="q-mb-md" />
+                  <Icon icon="lucide:chart-column" width="48" height="48" class="q-mb-md" />
                   <div class="text-h6 text-weight-bold">No performance data</div>
                   <div>Ratings and reviews aren't populated yet.</div>
                 </div>
@@ -102,7 +103,7 @@
                   <q-td key="accommodationManager" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accommodationManager }}</q-td>
                   <q-td key="rating" :props="props" class="text-ink" style="font-size: 13px;">
                     <span class="text-orange-5 text-weight-bold row items-center no-wrap">
-                      <Icon icon="mdi:star" width="14" height="14" class="q-mr-xs" /> {{ props.row.rating }}
+                      <Icon icon="lucide:star" width="14" height="14" class="q-mr-xs" /> {{ props.row.rating }}
                     </span>
                   </q-td>
                   <q-td key="response" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.responseRate != null ? `${props.row.responseRate}%` : '—' }}</q-td>
@@ -127,6 +128,8 @@
       close-on-backdrop
       :loading="detailLoading"
         :preview="accommodationPreview"
+      :management-actions="accommodationActions"
+      @manage="onManageAccommodation"
     />
 
     </div><!-- /prop-hub-body -->
@@ -144,8 +147,12 @@ import BadgePill from '@/components/user/BadgePill.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import type { DrawerPreview, PreviewChip } from '@/components/ui/DetailDrawer.vue'
-import type { StatusTone } from '@/utils/status.config'
+import { getStatus, getTone, type StatusTone } from '@/utils/status.config'
 import { supabase } from '@/utils/supabase'
+import { useNotify } from '@/utils/notify'
+import { escapeHtml, formatDateTime, humanizeEnum } from '@/utils/format'
+import { fetchAccommodationEvents, type AccommodationEventRow } from '@/api/accommodations'
+import { downloadCsv } from '@/utils/csv'
 import { useAccommodations } from '@/composables/useAccommodations'
 
 const search = ref('')
@@ -163,23 +170,43 @@ const tabs = [
   { name: 'performance', label: 'Performance' },
 ]
 
-const filterConfig = [
+// Accommodation types are derived from the loaded rows rather than hardcoded.
+// The fixed list read 'Boarding House' / 'Apartment' against a row value of
+// 'Boarding House' built from the enum 'boarding_house', so the filter matched
+// nothing; and the column also holds condominium_unit, residence_hall and a few
+// stray room-type values no hardcoded list would have covered. Same pattern as
+// AuditLogs.vue's computed filterConfig.
+const filterConfig = computed(() => [
   {
+    // Derived from the loaded rows, like the type filter below it: the fixed
+    // pair offered Verified/Pending against eight real statuses, so filtering
+    // for a rejected or expired property was not possible at all.
     label: 'Status', key: 'status', options: [
-      { label: 'Verified', value: 'verified' },
-      { label: 'Pending', value: 'pending' },
-    ],
+      ...new Set(accommodations.value.map((p) => String(p.status ?? '')).filter(Boolean)),
+    ].sort().map((v) => ({ label: humanizeEnum(v), value: v })),
   },
   {
-    label: 'Accommodation Type', key: 'type', options: [
-      { label: 'Boarding House', value: 'Boarding House' },
-      { label: 'Apartment', value: 'Apartment' },
-    ],
+    label: 'Accommodation Type',
+    key: 'type',
+    options: [...new Set(accommodations.value.map((p) => p.type).filter(Boolean))]
+      .sort()
+      .map((t) => ({ label: t, value: t })),
   },
-]
+])
 
 function clearFilters() {
   activeFilters.value = {}
+}
+
+function handleExport() {
+  downloadCsv(
+    'accommodations_export',
+    ['Accommodation', 'Type', 'Accommodation Manager', 'Address', 'Status', 'Rooms', 'Occupants', 'Capacity', 'Rating'],
+    filteredAccommodations.value.map((p) => [
+      p.name, p.type, p.accommodationManager, p.address, p.status,
+      p.totalRooms, p.totalStudents, p.totalCapacity, p.rating,
+    ]),
+  )
 }
 
 async function fetchAccommodations() {
@@ -197,14 +224,98 @@ onMounted(async () => {
   }
 })
 
+type ManagementAction = { label: string; action: string; danger?: boolean }
+
+/**
+ * OSAS pulling an accredited property is a different act from the manager
+ * delisting their own, and from a refusal at accreditation — so it gets its own
+ * status rather than another meaning loaded onto `rejected`. Same shape as the
+ * account actions in Users.vue.
+ */
+const accommodationActions = computed<ManagementAction[]>(() => {
+  const a = selectedAccommodation.value
+  if (!a) return []
+  const status = String(a.status || '').toLowerCase()
+  if (status === 'suspended') {
+    return [{ label: 'Restore Accreditation', action: 'restore' }]
+  }
+  if (status === 'accredited') {
+    return [{ label: 'Suspend Property', action: 'suspend', danger: true }]
+  }
+  return []
+})
+
+async function onManageAccommodation(action: string) {
+  const a = selectedAccommodation.value
+  if (!a?.id) return
+  const next = action === 'suspend' ? 'suspended' : action === 'restore' ? 'accredited' : null
+  if (!next) return
+
+  const reason =
+    action === 'suspend'
+      ? (window.prompt('Why is this property being suspended? This is recorded in the audit log.') ?? '').trim()
+      : ''
+  if (action === 'suspend' && !reason) return
+
+  const { error } = await supabase
+    .from('accommodations')
+    .update({ status: next } as never)
+    .eq('id', a.id)
+  if (error) {
+    notify.error('Could not change the property status', error.message)
+    return
+  }
+
+  // Only now is the row actually in this state, so only now does the UI say so.
+  const def = getStatus(next)
+  selectedAccommodation.value = {
+    ...a,
+    status: next,
+    verified: next === 'accredited',
+    statusLabel: humanizeEnum(next),
+    statusStyle: { tone: def.tone, icon: def.icon ?? 'lucide:circle' },
+  }
+  const row = accommodations.value.find((r) => r.id === a.id)
+  if (row) Object.assign(row, selectedAccommodation.value)
+
+  const actorId = (await supabase.auth.getUser()).data.user?.id || null
+  const { error: auditErr } = await supabase.from('audit_logs').insert({
+    action: `accommodation.${action}`,
+    actor_id: actorId,
+    entity_id: a.id,
+    entity_type: 'accommodation',
+    before_json: { status: a.status },
+    after_json: { status: next, reason: reason || null },
+  } as never)
+  if (auditErr) notify.warning('Change not recorded in the audit log', auditErr.message)
+
+  notify.success(action === 'suspend' ? 'Property suspended.' : 'Accreditation restored.')
+  void loadAccommodationEvents(a.id)
+}
+
+const notify = useNotify()
+
 const drawerOpen = ref(false)
 const detailLoading = ref(false)
 const selectedAccommodation = ref<any | null>(null)
+const accommodationEvents = ref<AccommodationEventRow[]>([])
 
 function openAccommodation(row: any) {
   selectedAccommodation.value = row
+  accommodationEvents.value = []
   drawerOpen.value = true
   void fetchAccommodationDetail(row)
+  void loadAccommodationEvents(row.id)
+}
+
+async function loadAccommodationEvents(id: string) {
+  try {
+    accommodationEvents.value = await fetchAccommodationEvents(id)
+  } catch {
+    // The audit trail is supporting detail; a failure here hides the Activity
+    // tab rather than blocking the drawer.
+    accommodationEvents.value = []
+  }
 }
 
 async function fetchAccommodationDetail(row: any) {
@@ -235,7 +346,7 @@ async function fetchAccommodationDetail(row: any) {
         totalRooms: d.total_rooms ?? row.totalRooms,
       }
     }
-  } catch (e) {
+  } catch {
     // keep the row-based preview already assigned above
   } finally {
     detailLoading.value = false
@@ -290,6 +401,8 @@ const accommodations = computed(() => realAccommodations.value.map((p) => ({
   contact: p.contact,
   verified: p.verified,
   status: p.status,
+  statusLabel: p.statusLabel,
+  statusStyle: p.statusStyle,
   rating: p.rating,
   address: p.address,
   floors: p.floors,
@@ -347,10 +460,10 @@ function permitStatus(prop: any, requiredType: string): 'missing' | 'expired' | 
 // Presentational settings for each compliance state, reusing BadgePill tones
 // so each permit renders as a capsule in the table (no separate legend needed).
 const PERMIT_STATE = {
-  missing: { tone: 'neutral', icon: 'mdi:close-circle-outline', label: 'Not Submitted' },
-  expired: { tone: 'danger', icon: 'mdi:close-circle', label: 'Expired' },
-  expiring: { tone: 'warning', icon: 'mdi:clock-alert-outline', label: 'Expiring' },
-  valid: { tone: 'success', icon: 'mdi:check-circle', label: 'Valid' },
+  missing: { tone: 'neutral', icon: 'lucide:circle-x', label: 'Not Submitted' },
+  expired: { tone: 'danger', icon: 'lucide:circle-x', label: 'Expired' },
+  expiring: { tone: 'warning', icon: 'lucide:clock-alert', label: 'Expiring' },
+  valid: { tone: 'success', icon: 'lucide:circle-check', label: 'Valid' },
 } as const
 
 const filteredAccommodations = computed(() => {
@@ -358,7 +471,7 @@ const filteredAccommodations = computed(() => {
 
   const statusFilter = activeFilters.value.status
   if (statusFilter && statusFilter.length > 0) {
-    result = result.filter((p) => statusFilter.includes(p.verified ? 'verified' : 'pending'))
+    result = result.filter((p) => statusFilter.includes(p.status))
   }
   const typeFilter = activeFilters.value.type
   if (typeFilter && typeFilter.length > 0) {
@@ -393,12 +506,12 @@ const avatarUrl = (name: string) =>
 
 const accommodationPreview = computed<DrawerPreview>(() => {
   const p = selectedAccommodation.value
-  if (!p) return { kind: 'accommodation', title: 'Accommodation Preview', name: '', avatar: '', stats: [], details: [] }
+  if (!p) return { kind: 'accommodation', title: 'Accommodation Preview', name: '', avatar: '', stats: [], detailGroups: [] }
   const chips: PreviewChip[] = [
-    { text: p.type, tone: 'primary', icon: 'mdi:home-city' },
+    { text: p.type, tone: 'primary', icon: 'lucide:building-2' },
     p.verified
-      ? { text: 'Verified', tone: 'success', icon: 'mdi:check-circle' }
-      : { text: 'Pending', tone: 'warning', icon: 'mdi:clock-outline' },
+      ? { text: 'Verified', tone: 'success', icon: 'lucide:circle-check' }
+      : { text: 'Pending', tone: 'warning', icon: 'lucide:clock' },
   ]
   const occupancy = p.totalCapacity ? `${Math.round((p.totalStudents / p.totalCapacity) * 100)}%` : '—'
   const stats = [
@@ -407,17 +520,41 @@ const accommodationPreview = computed<DrawerPreview>(() => {
     { label: 'Rating', value: p.rating != null ? `${p.rating} ★` : '—' },
     { label: 'Occupancy', value: occupancy },
   ]
-  const details = [
-    { label: 'Accommodation ID', value: String(p.id) },
-    { label: 'Type', value: p.type },
-    { label: 'Accommodation Manager', value: p.accommodationManager },
-    { label: 'Address', value: p.address },
-    { label: 'Floors', value: p.floors ? String(p.floors) : '—' },
-    { label: 'Total Rooms', value: String(p.totalRooms) },
-    { label: 'Occupants', value: `${p.totalStudents} / ${p.totalCapacity}` },
-    { label: 'Female / Male', value: `${p.femaleCount} / ${p.maleCount}` },
-    { label: 'Response', value: p.responseRate != null ? `${p.responseRate}%` : '—' },
-    { label: 'Expires', value: p.accreditationExpiresAt || '—' },
+  const detailGroups = [
+    {
+      title: 'Identity',
+      icon: 'lucide:building-2',
+      rows: [
+        { label: 'Accommodation ID', value: String(p.id) },
+        { label: 'Type', value: p.type },
+        { label: 'Accommodation Manager', value: p.accommodationManager },
+      ],
+    },
+    {
+      title: 'Location',
+      icon: 'lucide:map-pin',
+      rows: [
+        { label: 'Address', value: p.address },
+        { label: 'Floors', value: p.floors ? String(p.floors) : '—' },
+      ],
+    },
+    {
+      title: 'Capacity',
+      icon: 'lucide:bed',
+      rows: [
+        { label: 'Total Rooms', value: String(p.totalRooms) },
+        { label: 'Occupants', value: `${p.totalStudents} / ${p.totalCapacity}` },
+        { label: 'Female / Male', value: `${p.femaleCount} / ${p.maleCount}` },
+      ],
+    },
+    {
+      title: 'Accreditation',
+      icon: 'lucide:award',
+      rows: [
+        { label: 'Response', value: p.responseRate != null ? `${p.responseRate}%` : '—' },
+        { label: 'Expires', value: p.accreditationExpiresAt || '—' },
+      ],
+    },
   ]
   // Documents regarding the accommodation (permits / certificates with an uploaded file).
   const files = (p.permits ?? [])
@@ -425,6 +562,8 @@ const accommodationPreview = computed<DrawerPreview>(() => {
     .map((pm: any) => ({
       name: String(pm.type || 'Document').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
       url: pm.fileUrl,
+      docId: pm.id,
+      docTable: 'accommodation_documents' as const,
     }))
   // Rooms of this accommodation — clickable to jump to Room Hub.
   const rooms = (p.rooms ?? []).map((r: any) => ({
@@ -437,11 +576,34 @@ const accommodationPreview = computed<DrawerPreview>(() => {
     statusTone: roomTone(r.status),
     accommodationId: p.id,
   }))
-  const activity = (p.rooms || []).slice(0, 5).map((r: any) => ({
-    text: `<strong>Room ${r.name}</strong> — Floor ${r.floor ?? '—'}`,
-    time: `Capacity ${r.capacity ?? '—'} · ${r.status === 'occupied' ? 'Occupied' : 'Available'}`,
-  }))
-  if (!activity.length) activity.push({ text: `<strong>${p.name}</strong> listing created`, time: p.accreditationExpiresAt || '—' })
+  // Real events from the audit trail. `text` is rendered with v-html by
+  // ActivityTab.vue, so anything spliced in is escaped — see escapeHtml() in
+  // utils/format.ts. An empty trail leaves the Activity tab hidden.
+  const activity = accommodationEvents.value.map((e) => {
+    const changed = e.after_status && e.before_status !== e.after_status
+    if (e.action === 'CREATE') {
+      return {
+        text: `<strong>${escapeHtml(p.name)}</strong> was listed`,
+        time: formatDateTime(e.created_at),
+        icon: 'lucide:circle-plus',
+        tone: 'primary' as StatusTone,
+      }
+    }
+    if (changed) {
+      return {
+        text: `Status changed to <strong>${escapeHtml(cap(e.after_status || ''))}</strong>`,
+        time: formatDateTime(e.created_at),
+        icon: 'lucide:arrow-left-right',
+        tone: getTone(e.after_status || ''),
+      }
+    }
+    return {
+      text: 'Listing details updated',
+      time: formatDateTime(e.created_at),
+      icon: 'lucide:pencil',
+      tone: 'neutral' as StatusTone,
+    }
+  })
 
   return {
     kind: 'accommodation',
@@ -451,9 +613,9 @@ const accommodationPreview = computed<DrawerPreview>(() => {
     avatar: avatarUrl(p.name),
     chips,
     meta: p.address,
-    org: { name: p.accommodationManager, icon: 'mdi:account-tie' },
+    org: { name: p.accommodationManager, icon: 'lucide:user-round' },
     stats,
-    details,
+    detailGroups,
     files,
     rooms,
     activity,

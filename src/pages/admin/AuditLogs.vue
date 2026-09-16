@@ -12,14 +12,15 @@
           color="primary"
           no-caps
           class="text-weight-bold rounded-button"
+          @click="handleExport"
         >
-          <Icon icon="mdi:download" class="on-left" width="16" height="16" />Export
+          <Icon icon="lucide:download" class="on-left" width="16" height="16" />Export
         </q-btn>
       </div>
     </div>
 
     <div v-if="fetchError" class="text-white bg-negative q-pa-sm q-px-md q-mb-md" style="border-radius: 12px; font-size: 13px;">
-      <Icon icon="mdi:alert-circle-outline" class="q-mr-xs" width="16" height="16" style="vertical-align: middle;" />
+      <Icon icon="lucide:circle-alert" class="q-mr-xs" width="16" height="16" style="vertical-align: middle;" />
       Could not load audit logs: {{ fetchError }}
     </div>
 
@@ -41,7 +42,7 @@
     >
       <template #empty>
         <div class="full-width row flex-center text-muted q-pa-xl column">
-          <Icon icon="mdi:clipboard-text-outline" width="48" height="48" class="q-mb-md" />
+          <Icon icon="lucide:clipboard" width="48" height="48" class="q-mb-md" />
           <div class="text-h6 text-weight-bold">No events found</div>
           <div>No audit events matching your criteria.</div>
         </div>
@@ -58,8 +59,8 @@
 
             <!-- Actor -->
             <div v-else-if="col.name === 'actor'" class="row items-center no-wrap">
-              <q-avatar size="48px" :color="props.row.actor.color" text-color="white" class="text-weight-bold q-mr-sm shrink-0" style="border-radius: 8px; font-size: 18px;">
-                <Icon v-if="props.row.actor.isSystem" icon="mdi:server" width="16" height="16" />
+              <q-avatar size="48px" font-size="18px" :color="props.row.actor.color" text-color="white" class="text-weight-bold q-mr-sm shrink-0" style="border-radius: 8px;">
+                <Icon v-if="props.row.actor.isSystem" icon="lucide:server" width="16" height="16" />
                 <span v-else>{{ props.row.actor.initials }}</span>
               </q-avatar>
               <div class="column">
@@ -88,7 +89,7 @@
                 <div class="row items-center q-gutter-x-xs no-wrap text-ink">
                   <span>{{ props.row.changes.field }}:</span>
                   <span class="text-weight-bold text-strike text-muted">{{ props.row.changes.old }}</span>
-                  <Icon icon="mdi:arrow-right" width="12" height="12" class="text-primary" />
+                  <Icon icon="lucide:arrow-right" width="12" height="12" class="text-primary" />
                   <span class="text-weight-bold text-primary">{{ props.row.changes.new }}</span>
                 </div>
                 <div v-if="props.row.changes.more" class="text-muted" style="font-size: 11px; margin-top: 2px;">
@@ -120,6 +121,7 @@ import TableCard from '@/components/table/TableCard.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import DateRangeButton from '@/features/audit/DateRangeButton.vue'
 import { mapLog, getActionColor } from '@/features/audit/logMapping'
+import { downloadCsv } from '@/utils/csv'
 
 const searchQuery = ref('')
 const currentPage = ref(1)
@@ -148,6 +150,26 @@ const filterConfig = computed(() => {
 
 function clearFilters() {
   activeFilters.value = {}
+}
+
+function handleExport() {
+  downloadCsv(
+    'audit_logs_export',
+    ['Timestamp', 'Actor', 'Actor Role', 'Action', 'Target Type', 'Target', 'Target ID', 'Details', 'IP Address'],
+    filteredLogs.value.map((log: any) => [
+      log.createdAt,
+      log.actor.name,
+      log.actor.role,
+      log.action,
+      log.target.type,
+      log.target.name,
+      log.target.id,
+      log.changes
+        ? `${log.changes.field}: ${log.changes.old} → ${log.changes.new}${log.changes.more ? ` (${log.changes.more})` : ''}`
+        : log.description,
+      log.ip,
+    ]),
+  )
 }
 
 watch(activeFilters, () => {

@@ -15,10 +15,10 @@
             <div class="rc-row"><span>Updated</span><span>{{ updatedDate }}</span></div>
             <div class="rc-row"><span>Messages</span><span>{{ ticket.messages.length }}</span></div>
             <div class="rc-rule"></div>
-            <button class="rc-row rc-link" @click="$emit('open-drill', 'user')"><span>Reported by</span><span class="rc-val">{{ ticket.reporterName }} <Icon icon="mdi:open-in-new" width="13" height="13" /></span></button>
-            <button v-if="ticket.accommodationName" class="rc-row rc-link" @click="$emit('open-drill', 'accommodation')"><span>Accommodation</span><span class="rc-val">{{ ticket.accommodationName }} <Icon icon="mdi:open-in-new" width="13" height="13" /></span></button>
-            <button v-if="ticket.accommodationManagerName && ticket.accommodationManagerName !== ticket.reporterName" class="rc-row rc-link" @click="$emit('open-drill', 'accommodation_manager')"><span>Accommodation manager</span><span class="rc-val">{{ ticket.accommodationManagerName }} <Icon icon="mdi:open-in-new" width="13" height="13" /></span></button>
-            <button v-if="ticket.accommodationName && ticket.room !== '—'" class="rc-row rc-link" @click="$emit('open-drill', 'room')"><span>Room</span><span class="rc-val">{{ ticket.room }} <Icon icon="mdi:open-in-new" width="13" height="13" /></span></button>
+            <button class="rc-row rc-link" @click="$emit('open-drill', 'user')"><span>Reported by</span><span class="rc-val">{{ ticket.reporterName }} <Icon icon="lucide:external-link" width="13" height="13" /></span></button>
+            <button v-if="ticket.accommodationName" class="rc-row rc-link" @click="$emit('open-drill', 'accommodation')"><span>Accommodation</span><span class="rc-val">{{ ticket.accommodationName }} <Icon icon="lucide:external-link" width="13" height="13" /></span></button>
+            <button v-if="ticket.accommodationManagerName && ticket.accommodationManagerName !== ticket.reporterName" class="rc-row rc-link" @click="$emit('open-drill', 'accommodation_manager')"><span>Accommodation manager</span><span class="rc-val">{{ ticket.accommodationManagerName }} <Icon icon="lucide:external-link" width="13" height="13" /></span></button>
+            <button v-if="ticket.accommodationName && ticket.room !== '—'" class="rc-row rc-link" @click="$emit('open-drill', 'room')"><span>Room</span><span class="rc-val">{{ ticket.room }} <Icon icon="lucide:external-link" width="13" height="13" /></span></button>
             <div class="rc-row" v-if="ticket.reporterEmail"><span>Email</span><span>{{ ticket.reporterEmail }}</span></div>
             <div class="rc-row" v-if="ticket.reporterPhone"><span>Phone</span><span>{{ ticket.reporterPhone }}</span></div>
             <div class="rc-block">
@@ -37,7 +37,7 @@
     <template v-else>
       <div class="dt-card">
         <header class="dt-head">
-          <button class="tw-back" @click="$emit('back-drill')" aria-label="Back"><Icon icon="mdi:arrow-left" width="20" height="20" /></button>
+          <button class="tw-back" @click="$emit('back-drill')" aria-label="Back"><Icon icon="lucide:arrow-left" width="20" height="20" /></button>
           <div class="dt-av" :style="{ background: drillMeta?.color || 'var(--c-primary)' }">{{ drillMeta?.initials }}</div>
           <div class="dt-id">
             <div class="dt-title">{{ drillMeta?.title }}</div>
@@ -51,7 +51,7 @@
           </div>
         </div>
         <button class="dt-view" @click="$emit('view-entity')">
-          <Icon icon="mdi:open-in-new" width="16" height="16" />
+          <Icon icon="lucide:external-link" width="16" height="16" />
           View full {{ drillKindLabel }}
         </button>
       </div>

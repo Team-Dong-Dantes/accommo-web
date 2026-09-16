@@ -1,6 +1,6 @@
 <template>
   <span class="trend-pill" :class="[`bg-${tone}-soft`, `text-${tone}`]">
-    <Icon v-if="trend !== 'flat'" :icon="trend === 'up' ? 'mdi:arrow-up-right' : 'mdi:arrow-down-right'" :width="13" :height="13" />
+    <Icon v-if="trend !== 'flat'" :icon="trend === 'up' ? 'lucide:arrow-up-right' : 'lucide:arrow-down-right'" :width="13" :height="13" />
     {{ label }}
   </span>
 </template>

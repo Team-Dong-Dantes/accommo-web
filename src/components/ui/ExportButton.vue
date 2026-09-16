@@ -1,6 +1,6 @@
 <template>
   <q-btn color="teal-7" class="text-weight-bold rounded-button" no-caps @click="$emit('export')">
-    <Icon icon="mdi:download" class="on-left" width="18" height="18" />Export
+    <Icon icon="lucide:download" class="on-left" width="18" height="18" />Export
   </q-btn>
 </template>
 

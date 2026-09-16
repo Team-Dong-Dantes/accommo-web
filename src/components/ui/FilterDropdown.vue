@@ -1,6 +1,6 @@
 <template>
   <q-btn flat class="bg-surface text-muted text-weight-bold rounded-button custom-border" no-caps>
-    <Icon icon="mdi:tune" class="on-left" width="18" height="18" />Filter
+    <Icon icon="lucide:sliders-horizontal" class="on-left" width="18" height="18" />Filter
     <q-menu anchor="bottom right" self="top right" :offset="[0, 8]" class="filter-menu" style="width: 220px">
 
       <div class="q-pa-md">

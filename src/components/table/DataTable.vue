@@ -130,6 +130,15 @@ const paddedRows = computed(() => {
   flex-direction: column;
 }
 
+/* A short viewport cannot hold ten rows at their 46px minimum, and the table
+ * clips rather than scrolls — so below tablet-landscape height the body scrolls
+ * instead. Tall screens keep the deliberate no-scrollbar look. */
+@media (max-height: 820px) {
+  .custom-data-table :deep(.q-table__middle) {
+    overflow-y: auto !important;
+  }
+}
+
 /* ---- Header stays compact, body stretches to fill ---- */
 .custom-data-table :deep(thead) {
   flex-shrink: 0;

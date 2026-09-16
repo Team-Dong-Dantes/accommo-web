@@ -57,28 +57,42 @@
   --font-display: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --fs-display: clamp(1.7rem, 1.3rem + 1.1vw, 2.25rem);
-  --fs-h1: 1.5rem;
-  --fs-h2: 1.25rem;
-  --fs-h3: 1.0625rem;
-  --fs-body: 1rem;             /* 16px */
-  --fs-sm: 0.875rem;
-  --fs-xs: 0.75rem;
+  /* ----- The fluid scale -----
+     Everything below is a multiple of one of these two units, so the whole
+     interface narrows continuously with the window instead of jumping at a
+     breakpoint. Both reach 8px at 1440px and up, which is why a desktop looks
+     exactly as it always has; below that they shrink with the viewport until
+     they hit their floor. Spacing gives up more than type does — a cramped
+     gutter reads as tidy, cramped text just reads as small — which is the only
+     reason there are two units and not one.
 
-  /* ----- Spacing (4px base) ----- */
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-5: 20px;
-  --sp-6: 24px;
-  --sp-8: 32px;
+     The console's floor is a tablet in landscape (1024px, enforced by
+     ScreenGate), where these land at 5.7px and 6.8px. */
+  --u: clamp(5.7px, 0.556vw, 8px);    /* spacing, radius, gutters */
+  --ut: clamp(6.8px, 0.556vw, 8px);   /* type, control heights, avatars */
+
+  --fs-display: clamp(1.7rem, 1.3rem + 1.1vw, 2.25rem);
+  --fs-h1: calc(3 * var(--ut));        /* 24px */
+  --fs-h2: calc(2.5 * var(--ut));      /* 20px */
+  --fs-h3: calc(2.125 * var(--ut));    /* 17px */
+  --fs-body: calc(2 * var(--ut));      /* 16px */
+  --fs-sm: calc(1.75 * var(--ut));     /* 14px */
+  --fs-xs: calc(1.5 * var(--ut));      /* 12px */
+
+  /* ----- Spacing (4px base at full size) ----- */
+  --sp-1: calc(0.5 * var(--u));   /* 4px */
+  --sp-2: calc(1 * var(--u));     /* 8px */
+  --sp-3: calc(1.5 * var(--u));   /* 12px */
+  --sp-4: calc(2 * var(--u));     /* 16px */
+  --sp-5: calc(2.5 * var(--u));   /* 20px */
+  --sp-6: calc(3 * var(--u));     /* 24px */
+  --sp-8: calc(4 * var(--u));     /* 32px */
 
   /* ----- Radius & shadow ----- */
-  --radius-sm: 10px;
-  --radius: 16px;
-  --radius-lg: 20px;
-  --radius-btn: 12px;           /* unified corner radius for all buttons (matches search input) */
+  --radius-sm: calc(1.25 * var(--u));  /* 10px */
+  --radius: calc(2 * var(--u));        /* 16px */
+  --radius-lg: calc(2.5 * var(--u));   /* 20px */
+  --radius-btn: calc(1.5 * var(--u));  /* 12px — matches the search input */
   --shadow-sm: 0 1px 2px rgba(16, 32, 28, 0.06);
   --shadow: 0 6px 20px rgba(16, 32, 28, 0.08);
   --shadow-lg: 0 14px 36px rgba(16, 32, 28, 0.12);

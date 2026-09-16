@@ -4,15 +4,15 @@ export interface NotificationStyle {
 }
 
 const STYLES: Record<string, NotificationStyle> = {
-  verification: { icon: 'mdi:verified', color: 'teal-5' },
-  ticket: { icon: 'mdi:ticket-outline', color: 'red-5' },
-  accommodation: { icon: 'mdi:home-outline', color: 'indigo-5' },
-  payment: { icon: 'mdi:cash-multiple', color: 'green-5' },
-  lease: { icon: 'mdi:file-document-outline', color: 'orange-5' },
-  message: { icon: 'mdi:message-text-outline', color: 'blue-5' },
-  system: { icon: 'mdi:cog-outline', color: 'grey-7' },
+  verification: { icon: 'lucide:badge-check', color: 'teal-5' },
+  ticket: { icon: 'lucide:ticket', color: 'red-5' },
+  accommodation: { icon: 'lucide:house', color: 'indigo-5' },
+  payment: { icon: 'lucide:coins', color: 'green-5' },
+  lease: { icon: 'lucide:file-text', color: 'orange-5' },
+  message: { icon: 'lucide:message-square', color: 'blue-5' },
+  system: { icon: 'lucide:settings', color: 'grey-7' },
 }
 
 export function notificationStyle(type: string): NotificationStyle {
-  return STYLES[type] ?? { icon: 'mdi:bell-outline', color: 'grey-7' }
+  return STYLES[type] ?? { icon: 'lucide:bell', color: 'grey-7' }
 }

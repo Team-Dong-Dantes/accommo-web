@@ -46,8 +46,7 @@
                           :email="props.row.email"
                           :subtitle="props.row.owner || ''"
                           :avatar-color="props.row.avatarColor"
-                          size="36px"
-                          font-size="13px"
+                          :avatar-url="props.row.avatarUrl"
                         />
                       </div>
                     </q-td>
@@ -55,7 +54,7 @@
                     <q-td key="type" :props="props">
                       <div class="text-ink text-weight-medium" style="font-size: 13px">{{ props.row.type }}</div>
                       <div class="row items-center text-muted" style="font-size: 11px; margin-top: 2px">
-                        <Icon icon="mdi:file-document-outline" width="12" height="12" class="q-mr-xs" />
+                        <Icon icon="lucide:file-text" width="12" height="12" class="q-mr-xs" />
                         {{ props.row.files?.length || 0 }} document{{ props.row.files?.length === 1 ? '' : 's' }}
                       </div>
                     </q-td>
@@ -64,14 +63,20 @@
                     </q-td>
                     <q-td key="submitted" :props="props" class="text-muted" style="font-size: 12px">{{ props.row.submitted }}</q-td>
                     <q-td key="action" :props="props" class="text-right action-cell">
-                      <q-btn unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectRequest(props.row)">
-                        Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
+                      <template v-if="isLockedByOther(props.row)">
+                        <span class="locked-note" :title="reviewerTitle(props.row)">
+                          <Icon icon="lucide:lock" width="14" height="14" /> {{ reviewerLabel(props.row) }}
+                        </span>
+                        <button type="button" class="take-over" @click="takeOverReview(props.row)">Take over</button>
+                      </template>
+                      <q-btn v-else unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectRequest(props.row)">
+                        Review <Icon icon="lucide:chevron-right" class="q-ml-xs" width="14" height="14" />
                       </q-btn>
                     </q-td>
                   </q-tr>
                 </template>
               </DataTable>
-              <EmptyState v-else variant="rich" icon="mdi:verified" :title="emptyTitle" :message="emptyMessage" />
+              <EmptyState v-else variant="rich" icon="lucide:badge-check" :title="emptyTitle" :message="emptyMessage" />
             </q-tab-panel>
 
             <q-tab-panel name="accommodation_manager" class="q-pa-none">
@@ -93,8 +98,7 @@
                           :email="props.row.email"
                           :subtitle="props.row.owner || ''"
                           :avatar-color="props.row.avatarColor"
-                          size="36px"
-                          font-size="13px"
+                          :avatar-url="props.row.avatarUrl"
                         />
                       </div>
                     </q-td>
@@ -102,7 +106,7 @@
                     <q-td key="type" :props="props">
                       <div class="text-ink text-weight-medium" style="font-size: 13px">{{ props.row.type }}</div>
                       <div class="row items-center text-muted" style="font-size: 11px; margin-top: 2px">
-                        <Icon icon="mdi:file-document-outline" width="12" height="12" class="q-mr-xs" />
+                        <Icon icon="lucide:file-text" width="12" height="12" class="q-mr-xs" />
                         {{ props.row.files?.length || 0 }} document{{ props.row.files?.length === 1 ? '' : 's' }}
                       </div>
                     </q-td>
@@ -111,14 +115,20 @@
                     </q-td>
                     <q-td key="submitted" :props="props" class="text-muted" style="font-size: 12px">{{ props.row.submitted }}</q-td>
                     <q-td key="action" :props="props" class="text-right action-cell">
-                      <q-btn unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectRequest(props.row)">
-                        Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
+                      <template v-if="isLockedByOther(props.row)">
+                        <span class="locked-note" :title="reviewerTitle(props.row)">
+                          <Icon icon="lucide:lock" width="14" height="14" /> {{ reviewerLabel(props.row) }}
+                        </span>
+                        <button type="button" class="take-over" @click="takeOverReview(props.row)">Take over</button>
+                      </template>
+                      <q-btn v-else unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectRequest(props.row)">
+                        Review <Icon icon="lucide:chevron-right" class="q-ml-xs" width="14" height="14" />
                       </q-btn>
                     </q-td>
                   </q-tr>
                 </template>
               </DataTable>
-              <EmptyState v-else variant="rich" icon="mdi:verified" :title="emptyTitle" :message="emptyMessage" />
+              <EmptyState v-else variant="rich" icon="lucide:badge-check" :title="emptyTitle" :message="emptyMessage" />
             </q-tab-panel>
 
             <q-tab-panel name="accommodation" class="q-pa-none">
@@ -140,8 +150,7 @@
                           :email="props.row.email"
                           :subtitle="props.row.owner || ''"
                           :avatar-color="props.row.avatarColor"
-                          size="36px"
-                          font-size="13px"
+                          :avatar-url="props.row.avatarUrl"
                         />
                       </div>
                     </q-td>
@@ -149,7 +158,7 @@
                     <q-td key="type" :props="props">
                       <div class="text-ink text-weight-medium" style="font-size: 13px">{{ props.row.type }}</div>
                       <div class="row items-center text-muted" style="font-size: 11px; margin-top: 2px">
-                        <Icon icon="mdi:file-document-outline" width="12" height="12" class="q-mr-xs" />
+                        <Icon icon="lucide:file-text" width="12" height="12" class="q-mr-xs" />
                         {{ props.row.files?.length || 0 }} document{{ props.row.files?.length === 1 ? '' : 's' }}
                       </div>
                     </q-td>
@@ -158,14 +167,20 @@
                     </q-td>
                     <q-td key="submitted" :props="props" class="text-muted" style="font-size: 12px">{{ props.row.submitted }}</q-td>
                     <q-td key="action" :props="props" class="text-right action-cell">
-                      <q-btn unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectRequest(props.row)">
-                        Review <Icon icon="mdi:chevron-right" class="q-ml-xs" width="14" height="14" />
+                      <template v-if="isLockedByOther(props.row)">
+                        <span class="locked-note" :title="reviewerTitle(props.row)">
+                          <Icon icon="lucide:lock" width="14" height="14" /> {{ reviewerLabel(props.row) }}
+                        </span>
+                        <button type="button" class="take-over" @click="takeOverReview(props.row)">Take over</button>
+                      </template>
+                      <q-btn v-else unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectRequest(props.row)">
+                        Review <Icon icon="lucide:chevron-right" class="q-ml-xs" width="14" height="14" />
                       </q-btn>
                     </q-td>
                   </q-tr>
                 </template>
               </DataTable>
-              <EmptyState v-else variant="rich" icon="mdi:verified" :title="emptyTitle" :message="emptyMessage" />
+              <EmptyState v-else variant="rich" icon="lucide:badge-check" :title="emptyTitle" :message="emptyMessage" />
             </q-tab-panel>
           </q-tab-panels>
         </template>
@@ -173,8 +188,14 @@
 
       <VerificationReview
         :request="selectedRequest"
+        :queue-index="queueIndex"
+        :queue-count="queueCount"
+        :has-prev="hasPrev"
+        :has-next="hasNext"
         @close="closeReview"
         @submit="handleDecision"
+        @prev="selectPrev"
+        @next="selectNext"
       />
     </div>
 
@@ -222,6 +243,15 @@ const {
   handleDecision,
   selectRequest,
   clearRequest,
+  queueIndex,
+  queueCount,
+  hasPrev,
+  hasNext,
+  selectPrev,
+  selectNext,
+  isLockedByOther,
+  reviewerOf,
+  takeOverReview,
 } = useVerifications()
 
 const activeTotal = computed(() => {
@@ -229,6 +259,18 @@ const activeTotal = computed(() => {
   if (activeTab.value === 'accommodation') return accommodationFiltered.value.length
   return studentFiltered.value.length
 })
+/** Naming who holds a request is the whole point — "In review" alone is the
+ *  claim that could not be trusted. Presence supplies the name when the holder
+ *  is connected; without it the row still says someone is there. */
+function reviewerLabel(row: { id: string }) {
+  const who = reviewerOf(row as never)
+  return who ? `In review · ${who}` : 'In review'
+}
+function reviewerTitle(row: { id: string }) {
+  const who = reviewerOf(row as never)
+  return who ? `${who} has this request open` : 'Another reviewer has this request open'
+}
+
 const activePaginated = computed(() => {
   if (activeTab.value === 'accommodation_manager') return accommodationManagerPaginated.value
   if (activeTab.value === 'accommodation') return accommodationPaginated.value
@@ -286,6 +328,26 @@ fetch()
 </script>
 
 <style scoped>
+.locked-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--c-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.take-over {
+  margin-left: 10px;
+  border: 0;
+  background: none;
+  color: var(--c-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+.take-over:hover { color: var(--c-primary-ink, var(--c-primary)); }
 .users-page {
   overflow: hidden !important;
   height: 100% !important;

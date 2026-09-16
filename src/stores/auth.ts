@@ -27,16 +27,19 @@ function sanitizeError(error: unknown): Error {
   return new Error('An unexpected error occurred. Please try again.');
 }
 
-interface AppUser {
+export interface AppUser {
   id: string;
   full_name: string;
   email: string;
   initials: string;
   avatar_color: string | null;
+  avatar_url: string | null;
   phone: string | null;
   is_superadmin: boolean;
   onboarding_complete: boolean;
   role: string;
+  /** Checked at sign-in and on every navigation — see the router guard. */
+  status: string;
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -53,7 +56,7 @@ export const useAuthStore = defineStore('auth', {
     async loadProfileById(id: string) {
       const { data, error } = await supabase
         .from('users')
-        .select('id, full_name, email, initials, avatar_color, phone, is_superadmin, onboarding_complete, role')
+        .select('id, full_name, email, initials, avatar_color, avatar_url, phone, is_superadmin, onboarding_complete, role, status')
         .eq('id', id)
         .single();
 
@@ -78,6 +81,16 @@ export const useAuthStore = defineStore('auth', {
 
       if (profile?.role !== 'admin') throw new Error('Access denied: Admins only.');
 
+      // A suspended admin was still being let all the way in — the mobile app
+      // has refused a suspended account since 20260909000002_auth_status_gate,
+      // but nothing on this side ever looked at `status`.
+      if (profile.status === 'suspended') {
+        await supabase.auth.signOut();
+        this.user = null;
+        this.cachedRole = null;
+        throw new Error('This account has been suspended.');
+      }
+
       return {
         session: authData.session,
         role: profile?.role,
@@ -101,7 +114,7 @@ export const useAuthStore = defineStore('auth', {
 
       if (!session) return { session: null, profile: null };
 
-      const profile = await this.loadProfileById(session.user.id).catch(() => null);
+      await this.loadProfileById(session.user.id).catch(() => null);
 
       return { session, profile: this.user };
     },

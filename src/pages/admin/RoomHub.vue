@@ -35,11 +35,9 @@
                 :name="props.row.name"
                 :subtitle="props.row.accommodation"
                 :avatar-color="'teal-6'"
-                size="36px"
-                font-size="13px"
               />
             </q-td>
-            <q-td key="accommodation" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accommodation }}</q-td>
+            <q-td key="manager" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accommodationManager || '—' }}</q-td>
             <q-td key="floor" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.floor != null ? props.row.floor : '—' }}</q-td>
             <q-td key="capacity" :props="props" class="text-center text-ink" style="font-size: 13px;">{{ props.row.capacity ?? '—' }}</q-td>
             <q-td key="occupants" :props="props" class="text-center text-ink" style="font-size: 13px;">{{ props.row.occupants ?? 0 }}</q-td>
@@ -72,7 +70,6 @@ const route = useRoute()
 import { supabase } from '@/utils/supabase'
 import TabNav from '@/components/ui/TabNav.vue'
 import TableCard from '@/components/table/TableCard.vue'
-import DataTable from '@/components/table/DataTable.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
@@ -126,7 +123,7 @@ async function fetchRoomDetail(raw: any) {
   try {
     const { data: room, error } = await supabase
       .from('rooms')
-       .select('id, label, room_number, floor, capacity, current_pax, monthly_rent, status, accommodation_id, accommodation:accommodation_id ( name, accommodation_manager:accommodation_manager_id ( full_name ) )')
+       .select('id, label, room_number, room_type, custom_room_type, floor, capacity, current_pax, monthly_rent, status, accommodation_id, accommodation:accommodation_id ( name, accommodation_manager:accommodation_manager_id ( full_name ) )')
       .eq('id', raw.id)
       .single()
     if (error) throw error
@@ -142,7 +139,7 @@ async function fetchRoomDetail(raw: any) {
       .from('leases')
       .select(
         `id, status, start_date,
-         student:users!leases_student_id_fkey(id, full_name, initials, sex)`,
+         student:users!leases_student_id_fkey(id, full_name, initials, sex, avatar_url)`,
       )
       .eq('room_id', raw.id)
       .in('status', ['active', 'leave_requested'])
@@ -155,6 +152,7 @@ async function fetchRoomDetail(raw: any) {
           id: l.id,
           name,
           initials,
+          avatarUrl: student?.avatar_url || '',
           gender: student?.sex || null,
           since: l.start_date || null,
           status: l.status,
@@ -175,7 +173,7 @@ async function fetchRoomDetail(raw: any) {
         .map((p) => ({ id: p.id, url: p.url }))
       selectedRoom.value = { ...selectedRoom.value, photos: imgs }
     }
-  } catch (e) {
+  } catch {
     // keep the raw row already assigned above
   } finally {
     detailLoading.value = false
@@ -188,6 +186,12 @@ function cap(s: string | null | undefined) {
   if (!s) return '—'
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
+// The room type is what identifies a room in this table; label/number is the
+// fallback for rows created before room_type existed.
+function roomTypeName(r: any): string {
+  const type = r.custom_room_type || (r.room_type ? cap(String(r.room_type).replace('_', ' ')) : '')
+  return type || r.label || 'Room ' + (r.room_number || '—')
+}
 function roomTone(status: string | null | undefined): StatusTone {
   const s = (status || '').toLowerCase()
   if (s.includes('occup')) return 'warning'
@@ -197,7 +201,7 @@ function roomTone(status: string | null | undefined): StatusTone {
 
 const columns = [
   { name: 'room', align: 'left', label: 'Room', field: 'name', headerStyle: 'width: 26%' },
-  { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'accommodation', headerStyle: 'width: 20%' },
+  { name: 'manager', align: 'left', label: 'Manager', field: 'accommodationManager', headerStyle: 'width: 20%' },
   { name: 'floor', align: 'left', label: 'Floor', field: 'floor', headerStyle: 'width: 10%' },
   { name: 'capacity', align: 'center', label: 'Capacity', field: 'capacity', headerStyle: 'width: 12%' },
   { name: 'occupants', align: 'center', label: 'Occupants', field: 'occupants', headerStyle: 'width: 12%' },
@@ -212,7 +216,7 @@ async function fetchRooms() {
       supabase
         .from('rooms')
         .select(
-           'id, label, room_number, floor, capacity, current_pax, monthly_rent, status, accommodation_id, accommodation:accommodation_id ( name, accommodation_manager:accommodation_manager_id ( full_name ) )',
+           'id, label, room_number, room_type, custom_room_type, floor, capacity, current_pax, monthly_rent, status, accommodation_id, accommodation:accommodation_id ( name, accommodation_manager:accommodation_manager_id ( full_name ) )',
         )
         .order('room_number', { ascending: true }),
       supabase
@@ -240,7 +244,7 @@ async function fetchRooms() {
       const accommodationName = accommodation?.name || '—'
       const manager = Array.isArray(accommodation?.accommodation_manager) ? accommodation.accommodation_manager[0] : accommodation?.accommodation_manager
       const accommodationManagerName = manager?.full_name || ''
-      const name = r.label || 'Room ' + (r.room_number || '—')
+      const name = roomTypeName(r)
       const initials = name
         .split(/\s+/)
         .map((w: string) => w[0])
@@ -280,6 +284,7 @@ const filteredRooms = computed(() => {
     result = result.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
+        String(r._raw?.room_number || '').toLowerCase().includes(q) ||
         r.accommodation.toLowerCase().includes(q) ||
         (r.accommodationManager || '').toLowerCase().includes(q) ||
         (r.status || '').toLowerCase().includes(q) ||
@@ -299,26 +304,41 @@ watch(search, () => {
 const roomPreview = computed<DrawerPreview>(() => {
   const r = selectedRoom.value
   if (!r) return { kind: 'room', title: 'Room Preview', name: '', avatar: '' }
-  const name = r.label || 'Room ' + (r.room_number || '—')
+  const name = roomTypeName(r)
   const statusTone = roomTone(r.status)
   const chips: PreviewChip[] = [
-    { text: cap(r.status) || 'Unknown', tone: statusTone, icon: 'mdi:door' },
-    { text: r.floor != null ? `Floor ${r.floor}` : 'No floor', tone: 'neutral', icon: 'mdi:stairs' },
+    { text: cap(r.status) || 'Unknown', tone: statusTone, icon: 'lucide:door-closed' },
+    { text: r.floor != null ? `Floor ${r.floor}` : 'No floor', tone: 'neutral', icon: 'lucide:layers' },
   ]
-  const stats = [
-    { label: 'Capacity', value: r.capacity ?? '—' },
-    { label: 'Occupants', value: r.current_pax ?? 0 },
-    { label: 'Monthly Rent', value: r.monthly_rent != null ? `₱${r.monthly_rent.toLocaleString()}` : '—' },
-  ]
-  const details = [
-    { label: 'Room Number', value: r.room_number ? String(r.room_number) : '—' },
-    { label: 'Floor', value: r.floor != null ? String(r.floor) : '—' },
-    { label: 'Capacity', value: String(r.capacity ?? '—') },
-    { label: 'Occupants', value: String(r.current_pax ?? 0) },
-    { label: 'Monthly Rent', value: r.monthly_rent != null ? `₱${r.monthly_rent.toLocaleString()}` : '—' },
-    { label: 'Status', value: cap(r.status) || '—' },
-    { label: 'Accommodation', value: selectedRoom.value?.accommodation || '—' },
-    { label: 'Accommodation Manager', value: (selectedRoom.value?.accommodationManager as string) || '—' },
+  const detailGroups = [
+    {
+      title: 'Room',
+      icon: 'lucide:door-open',
+      rows: [
+        { label: 'Room Type', value: r.custom_room_type || (r.room_type ? cap(String(r.room_type).replace('_', ' ')) : '—') },
+        { label: 'Room Number', value: r.room_number ? String(r.room_number) : '—' },
+        { label: 'Label', value: r.label || '—' },
+        { label: 'Floor', value: r.floor != null ? String(r.floor) : '—' },
+        { label: 'Capacity', value: String(r.capacity ?? '—') },
+        { label: 'Occupants', value: String(r.current_pax ?? 0) },
+      ],
+    },
+    {
+      title: 'Terms',
+      icon: 'lucide:banknote',
+      rows: [
+        { label: 'Monthly Rent', value: r.monthly_rent != null ? `₱${r.monthly_rent.toLocaleString()}` : '—' },
+        { label: 'Status', value: cap(r.status) || '—' },
+      ],
+    },
+    {
+      title: 'Belongs to',
+      icon: 'lucide:building-2',
+      rows: [
+        { label: 'Accommodation', value: selectedRoom.value?.accommodation || '—' },
+        { label: 'Accommodation Manager', value: (selectedRoom.value?.accommodationManager as string) || '—' },
+      ],
+    },
   ]
   return {
     kind: 'room',
@@ -326,8 +346,7 @@ const roomPreview = computed<DrawerPreview>(() => {
     name,
     avatar: avatarUrl(name),
     chips,
-    stats,
-    details,
+    detailGroups,
     occupants: (r.occupants as any[]) || undefined,
     photos: (r.photos as any[]) || undefined,
   }

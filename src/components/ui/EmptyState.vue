@@ -23,7 +23,7 @@ import { Icon } from '@iconify/vue'
 
 defineProps({
   variant: { type: String as () => 'inline' | 'rich', default: 'inline' },
-  icon: { type: String, default: 'mdi:information-outline' },
+  icon: { type: String, default: 'lucide:info' },
   title: { type: String, default: 'Nothing here yet' },
   message: { type: String, default: '' },
   size: { type: [Number, String], default: 48 },

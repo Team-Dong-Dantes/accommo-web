@@ -21,7 +21,7 @@
       >
         <template #empty>
           <div class="full-width row flex-center text-muted q-pa-xl column">
-            <Icon icon="mdi:ticket-outline" width="48" height="48" class="q-mb-md" />
+            <Icon icon="lucide:ticket" width="48" height="48" class="q-mb-md" />
             <div class="text-h6 text-weight-bold">No tickets found</div>
             <div v-if="error" class="text-caption q-mt-xs" style="color: var(--c-danger)">{{ error }}</div>
             <div v-else>No support tickets match the current filter.</div>
@@ -36,6 +36,7 @@
                 :email="props.row.reporterEmail"
                 :subtitle="roleLabel(props.row.reporterRole)"
                 :avatar-color="props.row.avatarColor"
+                :avatar-url="props.row.avatarUrl"
               />
             </q-td>
             <q-td key="subject" :props="props" class="subject-cell">

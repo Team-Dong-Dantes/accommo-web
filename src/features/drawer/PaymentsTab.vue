@@ -4,7 +4,7 @@
     <section v-if="activeLease" class="dd-summary border-all rounded-borders">
       <div class="dd-summary-head">
         <span class="dd-summary-badge">
-          <Icon icon="mdi:home-outline" width="18" height="18" />
+          <Icon icon="lucide:house" width="18" height="18" />
         </span>
         <div class="col min-width-0">
           <div class="row items-center q-gutter-x-sm min-width-0">
@@ -15,7 +15,7 @@
           <div class="dd-summary-period">{{ activeLease.periodLabel }}</div>
 
           <div v-if="activeLease.roomName || activeLease.roomType" class="dd-summary-room row items-center q-gutter-x-xs">
-            <Icon icon="mdi:door" width="13" height="13" />
+            <Icon icon="lucide:door-closed" width="13" height="13" />
             <span v-if="activeLease.roomName">Room {{ activeLease.roomName }}</span>
             <span v-if="activeLease.roomName && activeLease.roomType" class="dd-room-sep">·</span>
             <span v-if="activeLease.roomType">{{ activeLease.roomType }}</span>
@@ -76,23 +76,24 @@
 
           <div v-if="pay.proofUrl" class="dd-entry-actions">
             <a :href="pay.proofUrl" target="_blank" rel="noopener" class="dd-proof-btn">
-              <Icon icon="mdi:receipt-text-check-outline" width="15" height="15" /> View proof
+              <Icon icon="lucide:receipt-text" width="15" height="15" /> View proof
             </a>
           </div>
         </div>
       </div>
     </template>
 
-    <!-- Empty state -->
-    <div v-else class="dd-empty border-all rounded-borders">
-      <span class="dd-empty-icon"><Icon icon="mdi:receipt-text-remove-outline" width="30" height="30" /></span>
-      <span class="dd-empty-title">No payments recorded yet</span>
-      <span class="dd-empty-sub">Payments for this student's leases will appear here in chronological order.</span>
-    </div>
+    <TabEmptyState
+      v-else
+      icon="lucide:receipt"
+      title="No payments recorded"
+      message="Payments for this student's leases will appear here in chronological order."
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import TabEmptyState from './TabEmptyState.vue'
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import BadgePill from '@/components/user/BadgePill.vue'
@@ -123,14 +124,14 @@ function rentValue(lease: PreviewLease): string {
   const r = lease.monthlyRent
   // Treat missing or zero as "no rent on file" so we never show a misleading ₱0/mo.
   if (!r || isNaN(r)) return ''
-  return `₱${r.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mo`
+  return `₱${r.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}/mo`
 }
 
 const totalPaid = computed(() =>
   payments.value.filter((p) => p.status === 'paid' || p.status === 'settled').reduce((s, p) => s + (p.amount || 0), 0),
 )
 const totalPaidLabel = computed(() =>
-  `₱${totalPaid.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+  `₱${totalPaid.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
 )
 const dueCount = computed(() =>
   payments.value.filter((p) => p.status === 'due' || p.status === 'overdue' || p.status === 'pending_verification').length,
@@ -355,39 +356,6 @@ function dotColor(pay: PreviewPayment): string {
 }
 
 /* ---------- Empty ---------- */
-.dd-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 40px 24px;
-  text-align: center;
-  background: var(--c-surface);
-}
-.dd-empty-icon {
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 16px;
-  background: var(--c-surface-2);
-  color: var(--c-muted);
-}
-.dd-empty-title {
-  margin-top: 6px;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--c-ink);
-}
-.dd-empty-sub {
-  max-width: 300px;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--c-muted);
-}
-
 /* Shared helpers */
 .border-all { border: 1px solid var(--c-border); }
 .border-top { border-top: 1px solid var(--c-border); }

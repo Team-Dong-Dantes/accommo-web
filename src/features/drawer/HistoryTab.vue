@@ -11,7 +11,7 @@
           class="dd-hc-icon"
           :style="hc.active ? { background: 'var(--c-success)', borderColor: 'var(--c-success)' } : {}"
         >
-          <Icon :icon="hc.icon || 'mdi:home'" width="18" height="18" :style="{ color: hc.active ? '#fff' : 'var(--c-primary)' }" />
+          <Icon :icon="hc.icon || 'lucide:house'" width="18" height="18" :style="{ color: hc.active ? '#fff' : 'var(--c-primary)' }" />
         </span>
         <template v-if="preview.historyCards.length > 1">
           <div v-if="i < preview.historyCards.length - 1" class="dd-hc-line dd-hc-line--down"></div>
@@ -30,10 +30,10 @@
           <div v-if="hc.date" class="text-caption text-right" style="color: var(--c-muted)">{{ hc.date }}</div>
         </div>
         <div v-if="hc.accommodationId && preview.kind === 'user'" class="dd-card-overlay">
-          <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'map', hc.accommodationId)"><Icon icon="mdi:map-marker" width="15" height="15" />Map</button>
-          <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'accommodation', hc.accommodationId)"><Icon icon="mdi:home-search-outline" width="15" height="15" />Accommodation Hub</button>
-          <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'room', hc.accommodationId)"><Icon icon="mdi:door" width="15" height="15" />Rooms Hub</button>
-          <button type="button" class="dd-hover-btn" @click.stop="$emit('view-payments', hc.accommodationId)"><Icon icon="mdi:cash-multiple" width="15" height="15" />Payment History</button>
+          <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'map', hc.accommodationId)"><Icon icon="lucide:map-pin" width="15" height="15" />Map</button>
+          <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'accommodation', hc.accommodationId)"><Icon icon="lucide:map-pin-house" width="15" height="15" />Accommodation Hub</button>
+          <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'room', hc.accommodationId)"><Icon icon="lucide:door-closed" width="15" height="15" />Rooms Hub</button>
+          <button type="button" class="dd-hover-btn" @click.stop="$emit('view-payments', hc.accommodationId)"><Icon icon="lucide:coins" width="15" height="15" />Payment History</button>
         </div>
       </div>
     </div>
@@ -78,9 +78,9 @@
         </div>
       </div>
       <div v-if="preview.card?.accommodationId" class="dd-card-overlay">
-        <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'map', preview.card.accommodationId)"><Icon icon="mdi:map-marker" width="15" height="15" />Map</button>
-        <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'accommodation', preview.card.accommodationId)"><Icon icon="mdi:home-search-outline" width="15" height="15" />Accommodation Hub</button>
-        <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'room', preview.card.accommodationId)"><Icon icon="mdi:door" width="15" height="15" />Rooms Hub</button>
+        <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'map', preview.card.accommodationId)"><Icon icon="lucide:map-pin" width="15" height="15" />Map</button>
+        <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'accommodation', preview.card.accommodationId)"><Icon icon="lucide:map-pin-house" width="15" height="15" />Accommodation Hub</button>
+        <button type="button" class="dd-hover-btn" @click.stop="$emit('go-hub', 'room', preview.card.accommodationId)"><Icon icon="lucide:door-closed" width="15" height="15" />Rooms Hub</button>
       </div>
     </div>
   </div>
@@ -98,7 +98,7 @@
           :style="it.active ? { background: 'var(--c-success)', borderColor: 'var(--c-success)' } : {}"
         >
           <Icon
-            :icon="it.icon || 'mdi:circle'"
+            :icon="it.icon || 'lucide:circle'"
             width="18"
             height="18"
             :style="{ color: it.active ? '#fff' : 'var(--c-muted)' }"
@@ -118,10 +118,18 @@
       </div>
     </div>
   </div>
+
+  <TabEmptyState
+    v-else
+    icon="lucide:map-pin-house"
+    title="No boarding history"
+    message="No placements on record for this student yet."
+  />
 </template>
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
+import TabEmptyState from './TabEmptyState.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import type { DrawerPreview, HubKind } from './preview'
 

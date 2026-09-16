@@ -1,8 +1,32 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { getStatus } from '@/utils/status.config'
 import { getInitials, capitalize, getTimeAgo } from '@/utils/format'
+import { secureDocUrl } from '@/utils/docUrl'
+import { fetchAccommodationExtras, type AccommodationExtras } from '@/api/accommodations'
+import { fetchReviewProfile, type ReviewProfile } from '@/api/users'
+import { useReviewPresence } from '@/composables/useReviewPresence'
+
+/**
+ * The property behind an accreditation request. An accommodation is not an
+ * account, so none of `ReviewProfile` applies to it — what a reviewer checks
+ * the permits against is the address, the size and the manager behind it.
+ */
+export interface AccommodationFacts {
+  accommodation_type: string | null
+  description: string | null
+  /** Amenities and house rules, loaded when the review window opens. */
+  extras?: AccommodationExtras
+  gender_policy: string | null
+  barangay: string | null
+  city: string | null
+  lat: number | null
+  lng: number | null
+  manager_email: string | null
+  manager_phone: string | null
+  manager_status: string | null
+}
 
 export interface VerificationRequest {
   id: string
@@ -12,21 +36,43 @@ export interface VerificationRequest {
   owner: string
   initials: string
   type: string
-  files: { name: string; url: string; type?: string }[]
+  files: { id?: string; name: string; url: string; type?: string }[]
   status: string
   statusStyle: { tone: string; icon: string }
   submitted: string
+  /** When it arrived, ISO, for ordering. `submitted` is the same thing in words. */
+  submittedAt: string | null
+  /** When the current review claim was taken, ISO. Null when nobody holds it. */
+  reviewingAt: string | null
+  /** The account behind the request, loaded when the review window opens. */
+  profile?: ReviewProfile
+  /** The property behind an accreditation request, carried from the queue. */
+  accommodation?: AccommodationFacts
   avatarColor: string
-  /** Populated by OCR at upload time (e.g. mobile ML Kit / edge function). */
-  extractedName?: string
-  extractedSchoolId?: string
-  extractedGovId?: string
+  /** The applicant's profile photo. Empty for an accreditation request. */
+  avatarUrl: string
   ownerId?: string
 }
 
+/**
+ * Newest first. The queue is read top-down and the first page is the ten rows a
+ * reviewer actually sees, so that page should be what just came in. Rows with no
+ * timestamp sort last rather than jumping the line.
+ */
+function byNewest(a: VerificationRequest, b: VerificationRequest) {
+  return (b.submittedAt ?? '').localeCompare(a.submittedAt ?? '')
+}
+
+/**
+ * How long an OSAS accreditation stands before it has to be renewed. One
+ * number, one place — change it here and both the stamp and the nightly expiry
+ * sweep follow.
+ */
+const ACCREDITATION_TERM_YEARS = 1
+
 function getStatusStyle(status: string) {
   const def = getStatus(status)
-  return { tone: def.tone, icon: def.icon || 'mdi:clock-outline' }
+  return { tone: def.tone, icon: def.icon || 'lucide:clock' }
 }
 
 const ACCOMMODATION_PERMITS = [
@@ -95,23 +141,33 @@ export function useVerifications() {
   async function fetch() {
     loading.value = true
     try {
+      // get_verification_queue() is the one source for users + documents: it is
+      // admin-gated server-side and already joins the pending document rows.
       const { data: queueRows, error: queueError } = await (supabase as any)
         .rpc('get_verification_queue')
 
-      if (!queueError && queueRows) {
+      if (queueError) {
+        console.error('Could not fetch the verification queue:', queueError.message)
+        notify.error('Verification queue unavailable', queueError.message)
+        studentRequests.value = []
+        accommodationManagerRequests.value = []
+      } else {
         const grouped = new Map<string, any>()
-        for (const row of queueRows as any[]) {
+        for (const row of (queueRows ?? []) as any[]) {
           const existing = grouped.get(row.user_id) ?? {
             id: row.user_id,
             full_name: row.full_name,
             email: row.email,
             role: row.role,
             status: row.user_status,
+            avatar_url: row.avatar_url,
             created_at: row.created_at,
+            reviewing_at: row.reviewing_at,
             documents: [],
           }
           if (row.file_url) {
             existing.documents.push({
+              id: row.doc_id,
               doc_type: row.doc_type,
               file_url: row.file_url,
               filename: row.filename,
@@ -120,7 +176,6 @@ export function useVerifications() {
           grouped.set(row.user_id, existing)
         }
 
-        const queueUsers = Array.from(grouped.values())
         const mapRequest = (user: any, manager: boolean) => ({
           id: `REQ-${manager ? 'AM' : 'S'}${user.id.substring(0, 4).toUpperCase()}`,
           rawId: user.id,
@@ -130,183 +185,42 @@ export function useVerifications() {
           initials: getInitials(user.full_name),
           type: manager ? 'Accommodation Manager Identity' : 'Enrollment Form / COR',
           files: user.documents.map((document: any) => ({
+            id: document.id,
             name: document.filename || document.doc_type || 'Verification document',
-            url: document.file_url,
+            // Signed on demand in selectRequest — documents have no readable URL.
+            url: '',
           })),
           status: capitalize(user.status),
           statusStyle: getStatusStyle(user.status),
           submitted: getTimeAgo(user.created_at),
+          submittedAt: user.created_at ?? null,
+          reviewingAt: user.reviewing_at ?? null,
           avatarColor: manager ? 'teal-7' : 'blue-6',
-          extractedName: '',
-          ...(manager ? { extractedGovId: '' } : { extractedSchoolId: '' }),
+          avatarUrl: user.avatar_url || '',
         })
+
+        // Split on the account's own role. The old document-type heuristic put a
+        // manager who uploaded an `id_card` into the Student tab, and it still
+        // matched the retired `landlord` role label.
+        const queueUsers = Array.from(grouped.values())
+        const roleOf = (user: any) => String(user.role).toLowerCase().trim()
         studentRequests.value = queueUsers
-          .filter((user) => String(user.role).toLowerCase().trim() === 'student' || user.documents.some((document: any) =>
-            ['school_id', 'assessment', 'assessment_of_fees', 'cor', 'id_card'].includes(String(document.doc_type).toLowerCase()),
-          ))
+          .filter((user) => roleOf(user) === 'student')
           .map((user) => mapRequest(user, false))
+          .sort(byNewest)
         accommodationManagerRequests.value = queueUsers
-          .filter((user) => !studentRequests.value.some((request) => request.rawId === user.id))
-          .filter((user) => ['accommodation_manager', 'landlord'].includes(user.role))
+          .filter((user) => roleOf(user) === 'accommodation_manager')
           .map((user) => mapRequest(user, true))
-      }
-
-      if (!queueError && queueRows) {
-        // The RPC is authoritative for users and documents. Continue below to
-        // load accommodation requests, but do not overwrite these two lists.
-      } else {
-      // The mobile app stores submitted files in verification_documents. Keep
-      // this queue independent from legacy profile tables so a valid upload is
-      // still reviewable when those optional relations are empty or unavailable.
-      const usersResult: any = await supabase
-        .from('users')
-        .select('id, full_name, email, role, status, created_at')
-        .order('created_at', { ascending: false })
-      const users = usersResult.data
-      const userError = usersResult.error
-
-      if (userError) {
-        console.error('Error fetching users for verification:', userError.message)
-      } else if (users) {
-        // Mobile registration stores uploaded files in verification_documents.
-        // The profile URL columns are legacy and are not populated by the mobile
-        // flow, so load the authoritative document rows for this queue.
-        const userIds = (users as any[]).map((user) => user.id)
-        // Query all pending document rows independently. This avoids losing a
-        // valid request when the user row has an old status or role label.
-        const { data: verificationRows, error: verificationError } = await supabase
-          .from('verification_documents')
-          .select('user_id, doc_type, file_url, filename, status')
-          .eq('status', 'pending')
-
-        const [{ data: studentProfiles, error: studentProfileError }, { data: managerProfiles, error: managerProfileError }] = await Promise.all([
-          userIds.length
-            ? supabase.from('student_profiles').select('user_id, school_id_url, assessment_of_fees_url').in('user_id', userIds)
-            : Promise.resolve({ data: [], error: null }),
-          userIds.length
-            ? supabase.from('accommodation_manager_profiles').select('user_id, government_id_url').in('user_id', userIds)
-            : Promise.resolve({ data: [], error: null }),
-        ])
-
-        if (verificationError) {
-          console.error('Could not fetch verification documents:', verificationError.message)
-          notify.error('Verification documents unavailable', 'Apply the verification_documents admin RLS migration in Supabase.')
-        }
-
-        const documentsByUser = new Map<string, Array<{ doc_type: string | null; file_url: string | null; filename: string | null }>>()
-        for (const document of verificationRows ?? []) {
-          if (!document.user_id || !document.file_url) continue
-          documentsByUser.set(document.user_id, [
-            ...(documentsByUser.get(document.user_id) ?? []),
-            document,
-          ])
-        }
-
-        // Older mobile accounts saved URLs on their profile row before the
-        // verification_documents table became authoritative.
-        for (const profile of studentProfiles ?? []) {
-          if (profile.school_id_url) {
-            documentsByUser.set(profile.user_id, [
-              ...(documentsByUser.get(profile.user_id) ?? []),
-              { doc_type: 'school_id', file_url: profile.school_id_url, filename: 'School ID' },
-            ])
-          }
-          if (profile.assessment_of_fees_url) {
-            documentsByUser.set(profile.user_id, [
-              ...(documentsByUser.get(profile.user_id) ?? []),
-              { doc_type: 'assessment_of_fees', file_url: profile.assessment_of_fees_url, filename: 'Assessment of Fees' },
-            ])
-          }
-        }
-        for (const profile of managerProfiles ?? []) {
-          if (!profile.government_id_url) continue
-          documentsByUser.set(profile.user_id, [
-            ...(documentsByUser.get(profile.user_id) ?? []),
-            { doc_type: 'government_id', file_url: profile.government_id_url, filename: 'Government ID' },
-          ])
-        }
-
-        if (studentProfileError) console.warn('Could not fetch student profile documents:', studentProfileError.message)
-        if (managerProfileError) console.warn('Could not fetch manager profile documents:', managerProfileError.message)
-
-        const usersWithDocuments = new Set(documentsByUser.keys())
-        const userById = new Map((users as any[]).map((user) => [user.id, user]))
-        const studentDocumentUsers = new Set(
-          Array.from(documentsByUser.entries())
-            .filter(([, documents]) => documents.some((document) =>
-              ['school_id', 'assessment', 'assessment_of_fees', 'cor', 'id_card'].includes(
-                String(document.doc_type).toLowerCase().trim(),
-              ),
-            ))
-            .map(([userId]) => userId),
-        )
-        // If document rows are visible but the corresponding user query is
-        // filtered by an old role/status, retain that user in the queue. The
-        // role is normalized below for legacy landlord rows.
-        const documentUsers = Array.from(usersWithDocuments)
-          .map((id) => userById.get(id))
-          .filter(Boolean)
-        const pendingUsers = [...(users as any[]).filter((user) =>
-          ['pending', 'reviewing'].includes(String(user.status).toLowerCase()) || usersWithDocuments.has(user.id),
-        ), ...documentUsers.filter((user) => !usersWithDocuments.has(user.id))]
-
-        studentRequests.value = pendingUsers
-          .filter((u: any) => String(u.role).toLowerCase().trim() === 'student' || studentDocumentUsers.has(u.id))
-          .map((s: any) => {
-            const uploadedDocuments = documentsByUser.get(s.id) ?? []
-            const actualFiles: { name: string; url: string }[] = uploadedDocuments.map((document) => ({
-              name: document.filename || document.doc_type || 'Verification document',
-              url: document.file_url!,
-            }))
-            return {
-              id: `REQ-S${s.id.substring(0, 4).toUpperCase()}`,
-              rawId: s.id,
-              name: s.full_name || 'Unknown Student',
-              email: s.email,
-              owner: '',
-              initials: getInitials(s.full_name),
-              type: 'Enrollment Form / COR',
-              files: actualFiles,
-              status: capitalize(s.status),
-              statusStyle: getStatusStyle(s.status),
-              submitted: getTimeAgo(s.created_at),
-              avatarColor: 'blue-6',
-              extractedName: '',
-              extractedSchoolId: '',
-            }
-          })
-
-        accommodationManagerRequests.value = pendingUsers
-          .filter((u: any) => !studentDocumentUsers.has(u.id) && ['accommodation_manager', 'landlord'].includes(String(u.role).toLowerCase().trim()))
-          .map((l: any) => {
-            const uploadedDocuments = documentsByUser.get(l.id) ?? []
-            const actualFiles: { name: string; url: string }[] = uploadedDocuments.map((document) => ({
-              name: document.filename || document.doc_type || 'Verification document',
-              url: document.file_url!,
-            }))
-            return {
-              id: `REQ-AM${l.id.substring(0, 4).toUpperCase()}`,
-              rawId: l.id,
-              name: l.full_name || 'Unknown Accommodation Manager',
-              email: l.email,
-              owner: '',
-              initials: getInitials(l.full_name),
-              type: 'Accommodation Manager Identity',
-              files: actualFiles,
-              status: capitalize(l.status),
-              statusStyle: getStatusStyle(l.status),
-              submitted: getTimeAgo(l.created_at),
-              avatarColor: 'teal-7',
-              extractedName: '',
-              extractedGovId: '',
-            }
-          })
-      }
+          .sort(byNewest)
       }
 
       const { data: accommodations, error: accommodationError } = await supabase
         .from('accommodations')
-        .select(`id, name, status, accommodation_manager_id, manager:accommodation_manager_id ( full_name )`)
+        .select(
+          `id, name, status, accommodation_manager_id, accommodation_type, gender_policy,
+           barangay, city, description, lat, lng, reviewing_at,
+           manager:accommodation_manager_id ( full_name, email, phone, status )`,
+        )
         .in('status', ['pending', 'reviewing'])
 
       if (accommodationError) {
@@ -316,7 +230,7 @@ export function useVerifications() {
         const { data: documents, error: documentError } = accommodationIds.length
           ? await supabase
             .from('accommodation_documents')
-            .select('accommodation_id, doc_type, file_url')
+            .select('id, accommodation_id, doc_type, file_url, uploaded_at')
             .in('accommodation_id', accommodationIds)
           : { data: [], error: null }
         if (documentError) console.warn('Could not fetch accommodation permits:', documentError.message)
@@ -329,11 +243,22 @@ export function useVerifications() {
           ])
         }
         accommodationRequests.value = (accommodations as any[]).map((p: any) => {
-          const ownerName = Array.isArray(p.manager) ? p.manager[0]?.full_name : (p.manager as any)?.full_name || 'Unknown Accommodation Manager'
-          const files = (documentsByAccommodation.get(p.id) ?? []).map((document) => ({
+          const managerRow = (Array.isArray(p.manager) ? p.manager[0] : p.manager) as any
+          const ownerName = managerRow?.full_name || 'Unknown Accommodation Manager'
+          const documentRows = documentsByAccommodation.get(p.id) ?? []
+          const submittedAt = documentRows.reduce<string | null>(
+            (latest, document) =>
+              document.uploaded_at && (!latest || document.uploaded_at > latest)
+                ? document.uploaded_at
+                : latest,
+            null,
+          )
+          const files = documentRows.map((document) => ({
+            id: document.id,
             name: ACCOMMODATION_PERMITS.find((permit) => permit.type === document.doc_type)?.label ?? document.doc_type,
             type: document.doc_type,
-            url: document.file_url,
+            // Signed on demand in selectRequest — permits have no readable URL.
+            url: '',
           }))
           return {
             id: `REQ-AC${p.id.substring(0, 4).toUpperCase()}`,
@@ -347,15 +272,34 @@ export function useVerifications() {
             files,
             status: capitalize(p.status),
             statusStyle: getStatusStyle(p.status),
-            submitted: 'Unknown',
+            submitted: submittedAt ? getTimeAgo(submittedAt) : 'Unknown',
+            submittedAt,
+            reviewingAt: p.reviewing_at ?? null,
             avatarColor: 'orange-6',
+            // A property, not a person — the initials circle is the whole avatar.
+            avatarUrl: '',
+            accommodation: {
+              accommodation_type: p.accommodation_type ?? null,
+              description: p.description ?? null,
+              gender_policy: p.gender_policy ?? null,
+              barangay: p.barangay ?? null,
+              city: p.city ?? null,
+              lat: p.lat ?? null,
+              lng: p.lng ?? null,
+              manager_email: managerRow?.email ?? null,
+              manager_phone: managerRow?.phone ?? null,
+              manager_status: managerRow?.status ?? null,
+            },
           }
-        })
+        }).sort(byNewest)
       }
     } catch (err) {
       console.error('Unexpected error fetching verifications:', err)
     } finally {
       loading.value = false
+      // The table has just been drawn from rows that may carry an abandoned
+      // claim, so judge them now rather than waiting for presence to change.
+      void sweepStaleLocks()
     }
   }
 
@@ -416,12 +360,241 @@ export function useVerifications() {
     return 'No pending accommodation accreditations.'
   })
 
-  function selectRequest(row: VerificationRequest) {
+  /**
+   * `reviewing` marks a request that a reviewer currently has open, so the queue
+   * shows who is already being worked and two admins do not duplicate a
+   * decision. Only a `pending` request is claimed — a decided one keeps its
+   * verdict — and it is released again if the window closes with no decision,
+   * which matters now that the reviewer can page through the queue.
+   */
+  /**
+   * Writes the status to every copy of the request the page is holding.
+   *
+   * `selectRequest` replaces the selection with `{ ...row, files: signed }` — a
+   * detached copy — so mutating the object handed to this function updated the
+   * copy and left the table row showing the old badge. The request is patched by
+   * id wherever it lives instead.
+   */
+  function patchRowStatus(id: string, next: 'pending' | 'reviewing', reviewingAt: string | null) {
+    const label = capitalize(next)
+    const style = getStatusStyle(next)
+    const lists = [studentRequests.value, accommodationManagerRequests.value, accommodationRequests.value]
+    for (const list of lists) {
+      for (const row of list) {
+        if (row.id !== id) continue
+        row.status = label
+        row.statusStyle = style
+        row.reviewingAt = reviewingAt
+      }
+    }
+    if (selectedRequest.value?.id === id) {
+      selectedRequest.value = { ...selectedRequest.value, status: label, statusStyle: style, reviewingAt }
+    }
+  }
+
+  /**
+   * The claim and its owner move together. A status written without the two
+   * lock columns is exactly the unverifiable claim this replaced.
+   */
+  async function setRequestStatus(row: VerificationRequest, next: 'pending' | 'reviewing') {
+    const table = row.id.startsWith('REQ-AC') ? 'accommodations' : 'users'
+    const taking = next === 'reviewing'
+    const reviewingAt = taking ? new Date().toISOString() : null
+    const reviewingBy = taking ? (await supabase.auth.getUser()).data.user?.id ?? null : null
+    const { error } = await supabase
+      .from(table)
+      .update({ status: next as never, reviewing_by: reviewingBy, reviewing_at: reviewingAt } as never)
+      .eq('id', row.rawId)
+    if (error) {
+      console.warn('Could not set review status:', error.message)
+      return
+    }
+    patchRowStatus(row.id, next, reviewingAt)
+  }
+
+  /**
+   * Requests this browser session has open. `reviewing` says a reviewer holds a
+   * request but the tables carry no column saying which one, so ownership is
+   * tracked here: anything already `reviewing` that this session did not claim
+   * belongs to somebody else and stays shut.
+   */
+  const claimedIds = ref(new Set<string>())
+
+  const presence = useReviewPresence()
+
+  /**
+   * How long a claim stands on its timestamp alone. Presence answers the online
+   * case within seconds; this is the floor that stops a live lock being freed
+   * just because Realtime is slow, reconnecting, or switched off entirely.
+   */
+  const STALE_AFTER_MS = 10 * 60 * 1000
+
+  /**
+   * Whether somebody is really in the review panel for this request. The two
+   * checks are OR'd, so a lock is only abandoned when presence says nobody is
+   * connected to it AND its claim has aged out.
+   */
+  function isHeld(row: VerificationRequest): boolean {
+    if (presence.holderOf(row.id)) return true
+    if (!row.reviewingAt) return false
+    const age = Date.now() - new Date(row.reviewingAt).getTime()
+    return Number.isFinite(age) && age < STALE_AFTER_MS
+  }
+
+  function isLockedByOther(row: VerificationRequest): boolean {
+    return (
+      String(row.status).toLowerCase() === 'reviewing' &&
+      !claimedIds.value.has(row.id) &&
+      isHeld(row)
+    )
+  }
+
+  /** The reviewer who has this open, when presence knows their name. */
+  function reviewerOf(row: VerificationRequest): string {
+    return presence.holderOf(row.id)?.name ?? ''
+  }
+
+  /**
+   * Put every abandoned claim back in the queue. Gated on `presence.ready`:
+   * a client that has not yet received its first sync reads an empty channel,
+   * and would take that as nobody reviewing anything and free the lot.
+   */
+  async function sweepStaleLocks() {
+    if (!presence.ready.value) return
+    const lists = [studentRequests.value, accommodationManagerRequests.value, accommodationRequests.value]
+    for (const list of lists) {
+      for (const row of list) {
+        if (String(row.status).toLowerCase() !== 'reviewing') continue
+        if (claimedIds.value.has(row.id) || isHeld(row)) continue
+        await setRequestStatus(row, 'pending')
+      }
+    }
+  }
+
+  // A lock can go stale while the queue simply sits open, so the sweep follows
+  // presence rather than only the load that first drew the table.
+  watch([presence.holders, presence.ready], () => void sweepStaleLocks())
+
+  async function claimForReview(row: VerificationRequest) {
+    if (String(row.status).toLowerCase() !== 'pending') return
+    claimedIds.value.add(row.id)
+    presence.track(row.id)
+    await setRequestStatus(row, 'reviewing')
+  }
+
+  async function releaseReview(row: VerificationRequest | null) {
+    if (!row) return
+    claimedIds.value.delete(row.id)
+    presence.untrack()
+    if (String(row.status).toLowerCase() !== 'reviewing') return
+    await setRequestStatus(row, 'pending')
+  }
+
+  /**
+   * The ordinary close. Not awaited and not relied on — a killed browser never
+   * runs it, which is what presence and the timestamp are for — but when it does
+   * land the request is back in the queue immediately instead of waiting for
+   * another admin's sweep.
+   */
+  function releaseOnUnload() {
+    void releaseReview(selectedRequest.value)
+  }
+  window.addEventListener('pagehide', releaseOnUnload)
+  onUnmounted(() => window.removeEventListener('pagehide', releaseOnUnload))
+
+  /**
+   * Takes a request off another session. Needed because a lock outlives the
+   * browser that set it — a closed tab or a crash leaves `reviewing` behind with
+   * nothing to clear it, and with 69 waiting nobody should be stuck.
+   */
+  async function takeOverReview(row: VerificationRequest) {
+    claimedIds.value.add(row.id)
+    presence.track(row.id)
+    await selectRequest(row, true)
+  }
+
+  async function selectRequest(row: VerificationRequest, force = false) {
+    if (!force && isLockedByOther(row)) {
+      notify.warning('Already being reviewed', `Another reviewer has ${row.name} open.`)
+      return
+    }
+    const previous = selectedRequest.value
+    if (previous && previous.id !== row.id) void releaseReview(previous)
     selectedRequest.value = row
+    void claimForReview(row)
+    void loadReviewProfile(row)
+    void loadAccommodationExtras(row)
+    // Documents live behind Cloudinary authenticated delivery. Sign just this
+    // request's files, on open, rather than minting URLs for the whole queue.
+    const table = row.id.startsWith('REQ-AC') ? 'accommodation_documents' : 'verification_documents'
+    const signed = await Promise.all(
+      row.files.map(async (file: any) => ({ ...file, url: await secureDocUrl(table, file.id) })),
+    )
+    // Matched by id, not by object identity, and merged rather than replaced.
+    // Claiming the review and loading the profile both swap `selectedRequest`
+    // for a fresh copy while these URLs are still being signed: an identity
+    // check then failed and the signed files were dropped on the floor, leaving
+    // every document with an empty URL. Spreading `row` back over the top would
+    // have undone whichever of those two landed first.
+    if (selectedRequest.value?.id === row.id) {
+      selectedRequest.value = { ...selectedRequest.value, files: signed }
+    }
   }
+  /** Amenities and house rules, loaded on open and merged into the request. */
+  async function loadAccommodationExtras(row: VerificationRequest) {
+    if (!row.id.startsWith('REQ-AC') || !row.accommodation) return
+    try {
+      const extras = await fetchAccommodationExtras(row.rawId)
+      if (selectedRequest.value?.id !== row.id) return
+      const current = selectedRequest.value
+      selectedRequest.value = {
+        ...current,
+        accommodation: { ...(current.accommodation as AccommodationFacts), extras },
+      }
+    } catch (e) {
+      console.warn('Could not load the property details:', e)
+    }
+  }
+
+  /** The account behind the request, loaded on open and merged into it. */
+  async function loadReviewProfile(row: VerificationRequest) {
+    if (row.id.startsWith('REQ-AC')) return
+    const role = row.id.startsWith('REQ-AM') ? 'accommodation_manager' : 'student'
+    const profile = await fetchReviewProfile(row.rawId, role)
+    if (profile && selectedRequest.value?.id === row.id) {
+      selectedRequest.value = { ...selectedRequest.value, profile }
+    }
+  }
+
   function clearRequest() {
+    const open = selectedRequest.value
     selectedRequest.value = null
+    void releaseReview(open)
   }
+
+  // --- queue navigation ------------------------------------------------------
+  // 69 requests are waiting and 67 are past target, so the review window is a
+  // queue tool: the reviewer moves through it without returning to the table.
+  const queue = computed(() => filteredRows.value)
+  const queueIndex = computed(() =>
+    selectedRequest.value ? queue.value.findIndex((r) => r.id === selectedRequest.value?.id) : -1,
+  )
+  const queueCount = computed(() => queue.value.length)
+  const hasPrev = computed(() => queueIndex.value > 0)
+  const hasNext = computed(() => queueIndex.value >= 0 && queueIndex.value < queueCount.value - 1)
+
+  function step(direction: -1 | 1) {
+    if (queueIndex.value < 0) return
+    for (let i = queueIndex.value + direction; i >= 0 && i < queue.value.length; i += direction) {
+      const row = queue.value[i]
+      if (row && !isLockedByOther(row)) {
+        void selectRequest(row)
+        return
+      }
+    }
+  }
+  function selectPrev() { step(-1) }
+  function selectNext() { step(1) }
 
   watch(activeTab, () => {
     search.value = ''
@@ -443,34 +616,69 @@ export function useVerifications() {
       // otherwise it's a hard reject.
       const allowResub = decision === 'reject' && decisionPayload?.allowResubmission === true
 
-      let newStatus: 'pending' | 'reviewing' | 'accredited' | 'rejected' | 'verified'
+      // A refusal the manager can fix is not the same as a refusal. Soft
+      // rejects used to land on `rejected` alongside an outright refusal, so a
+      // blurry permit looked terminal; they now land on `needs_revision`, and
+      // the ball being with the manager keeps them out of the OSAS queue until
+      // a new document arrives and the permit trigger re-queues them.
+      let newStatus: string
       if (decision === 'approve') newStatus = isAccommodation ? 'accredited' : 'verified'
-      else if (allowResub) newStatus = 'reviewing'
+      else if (allowResub && isAccommodation) newStatus = 'needs_revision'
       else newStatus = 'rejected'
 
       const rawId = req.rawId
-      const { data, error } = isAccommodation
-        ? await supabase.from('accommodations').update({ status: newStatus as 'pending' | 'reviewing' | 'accredited' | 'rejected' }).eq('id', rawId).select()
-        : await supabase.from('users').update({ status: newStatus as any }).eq('id', rawId).select()
+      const actorId = (await supabase.auth.getUser()).data.user?.id || null
+      // Accreditation runs for a term rather than forever. Stamping it here is
+      // what makes `accreditation_expires_at` real — the column has always
+      // existed and nothing wrote it, so the dashboard's renewal warning and
+      // the nightly expiry sweep both had nothing to match on.
+      const accreditedNow = isAccommodation && decision === 'approve'
+      const accreditedAt = accreditedNow ? new Date() : null
+      const expiresAt = accreditedAt ? new Date(accreditedAt) : null
+      if (expiresAt) expiresAt.setFullYear(expiresAt.getFullYear() + ACCREDITATION_TERM_YEARS)
 
-      // When a STUDENT is approved/verified, stamp student_profiles.osas_verified_at.
-      // The mobile app gates the student QR on that field (not users.status), so a
-      // user could read 'verified' yet never get a QR. Rejecting does not un-stamp —
-      // the field is cleared only if the row is later invalidated by OSAS.
-      if (!isAccommodation && decision === 'approve') {
-        try {
-          const { error: stampErr } = await supabase.from('student_profiles').update({ osas_verified_at: new Date().toISOString() }).eq('user_id', rawId)
-          // Some approved profiles may not exist yet (e.g. Google-OAuth signups with no
-          // ISU enrollment row). Upsert so the stamp is never silently dropped.
-          if (stampErr && String(stampErr.code || '').match(/PGRST(116|117)/)) {
-            await supabase.from('student_profiles').upsert({ user_id: rawId, osas_verified_at: new Date().toISOString() })
-          }
-        } catch { /* non-critical; primary status update already succeeded */ }
-      }
+      const { data, error } = isAccommodation
+        ? await supabase.from('accommodations').update({
+            status: newStatus,
+            reviewing_by: null,
+            reviewing_at: null,
+            ...(accreditedNow
+              ? { accredited_at: accreditedAt!.toISOString(), accreditation_expires_at: expiresAt!.toISOString() }
+              : {}),
+          } as never).eq('id', rawId).select()
+        : await supabase.from('users').update({ status: newStatus as any, reviewing_by: null, reviewing_at: null } as never).eq('id', rawId).select()
 
       if (error) {
         notify.error('Database error', error.message)
         throw error
+      }
+
+      // Approving a STUDENT stamps student_profiles.osas_verified_at, which is
+      // what actually gates the QR, lease applications and chat-apply — not
+      // users.status. Upsert unconditionally: an update alone matches no rows for
+      // a student with no profile row yet (a Google signup with no ISU record)
+      // and reports no error, which is how this silently no-opped for a whole
+      // release. Revoking on reject/suspend is handled by tg_revoke_on_unverify.
+      if (!isAccommodation && decision === 'approve') {
+        const { error: stampErr } = await supabase
+          .from('student_profiles')
+          .upsert({ user_id: rawId, osas_verified_at: new Date().toISOString() }, { onConflict: 'user_id' })
+        if (stampErr) notify.error('Could not record OSAS verification', stampErr.message)
+      }
+
+      // Close out the document rows this decision covers. Nothing wrote these
+      // before, so decided accounts trailed the queue forever.
+      if (!isAccommodation) {
+        const { error: docErr } = await supabase
+          .from('verification_documents')
+          .update({
+            status: decision === 'approve' ? 'approved' : 'rejected',
+            verified_at: new Date().toISOString(),
+            verified_by: actorId,
+          } as any)
+          .eq('user_id', rawId)
+          .eq('status', 'pending')
+        if (docErr) console.warn('Could not close verification documents:', docErr.message)
       }
 
       const verb =
@@ -485,12 +693,15 @@ export function useVerifications() {
       }
 
       // --- Close the loop: record the decision + notify (best-effort) -------
-      const actorId = (await supabase.auth.getUser()).data.user?.id || null
       const entityType = isAccommodation ? 'accommodation' : 'user'
       const subjectUserId = isAccommodation ? (req as any).ownerId : rawId
 
-      try {
-        await supabase.from('audit_logs').insert({
+      // supabase-js RETURNS errors, it does not throw them — these three writes
+      // used to sit inside try/catch blocks that could never fire, so an RLS
+      // refusal was invisible. audit_logs had no admin INSERT policy at all
+      // until 20260915000004, which is why not one decision was ever recorded.
+      {
+        const { error: auditErr } = await supabase.from('audit_logs').insert({
           action: allowResub ? 'verification.resubmit' : `verification.${decision}`,
           actor_id: actorId,
           entity_id: rawId,
@@ -505,11 +716,10 @@ export function useVerifications() {
             notes: decisionPayload?.notes ?? null,
           },
         } as any)
-      } catch (e: any) {
-        console.warn('audit_logs insert failed (apply verification_workflow migration?):', e?.message)
+        if (auditErr) notify.warning('Decision not recorded in the audit log', auditErr.message)
       }
 
-      try {
+      {
         const notifs: any[] = []
         if (subjectUserId) {
           const subjectBody =
@@ -537,13 +747,19 @@ export function useVerifications() {
             link_url: isAccommodation ? `/verifications?focus=verification:${rawId}` : `/users?user=${rawId}`,
           })
         }
-        if (notifs.length) await supabase.from('notifications').insert(notifs as any)
-      } catch (e: any) {
-        console.warn('notifications insert failed (apply verification_workflow migration?):', e?.message)
+        // Both rows go in one statement, so a refusal on the applicant's row
+        // used to take the admin's own copy with it — and can_notify() does not
+        // cover admin → applicant, so that was every decision. 20260915000004
+        // adds notifications_insert_admin; if it is ever missing again, say so
+        // rather than leaving the applicant silently uninformed.
+        if (notifs.length) {
+          const { error: notifErr } = await supabase.from('notifications').insert(notifs as any)
+          if (notifErr) notify.warning('Applicant was not notified', notifErr.message)
+        }
       }
 
-      try {
-        await (supabase as any).from('verification_requests').insert({
+      {
+        const { error: reqErr } = await (supabase as any).from('verification_requests').insert({
           entity_type: entityType,
           entity_id: rawId,
           type: req.type,
@@ -556,15 +772,25 @@ export function useVerifications() {
           rejection_reasons: decisionPayload?.tags ?? null,
           decision_notes: decisionPayload?.notes ?? null,
         })
-      } catch (e: any) {
-        console.warn('verification_requests insert failed (apply verification_workflow migration?):', e?.message)
+        if (reqErr) notify.warning('Decision history not updated', reqErr.message)
       }
 
+      // Where the reviewer was in the queue, so the decision can hand them the
+      // next request instead of the table they came from. Read before the
+      // refetch, which rebuilds the rows.
+      const decidedIndex = queueIndex.value
+
       await fetch()
+
+      // The decided request is gone from the pending queue, so the one that
+      // took its index is the next one to look at.
+      const following = decidedIndex >= 0 ? queue.value[decidedIndex] : undefined
+      selectedRequest.value = null
+      if (following) void selectRequest(following)
     } catch (error: any) {
       console.error('Failed to update status:', error.message)
-    } finally {
       selectedRequest.value = null
+    } finally {
       loading.value = false
     }
   }
@@ -599,5 +825,14 @@ export function useVerifications() {
     handleDecision,
     selectRequest,
     clearRequest,
+    queueIndex,
+    queueCount,
+    hasPrev,
+    hasNext,
+    selectPrev,
+    selectNext,
+    isLockedByOther,
+    reviewerOf,
+    takeOverReview,
   }
 }

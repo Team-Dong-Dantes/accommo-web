@@ -19,7 +19,7 @@
           clearable
         >
           <template v-slot:prepend>
-            <Icon icon="mdi:magnify" width="20" height="20" color="var(--c-muted)" />
+            <Icon icon="lucide:search" width="20" height="20" color="var(--c-muted)" />
           </template>
         </q-input>
 
@@ -61,7 +61,7 @@
         role="radio"
         @click="setStyle('plain')"
       >
-        <Icon icon="mdi:map-outline" width="18" height="18" aria-hidden="true" />
+        <Icon icon="lucide:map" width="18" height="18" aria-hidden="true" />
         <span>Map</span>
       </q-btn>
       <q-btn
@@ -73,7 +73,7 @@
         role="radio"
         @click="setStyle('satellite')"
       >
-        <Icon icon="mdi:satellite-variant" width="18" height="18" aria-hidden="true" />
+        <Icon icon="lucide:satellite" width="18" height="18" aria-hidden="true" />
         <span>Satellite</span>
       </q-btn>
     </div>
@@ -89,6 +89,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import AccommodationList from '@/components/properties/PropertyList.vue'
 import AccommodationDetail from '@/components/properties/PropertyDetail.vue'
 import FilterDropdown from '@/components/ui/FilterDropdown.vue'
+import { humanizeEnum } from '@/utils/format'
 import { useAccommodations } from '@/composables/useAccommodations'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
@@ -98,7 +99,7 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
 // log ERR_BLOCKED_BY_CLIENT noise. API_URL is left intact so the map still loads.
 try {
   Object.defineProperty(mapboxgl.config, 'EVENTS_URL', { get: () => null, configurable: true })
-} catch {}
+} catch { /* mapbox telemetry opt-out is best-effort; an older build without EVENTS_URL is fine */ }
 
 const { accommodations, load: loadAccommodations } = useAccommodations()
 const route = useRoute()
@@ -113,36 +114,29 @@ const activeFilters = ref<Record<string, any[]>>({})
 
 // Filters (accommodation type / room type / status) — applied by MapView, so the
 // search + filter toolbar can sit OUTSIDE the AccommodationList table.
-const filters = [
-  {
-    key: 'accommodationType',
-    label: 'Accommodation Type',
-    options: [
-      { label: 'Dormitory', value: 'Dormitory' },
-      { label: 'Bedspace', value: 'Bedspace' },
-      { label: 'Apartment', value: 'Apartment' },
-      { label: 'Boarding House', value: 'Boarding House' },
-    ],
-  },
-  {
-    key: 'roomType',
-    label: 'Room Type',
-    options: [
-      { label: 'Solo', value: 'solo' },
-      { label: 'Duo', value: 'duo' },
-      { label: 'Triple', value: 'triple' },
-      { label: 'Bedspace', value: 'bedspace' },
-    ],
-  },
-  {
-    key: 'status',
-    label: 'Status',
-    options: [
-      { label: 'Verified', value: 'verified' },
-      { label: 'Pending', value: 'pending' },
-    ],
-  },
-]
+// Type options come from the loaded rows, not a hardcoded list: the fixed one
+// offered 'Dormitory' / 'Apartment' / 'Boarding House' against row values built
+// from the accommodation_type enum, and matched nothing. Derived options also
+// track whatever the column actually holds.
+const filters = computed(() => {
+  const distinct = (key: 'accommodationType' | 'roomType') =>
+    [...new Set(accommodations.value.map((p) => String(p[key] ?? '')).filter((v) => v && v !== '—'))]
+      .sort()
+      .map((v) => ({ label: humanizeEnum(v), value: v }))
+
+  return [
+    { key: 'accommodationType', label: 'Accommodation Type', options: distinct('accommodationType') },
+    { key: 'roomType', label: 'Room Type', options: distinct('roomType') },
+    {
+      key: 'status',
+      label: 'Status',
+      options: [
+        { label: 'Verified', value: 'verified' },
+        { label: 'Pending', value: 'pending' },
+      ],
+    },
+  ]
+})
 
 function clearFilters() {
   activeFilters.value = {}

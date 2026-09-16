@@ -25,7 +25,7 @@
 
         <div class="row q-gutter-x-xs items-center">
           <q-btn flat dense color="grey-6" size="sm" class="pagination-btn" :disable="modelValue <= 1" @click="changePage(modelValue - 1)">
-            <Icon icon="mdi:chevron-left" width="18" height="18" />
+            <Icon icon="lucide:chevron-left" width="18" height="18" />
           </q-btn>
 
           <q-btn
@@ -42,7 +42,7 @@
           />
 
           <q-btn flat dense color="grey-6" size="sm" class="pagination-btn" :disable="modelValue >= totalPages" @click="changePage(modelValue + 1)">
-            <Icon icon="mdi:chevron-right" width="18" height="18" />
+            <Icon icon="lucide:chevron-right" width="18" height="18" />
           </q-btn>
         </div>
 

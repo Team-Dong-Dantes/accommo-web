@@ -3,7 +3,7 @@
 
     <div class="list-head q-px-md q-py-sm border-bottom bg-surface shrink-0">
       <div class="row items-center no-wrap">
-        <Icon icon="mdi:home-city-outline" width="18" height="18" color="var(--c-primary)" class="q-mr-sm" />
+        <Icon icon="lucide:building-2" width="18" height="18" color="var(--c-primary)" class="q-mr-sm" />
         <div class="text-weight-bold text-ink" style="font-size: 15px;">Accommodations</div>
         <span class="count-badge q-ml-xs">{{ accommodations.length }}</span>
       </div>
@@ -36,11 +36,13 @@
             </div>
 
             <div class="row items-center q-mt-sm no-wrap" style="gap: 6px;">
-              <BadgePill v-if="prop.verified" status="verified" label="Verified" />
-              <BadgePill v-else status="rejected" label="Flagged" />
+              <!-- "Flagged" was invented copy: it made a property merely waiting
+                   for OSAS look reported, and said the same word for a manager's
+                   own delisting as for a refusal. -->
+              <BadgePill :tone="prop.statusStyle.tone" :icon="prop.statusStyle.icon" :label="prop.statusLabel" />
 
               <span v-if="prop.rating != null && prop.rating !== '—'" class="text-warning text-weight-bold row items-center no-wrap" style="font-size: 12px;">
-                <Icon icon="mdi:star" width="12" height="12" class="q-mr-xs" style="margin-top: -1px;" /> {{ prop.rating }}
+                <Icon icon="lucide:star" width="12" height="12" class="q-mr-xs" style="margin-top: -1px;" /> {{ prop.rating }}
               </span>
             </div>
           </q-item-section>
@@ -52,14 +54,14 @@
           </q-item-section>
 
           <q-item-section side class="q-pl-sm" style="width: auto;">
-            <Icon icon="mdi:chevron-right" color="var(--c-border-strong)" width="18" height="18" />
+            <Icon icon="lucide:chevron-right" color="var(--c-border-strong)" width="18" height="18" />
           </q-item-section>
         </q-item>
 
       </div>
 
       <div v-else class="q-pa-lg text-center text-muted text-caption">
-        <Icon icon="mdi:map-search-outline" width="34" height="34" color="var(--c-muted)" class="q-mb-sm" />
+        <Icon icon="lucide:map-pinned" width="34" height="34" color="var(--c-muted)" class="q-mb-sm" />
         <div>No accommodations match.</div>
       </div>
     </q-scroll-area>
@@ -69,6 +71,7 @@
 <script setup lang="ts">
 import { PropType } from 'vue'
 import BadgePill from '@/components/user/BadgePill.vue'
+import type { BadgeStyle } from '@/composables/useAccommodations'
 
 interface AccommodationItem {
   id: string | number
@@ -77,6 +80,8 @@ interface AccommodationItem {
   accommodationManager?: string
   image?: string
   verified?: boolean
+  statusLabel: string
+  statusStyle: BadgeStyle
   rating?: string | number | null
   totalStudents?: number
   totalCapacity?: number

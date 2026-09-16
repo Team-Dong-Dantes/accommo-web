@@ -47,7 +47,7 @@
                 </div>
                 <div class="row items-center q-gutter-x-sm">
                   <q-btn flat round dense color="primary" @click="close">
-                    <Icon icon="mdi:close" width="20" height="20" />
+                    <Icon icon="lucide:x" width="20" height="20" />
                   </q-btn>
                 </div>
               </div>
@@ -99,6 +99,7 @@ export type {
   PreviewChip,
   PreviewStat,
   PreviewDetail,
+  PreviewDetailGroup,
   PreviewCardCell,
   PreviewCard,
   PreviewActivity,
@@ -179,14 +180,22 @@ function goToRoom(room: PreviewRoom) {
   router.push({ path: '/room-hub', query })
   close()
 }
-function toggleExpand() {
-  emit('update:expanded', !props.expanded)
-}
 function onBackdropClick() {
-  if (props.anchored) return
+  if (props.anchored || modalIsOpen()) return
   if (props.closeOnBackdrop) close()
 }
+/**
+ * A QDialog opened from inside the drawer — the document viewer — teleports to
+ * <body>, so every click in it lands outside `.dd-panel` and used to close the
+ * drawer, which unmounted the dialog with it. While one is open it owns both the
+ * outside click and Escape.
+ */
+function modalIsOpen(): boolean {
+  return document.querySelector('.q-dialog') !== null
+}
+
 function onKeydown(e: KeyboardEvent) {
+  if (modalIsOpen()) return
   if (e.key === 'Escape' && props.modelValue) close()
 }
 // When an anchored drawer is opened by an outside click (e.g. a table row),
@@ -208,9 +217,9 @@ watch(
 )
 function onDocClick(e: MouseEvent) {
   if (!props.anchored || !props.modelValue || !props.closeOnBackdrop) return
-  if (suppressClose.value) return
+  if (suppressClose.value || modalIsOpen()) return
   const target = e.target as HTMLElement | null
-  if (target?.closest('.dd-panel') || target?.closest('.q-menu')) return
+  if (target?.closest('.dd-panel') || target?.closest('.q-menu') || target?.closest('.q-dialog')) return
   close()
 }
 

@@ -26,7 +26,7 @@
       >
       <template #empty>
         <div class="full-width row flex-center text-muted q-pa-xl column">
-          <Icon :icon="fetchError ? 'mdi:alert-circle-outline' : 'mdi:account-group-off-outline'" width="48" height="48" class="q-mb-md" />
+          <Icon :icon="fetchError ? 'lucide:circle-alert' : 'lucide:user-x'" width="48" height="48" class="q-mb-md" />
           <div class="text-h6 text-weight-bold">{{ fetchError ? 'Could not load users' : 'No users found' }}</div>
           <div v-if="fetchError" class="text-caption q-mt-xs" style="color: var(--c-danger)">{{ fetchError }}</div>
           <div v-else>There are currently no registered users matching your criteria.</div>
@@ -41,6 +41,7 @@
                 :name="props.row.name"
                 :email="props.row.email"
                 :avatar-color="props.row.avatarColor"
+                :avatar-url="props.row.avatarUrl"
               />
             </q-td>
           <q-td key="id" :props="props" class="text-muted text-weight-medium" style="font-family: var(--font-mono)">{{ props.row.id }}</q-td>
@@ -86,9 +87,15 @@ import BadgePill from '@/components/user/BadgePill.vue'
 import { getStatus, getTone, type StatusTone } from '@/utils/status.config'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
-import { buildUserPreview, cap, composeAddress, fmtDate, periodLabel } from '@/features/users/userPreview'
+import { buildUserPreview, cap, composeAddress, periodLabel } from '@/features/users/userPreview'
 import { fetchStudentLeaseHistory, fetchPaymentsForLeases } from '@/api/leases'
+import { fetchVerificationDocs, type VerificationDocRow } from '@/api/users'
+import { downloadCsv } from '@/utils/csv'
+import { useNotify } from '@/utils/notify'
 import type { DrawerPreview } from '@/components/ui/DetailDrawer.vue'
+import type { Database } from '@/types/database.gen'
+
+const notify = useNotify()
 
 const loading = ref(true)
 const fetchError = ref('')
@@ -103,6 +110,7 @@ const drawerOpen = ref(false)
 const drawerExpanded = ref(false)
 const selectedUser = ref<any | null>(null)
 const userDetail = ref<any | null>(null)
+const verificationDocs = ref<VerificationDocRow[]>([])
 const userReviews = ref<any[]>([])
 const detailLoading = ref(false)
 
@@ -117,8 +125,12 @@ const tabs = [
   { name: 'users', label: 'Users' },
 ]
 
+// Option values are the raw `users.role` values, because filteredRows compares
+// them against the row's own `role`. They read 'Accommodation Manager' here for
+// a while, which never matched 'accommodation_manager' — that filter returned
+// nothing at all. The labels are what the dropdown shows.
 const filterConfig = [
-  { label: 'Role', key: 'role', options: [ { label: 'Student', value: 'Student' }, { label: 'Accommodation Manager', value: 'Accommodation Manager' } ] },
+  { label: 'Role', key: 'role', options: [ { label: 'Student', value: 'student' }, { label: 'Accommodation Manager', value: 'accommodation_manager' } ] },
   { label: 'Status', key: 'status', options: [ { label: 'Verified', value: 'Verified' }, { label: 'Pending', value: 'Pending' }, { label: 'Reviewing', value: 'Reviewing' }, { label: 'Rejected', value: 'Rejected' }, { label: 'Suspended', value: 'Suspended' }, { label: 'Unverified', value: 'Unverified' } ] }
 ]
 
@@ -136,30 +148,11 @@ function clearFilters() {
 }
 
 function handleExport() {
-  const rows = filteredRows.value
-  const headers = ['Name', 'User ID', 'Email', 'Contact', 'Role', 'Status', 'Joined']
-  const escapeCsv = (v: unknown) => {
-    const s = v == null ? '' : String(v)
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
-  const lines = [headers.join(',')]
-  for (const r of rows) {
-    lines.push(
-      [r.name, r.id, r.email, r.contact, cap(r.role), r.status, r.joined]
-        .map(escapeCsv)
-        .join(',')
-    )
-  }
-  const csv = lines.join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `users_export_${new Date().toISOString().slice(0, 10)}.csv`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  downloadCsv(
+    'users_export',
+    ['Name', 'User ID', 'Email', 'Contact', 'Role', 'Status', 'Joined'],
+    filteredRows.value.map((r) => [r.name, r.id, r.email, r.contact, cap(r.role), r.status, r.joined]),
+  )
 }
 
 async function fetchUsers() {
@@ -169,7 +162,7 @@ async function fetchUsers() {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, full_name, email, phone, role, status, created_at')
+      .select('id, full_name, email, phone, role, status, created_at, date_of_birth, avatar_url')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -218,6 +211,7 @@ async function openUser(row: any) {
   boardingHistory.value = []
   accommodationRows.value = []
   userReviews.value = []
+  verificationDocs.value = []
   leases.value = []
   payments.value = []
   sectionTab.value = 'overview'
@@ -298,35 +292,40 @@ async function fetchDetail(userId: string, role: string) {
       accommodationRows.value = props || []
     }
 
-    // Reviews — accommodation manager = reviews received; student = tenant reviews received.
-    if (normalized === 'accommodation_manager') {
+    // Reviews — accommodation manager = reviews received; student = tenant
+    // reviews received. Read through `review_admin_feed`: the review tables are
+    // anonymous to the people involved (SELECT on them is revoked from
+    // `authenticated`), and this view is the one place identities survive. It
+    // gates itself on is_admin(), so a non-admin session gets nothing back.
+    if (normalized === 'accommodation_manager' || normalized === 'student') {
+      const kind = normalized === 'accommodation_manager' ? 'manager' : 'tenant'
       const res = (await supabase
-        .from('accommodation_manager_reviews')
-        .select('rating, comment, created_at, student_id(full_name)')
-        .eq('accommodation_manager_id', userId)
+        .from('review_admin_feed')
+        .select('rating, comment, created_at, author_id')
+        .eq('kind', kind)
+        .eq('subject_id', userId)
         .order('created_at', { ascending: false })) as any
       const revs = (res?.data || []) as any[]
+      const authorIds = [...new Set(revs.map((r: any) => r.author_id).filter(Boolean))]
+      const nameById = new Map<string, string>()
+      if (authorIds.length) {
+        const { data: authors } = await supabase.from('users').select('id, full_name').in('id', authorIds)
+        for (const a of authors || []) nameById.set(a.id, a.full_name || '')
+      }
       userReviews.value = revs.map((r: any) => ({
-        author_name: r.student_id?.full_name || 'Anonymous',
-        rating: r.rating,
-        comment: r.comment,
-        created_at: r.created_at,
-      }))
-    } else if (normalized === 'student') {
-      const res = (await supabase
-        .from('tenant_reviews')
-        .select('rating, comment, created_at, accommodation_manager_id(full_name)')
-        .eq('student_id', userId)
-        .order('created_at', { ascending: false })) as any
-      const revs = (res?.data || []) as any[]
-      userReviews.value = revs.map((r: any) => ({
-        author_name: r.accommodation_manager_id?.full_name || 'Anonymous',
+        author_name: nameById.get(r.author_id) || 'Unknown',
         rating: r.rating,
         comment: r.comment,
         created_at: r.created_at,
       }))
     } else {
       userReviews.value = []
+    }
+
+    try {
+      verificationDocs.value = await fetchVerificationDocs(userId)
+    } catch {
+      verificationDocs.value = []
     }
 
     userDetail.value = detail
@@ -358,7 +357,7 @@ function mapUserData(user: any, studentId = '') {
   const isStudent = (user.role || '').toLowerCase() === 'student'
   const roleStyle = {
     tone: (isStudent ? 'neutral' : 'primary') as StatusTone,
-    icon: isStudent ? 'mdi:school' : 'mdi:domain'
+    icon: isStudent ? 'lucide:graduation-cap' : 'lucide:building-2'
   }
   const avatarColor = isStudent ? 'indigo-5' : 'teal-7'
 
@@ -366,7 +365,7 @@ function mapUserData(user: any, studentId = '') {
   const statusLabel = status.charAt(0).toUpperCase() + status.slice(1)
   const statusStyle = {
     tone: getTone(status),
-    icon: getStatus(status).icon || 'mdi:help-circle-outline'
+    icon: getStatus(status).icon || 'lucide:circle-help'
   }
 
   return {
@@ -380,8 +379,10 @@ function mapUserData(user: any, studentId = '') {
     status: statusLabel,
     statusStyle,
     joined: joinedDate,
+    dateOfBirth: user.date_of_birth ?? null,
     initials,
     avatarColor,
+    avatarUrl: user.avatar_url || '',
     studentId
   }
 }
@@ -424,6 +425,7 @@ const userPreview = computed<DrawerPreview>(() =>
     boardingHistory: boardingHistory.value,
     accommodationRows: accommodationRows.value,
     userReviews: userReviews.value,
+    verificationDocs: verificationDocs.value,
     leases: leases.value,
     payments: payments.value,
   })
@@ -443,11 +445,9 @@ const userManagementActions = computed<ManagementAction[]>(() => {
     actions.push({ label: 'Suspend Account', action: 'suspend', danger: true })
   }
 
-  if (status === 'banned') {
-    actions.push({ label: 'Unban Account', action: 'unban' })
-  } else {
-    actions.push({ label: 'Ban Account', action: 'ban', danger: true })
-  }
+  // No Ban/Unban: `banned` is not a value of the user_status enum. Suspension
+  // is the ban — tg_auth_status_gate stamps auth.users.banned_until when a row
+  // goes to 'suspended', which is what actually locks the account out.
 
   if (['pending', 'reviewing', 'unverified'].includes(status)) {
     actions.push({ label: 'Mark as Verified', action: 'verify' })
@@ -456,12 +456,15 @@ const userManagementActions = computed<ManagementAction[]>(() => {
   return actions
 })
 
-const STATUS_FOR_ACTION: Record<string, string> = {
-  suspend: 'Suspended',
-  reactivate: 'Verified',
-  ban: 'Banned',
-  unban: 'Verified',
-  verify: 'Verified',
+// `user_status` is a lowercase Postgres enum. These were title-cased, so every
+// write was rejected with `22P02 invalid input value for enum user_status` —
+// and because the failure only reached console.error while the badge was
+// flipped optimistically, the console reported a suspension that never happened.
+// Typed against the generated enum now, so a bad value is a build error.
+const STATUS_FOR_ACTION: Record<string, Database['public']['Enums']['user_status']> = {
+  suspend: 'suspended',
+  reactivate: 'verified',
+  verify: 'verified',
 }
 
 async function onManageUser(action: string) {
@@ -471,30 +474,32 @@ async function onManageUser(action: string) {
   const newStatus = STATUS_FOR_ACTION[action]
   if (!newStatus) return
 
-  try {
-    const { error } = await supabase
-      .from('users')
-      .update({ status: newStatus as any })
-      .eq('id', u.rawId)
-    if (error) throw error
+  const { error } = await supabase
+    .from('users')
+    .update({ status: newStatus })
+    .eq('id', u.rawId)
 
-    const lower = newStatus.toLowerCase()
-    const style = {
-      tone: getTone(lower),
-      icon: getStatus(lower).icon || 'mdi:help-circle-outline',
-    }
-    const label = newStatus.charAt(0).toUpperCase() + newStatus.slice(1)
-    u.status = label
-    u.statusStyle = style
-
-    const row = rawUsers.value.find(r => r.rawId === u.rawId)
-    if (row) {
-      row.status = label
-      row.statusStyle = style
-    }
-  } catch (err) {
-    console.error('Failed to update user status:', err)
+  if (error) {
+    notify.error('Could not update account status', error.message)
+    return
   }
+
+  // Only now is the row actually in this state, so only now does the UI say so.
+  const style = {
+    tone: getTone(newStatus),
+    icon: getStatus(newStatus).icon || 'lucide:circle-help',
+  }
+  const label = newStatus.charAt(0).toUpperCase() + newStatus.slice(1)
+  u.status = label
+  u.statusStyle = style
+
+  const row = rawUsers.value.find(r => r.rawId === u.rawId)
+  if (row) {
+    row.status = label
+    row.statusStyle = style
+  }
+
+  notify.success(`Account ${label.toLowerCase()}`, u.name)
 }
 
 </script>

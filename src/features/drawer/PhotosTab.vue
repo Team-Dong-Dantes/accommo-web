@@ -11,10 +11,11 @@
       <img :src="p.url" :alt="`Room photo ${i + 1}`" loading="lazy" />
     </a>
   </div>
-  <div v-else class="dd-empty">No photos uploaded for this room.</div>
+  <TabEmptyState v-else icon="lucide:image" title="No photos" message="No photos have been uploaded for this room yet." />
 </template>
 
 <script setup lang="ts">
+import TabEmptyState from './TabEmptyState.vue'
 import type { DrawerPreview } from './preview'
 
 defineProps<{ preview: DrawerPreview }>()
@@ -43,13 +44,5 @@ defineProps<{ preview: DrawerPreview }>()
   height: 100%;
   object-fit: cover;
   display: block;
-}
-.dd-empty {
-  font-size: 13px;
-  color: var(--c-muted);
-  padding: 10px 12px;
-  border: 1px dashed var(--c-border);
-  border-radius: var(--radius-sm);
-  background: var(--c-surface-2);
 }
 </style>

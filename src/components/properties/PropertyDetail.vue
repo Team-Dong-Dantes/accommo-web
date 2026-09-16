@@ -5,16 +5,16 @@
     <div class="hero">
       <img v-if="accommodation?.image" :src="accommodation.image" class="hero-img" alt="" />
       <div v-else class="hero-fallback column flex-center text-muted">
-        <Icon icon="mdi:home-city-outline" width="40" height="40" />
+        <Icon icon="lucide:building-2" width="40" height="40" />
       </div>
       <div class="hero-scrim"></div>
 
       <button class="hero-back" type="button" @click="$emit('back')" aria-label="Back">
-        <Icon icon="mdi:arrow-left" width="18" height="18" />
+        <Icon icon="lucide:arrow-left" width="18" height="18" />
       </button>
 
        <div v-if="accommodation?.rating && accommodation.rating !== '—'" class="hero-rating">
-         <Icon icon="mdi:star" width="13" height="13" />{{ accommodation.rating }}
+         <Icon icon="lucide:star" width="13" height="13" />{{ accommodation.rating }}
       </div>
 
       <div class="hero-foot">
@@ -29,13 +29,14 @@
         <div>
           <div class="accommodation-name text-ink">{{ accommodation?.name }}</div>
           <div class="row items-center no-wrap q-mt-xs">
-            <Icon icon="mdi:map-marker" color="var(--c-primary)" width="16" height="16" class="q-mr-xs" />
+            <Icon icon="lucide:map-pin" color="var(--c-primary)" width="16" height="16" class="q-mr-xs" />
             <span class="accommodation-address text-muted ellipsis">{{ accommodation?.address }}</span>
           </div>
           <div class="badge-row q-mt-sm">
             <BadgePill
-                :status="accommodation?.verified ? 'verified' : 'rejected'"
-                :label="accommodation?.verified ? 'Verified' : 'Flagged'"
+                :tone="accommodation?.statusStyle?.tone"
+                :icon="accommodation?.statusStyle?.icon"
+                :label="accommodation?.statusLabel"
             />
           </div>
         </div>
@@ -76,7 +77,7 @@
           <div class="row q-gutter-md">
             <div class="col gender-row bar-female">
               <div class="row items-center no-wrap q-mb-xs">
-                <Icon icon="mdi:gender-female" color="#e91e63" width="15" height="15" class="q-mr-xs" />
+                <Icon icon="lucide:venus" color="#e91e63" width="15" height="15" class="q-mr-xs" />
                 <span class="text-weight-bold" style="font-size:13px; color:#e91e63;">{{ accommodation?.femaleCount }}</span>
                 <span class="text-muted q-ml-auto" style="font-size:11px">Female</span>
               </div>
@@ -84,7 +85,7 @@
             </div>
             <div class="col gender-row bar-male">
               <div class="row items-center no-wrap q-mb-xs">
-                <Icon icon="mdi:gender-male" color="#42a5f5" width="15" height="15" class="q-mr-xs" />
+                <Icon icon="lucide:mars" color="#42a5f5" width="15" height="15" class="q-mr-xs" />
                 <span class="text-weight-bold" style="font-size:13px; color:#42a5f5;">{{ accommodation?.maleCount }}</span>
                 <span class="text-muted q-ml-auto" style="font-size:11px">Male</span>
               </div>
@@ -95,7 +96,10 @@
 
         <!-- ACCOMMODATION MANAGER -->
         <div class="manager-card row items-center no-wrap">
-          <q-avatar color="primary" text-color="white" size="44px" class="text-weight-bold">{{ accommodation?.accommodationManagerInitials }}</q-avatar>
+          <q-avatar color="primary" text-color="white" size="44px" class="text-weight-bold">
+            <img v-if="accommodation?.accommodationManagerAvatarUrl" :src="accommodation.accommodationManagerAvatarUrl" :alt="accommodation.accommodationManager" />
+            <template v-else>{{ accommodation?.accommodationManagerInitials }}</template>
+          </q-avatar>
           <div class="col min-width-0 q-mx-md">
             <div class="text-weight-bold text-ink" style="font-size:14px">{{ accommodation?.accommodationManager }}</div>
             <div class="text-muted ellipsis" style="font-size:12px">{{ accommodation?.contact }}</div>
@@ -148,7 +152,7 @@
             <div class="stack">
               <div v-for="[floor, floorRooms] in roomsByFloor" :key="floor" class="floor-group">
                 <div class="floor-label">
-                  <Icon icon="mdi:stairs" width="14" height="14" class="q-mr-xs" color="var(--c-muted)" />
+                  <Icon icon="lucide:layers" width="14" height="14" class="q-mr-xs" color="var(--c-muted)" />
                   <span>Floor {{ floor }}</span>
                   <span class="floor-count">{{ floorRooms.length }}</span>
                 </div>
@@ -162,7 +166,7 @@
                   >
                     <div class="room-head" @click="toggleRoom(room.id ?? room.name)">
                       <div class="room-ic">
-                        <Icon icon="mdi:bed" color="var(--c-primary)" width="20" height="20" />
+                        <Icon icon="lucide:bed" color="var(--c-primary)" width="20" height="20" />
                       </div>
                       <div class="room-main min-width-0">
                         <div class="text-weight-bold text-ink ellipsis" style="font-size:14px">{{ room.name }}</div>
@@ -184,14 +188,14 @@
                           size="4px"
                         />
                       </div>
-                      <Icon :icon="expandedRooms.has(room.id ?? room.name) ? 'mdi:chevron-up' : 'mdi:chevron-down'" width="20" height="20" color="var(--c-muted)" class="room-chevron" />
+                      <Icon :icon="expandedRooms.has(room.id ?? room.name) ? 'lucide:chevron-up' : 'lucide:chevron-down'" width="20" height="20" color="var(--c-muted)" class="room-chevron" />
                     </div>
 
                     <div v-if="expandedRooms.has(room.id ?? room.name)" class="room-body">
                       <div class="row items-center no-wrap q-mb-sm" style="gap:8px;">
                         <q-badge v-if="room.status" :label="roomStatus(room.status).label" :style="{ color: roomStatus(room.status).color, background: roomStatus(room.status).color + '1a' }" class="text-weight-bold" style="border-radius:6px; font-size:10px;" />
                         <span v-if="room.monthlyRent != null" class="row items-center no-wrap text-muted" style="font-size:12px;">
-                          <Icon icon="mdi:currency-php" width="14" height="14" class="q-mr-xs" />{{ room.monthlyRent }}/mo
+                          <Icon icon="lucide:philippine-peso" width="14" height="14" class="q-mr-xs" />{{ room.monthlyRent }}/mo
                         </span>
                       </div>
                       <q-linear-progress
@@ -206,9 +210,10 @@
                         <q-item v-for="student in room.occupants" :key="student.name" class="q-pl-none q-pr-none q-py-md">
                           <q-item-section avatar class="q-pr-sm">
                             <q-avatar size="40px" color="primary" text-color="white" class="text-weight-bold relative-position">
-                              {{ student.initials }}
-                              <q-badge floating color="pink-4" rounded class="q-pa-xs border-white" style="right:-2px; top:-2px" v-if="student.gender === 'female'"><Icon icon="mdi:gender-female" width="10" height="10" /></q-badge>
-                              <q-badge floating color="blue-4" rounded class="q-pa-xs border-white" style="right:-2px; top:-2px" v-else><Icon icon="mdi:gender-male" width="10" height="10" /></q-badge>
+                              <img v-if="student.avatarUrl" :src="student.avatarUrl" :alt="student.name" />
+                              <template v-else>{{ student.initials }}</template>
+                              <q-badge floating color="pink-4" rounded class="q-pa-xs border-white" style="right:-2px; top:-2px" v-if="student.gender === 'female'"><Icon icon="lucide:venus" width="10" height="10" /></q-badge>
+                              <q-badge floating color="blue-4" rounded class="q-pa-xs border-white" style="right:-2px; top:-2px" v-else><Icon icon="lucide:mars" width="10" height="10" /></q-badge>
                             </q-avatar>
                           </q-item-section>
                           <q-item-section>
@@ -224,7 +229,7 @@
 
                       <div v-else-if="roomPax(room) > 0" class="row items-center justify-between q-px-sm q-py-sm in-use-row">
                         <div class="row items-center no-wrap">
-                          <Icon icon="mdi:account-group-outline" color="var(--c-primary)" width="18" height="18" class="q-mr-xs" />
+                          <Icon icon="lucide:users" color="var(--c-primary)" width="18" height="18" class="q-mr-xs" />
                           <span class="text-primary text-weight-bold" style="font-size:12px;">{{ roomPax(room) }} of {{ room.capacity ?? 0 }} beds occupied</span>
                         </div>
                         <q-badge label="In use" class="text-weight-bold in-use-chip" style="font-size:10px; border-radius:6px;" />
@@ -314,8 +319,8 @@ function roomStatus(status: string | null | undefined): { label: string; color: 
 
 // Left side: keep Rooms + Rating as feature tiles.
 const featureStats = computed(() => [
-  { label: 'Rooms', value: props.accommodation?.totalRooms || 0, accent: 'accent-primary', icon: 'mdi:door' },
-  { label: 'Rating', value: `${props.accommodation?.rating || 0}`, accent: 'accent-warning', icon: 'mdi:star' },
+  { label: 'Rooms', value: props.accommodation?.totalRooms || 0, accent: 'accent-primary', icon: 'lucide:door-closed' },
+  { label: 'Rating', value: `${props.accommodation?.rating || 0}`, accent: 'accent-warning', icon: 'lucide:star' },
 ])
 
 // Left side: supporting stats.
@@ -341,10 +346,10 @@ const occupancyPct = computed(() => {
 const overviewFacts = computed(() => {
   const p = props.accommodation
   return [
-    { label: 'Accommodation Type', value: p?.accommodationType || '—', icon: 'mdi:office-building-outline', color: 'var(--c-info)' },
-    { label: 'Total Floors', value: `${p?.floors ?? 0}`, icon: 'mdi:home-outline', color: 'var(--c-success)' },
-    { label: 'Total Capacity', value: `${p?.totalCapacity ?? 0}`, icon: 'mdi:account-group-outline', color: 'var(--c-primary)' },
-    { label: 'Response Rate', value: p?.responseRate != null ? `${p.responseRate}%` : '—', icon: 'mdi:lightning-bolt', color: 'var(--c-warning)' },
+    { label: 'Accommodation Type', value: p?.accommodationType || '—', icon: 'lucide:building-2', color: 'var(--c-info)' },
+    { label: 'Total Floors', value: `${p?.floors ?? 0}`, icon: 'lucide:house', color: 'var(--c-success)' },
+    { label: 'Total Capacity', value: `${p?.totalCapacity ?? 0}`, icon: 'lucide:users', color: 'var(--c-primary)' },
+    { label: 'Response Rate', value: p?.responseRate != null ? `${p.responseRate}%` : '—', icon: 'lucide:zap', color: 'var(--c-warning)' },
   ]
 })
 

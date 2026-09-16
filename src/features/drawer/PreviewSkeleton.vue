@@ -105,17 +105,17 @@
         </div>
       </div>
       <div class="q-px-md q-pb-md">
-        <div class="row q-col-gutter-x-xl">
-          <div class="col-6">
-            <div v-for="n in 3" :key="n" class="row justify-between q-py-sm border-bottom">
-              <q-skeleton type="text" width="40%" />
-              <q-skeleton type="text" width="35%" />
-            </div>
-          </div>
-          <div class="col-6">
-            <div v-for="n in 3" :key="n" class="row justify-between q-py-sm border-bottom">
-              <q-skeleton type="text" width="40%" />
-              <q-skeleton type="text" width="35%" />
+        <!-- Matches DetailSections: one bordered card of titled sections. -->
+        <div class="sk-card">
+          <div v-for="g in 2" :key="g" class="sk-group">
+            <div class="sk-head"><q-skeleton type="text" width="34%" /></div>
+            <div class="sk-body">
+              <div v-for="c in 2" :key="c" class="sk-col">
+                <div v-for="n in 2" :key="n" class="sk-row">
+                  <q-skeleton type="text" width="42%" />
+                  <q-skeleton type="text" width="34%" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -145,17 +145,17 @@
         </div>
       </div>
       <div class="q-px-md q-pb-md">
-        <div class="row q-col-gutter-x-xl">
-          <div class="col-6">
-            <div v-for="n in 4" :key="n" class="row justify-between q-py-sm border-bottom">
-              <q-skeleton type="text" width="40%" />
-              <q-skeleton type="text" width="35%" />
-            </div>
-          </div>
-          <div class="col-6">
-            <div v-for="n in 4" :key="n" class="row justify-between q-py-sm border-bottom">
-              <q-skeleton type="text" width="40%" />
-              <q-skeleton type="text" width="35%" />
+        <!-- Matches DetailSections: one bordered card of titled sections. -->
+        <div class="sk-card">
+          <div v-for="g in 2" :key="g" class="sk-group">
+            <div class="sk-head"><q-skeleton type="text" width="34%" /></div>
+            <div class="sk-body">
+              <div v-for="c in 2" :key="c" class="sk-col">
+                <div v-for="n in 2" :key="n" class="sk-row">
+                  <q-skeleton type="text" width="42%" />
+                  <q-skeleton type="text" width="34%" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -222,6 +222,26 @@ defineProps<{
 </script>
 
 <style scoped>
+.sk-card {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm, 10px);
+  background: var(--c-surface);
+  overflow: hidden;
+}
+.sk-group + .sk-group { border-top: 1px solid var(--c-border); }
+.sk-head { padding: 10px 14px; border-bottom: 1px solid var(--c-border); }
+.sk-body { display: grid; grid-template-columns: 1fr 1fr; }
+.sk-col + .sk-col { border-left: 1px solid var(--c-border); }
+.sk-row {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+.sk-col:last-child .sk-row:last-child { border-bottom: 0; }
 .border-bottom {
   border-bottom: 1px solid var(--c-border);
 }

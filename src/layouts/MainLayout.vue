@@ -25,13 +25,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
 import Sidebar from '@/components/layout/AppSidebar.vue'
 import HeaderNotification from '@/components/ui/Notification.vue'
 import HeaderProfile from '@/components/layout/UserMenu.vue'
 import PageHeader from '@/components/ui/PageHeader.vue'
 
-const route = useRoute()
 
 const scrolled = ref(false)
 function onScroll() {

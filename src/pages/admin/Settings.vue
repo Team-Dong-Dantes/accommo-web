@@ -23,7 +23,7 @@
           <PanelHeader title="Profile" subtitle="Your personal information and contact details." />
 
           <div class="row items-center q-mb-lg profile-row">
-            <q-avatar size="64px" color="primary" text-color="white" class="text-weight-bold profile-avatar" style="font-size: 24px">
+            <q-avatar size="64px" font-size="24px" color="primary" text-color="white" class="text-weight-bold profile-avatar">
               {{ initials }}
             </q-avatar>
             <div class="column q-ml-md">
@@ -100,13 +100,13 @@
         <!-- Action row: only when there are unsaved changes -->
         <div class="action-row" v-if="dirty">
           <div class="action-hint text-muted">
-            <Icon icon="mdi:circle-edit-outline" width="16" height="16" class="q-mr-xs" />
+            <Icon icon="lucide:pencil" width="16" height="16" class="q-mr-xs" />
             You have unsaved changes
           </div>
           <div class="row q-gutter-sm">
             <q-btn flat color="grey-7" no-caps class="text-weight-bold" @click="cancel">Cancel</q-btn>
             <q-btn unelevated color="primary" no-caps class="text-weight-bold" @click="saveAll">
-              <Icon icon="mdi:content-save-outline" class="on-left" width="18" height="18" />
+              <Icon icon="lucide:save" class="on-left" width="18" height="18" />
               Save changes
             </q-btn>
           </div>
@@ -133,12 +133,12 @@ const active = ref('profile')
 
 const sections = computed(() => {
   const list = [
-    { id: 'profile', label: 'Profile', icon: 'mdi:account-circle-outline' },
-    { id: 'notifications', label: 'Notifications', icon: 'mdi:bell-outline' },
-    { id: 'security', label: 'Security', icon: 'mdi:shield-lock-outline' },
+    { id: 'profile', label: 'Profile', icon: 'lucide:circle-user' },
+    { id: 'notifications', label: 'Notifications', icon: 'lucide:bell' },
+    { id: 'security', label: 'Security', icon: 'lucide:shield' },
   ]
   if (authStore.isSuperadmin) {
-    list.push({ id: 'administrators', label: 'Administrators', icon: 'mdi:account-cog-outline' })
+    list.push({ id: 'administrators', label: 'Administrators', icon: 'lucide:user-cog' })
   }
   return list
 })
@@ -164,7 +164,7 @@ function applyProfile() {
   form.role = authStore.roleLabel(u.role)
 }
 
-const roleStyle: { tone: StatusTone; icon: string } = { tone: 'primary', icon: 'mdi:shield-account' }
+const roleStyle: { tone: StatusTone; icon: string } = { tone: 'primary', icon: 'lucide:shield-user' }
 
 const notifications = reactive({
   emailAlerts: true,
@@ -285,7 +285,7 @@ async function savePassword() {
     password.current = ''
     password.next = ''
     password.confirm = ''
-  } catch (e) {
+  } catch {
     notify.error('Could not update password')
   }
 }

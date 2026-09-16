@@ -1,12 +1,12 @@
 <template>
   <div class="usr-hero">
-    <Icon icon="mdi:account-circle" class="usr-hero-watermark" />
+    <Icon icon="lucide:circle-user" class="usr-hero-watermark" />
     <q-avatar
       :size="avatarSize"
       :color="avatarColor"
       text-color="white"
       class="usr-hero-avatar text-weight-bold inline-flex items-center justify-center"
-      :style="{ fontSize: avatarFontSize }"
+      :font-size="avatarFontSize"
     >
       {{ initials }}
     </q-avatar>
@@ -35,8 +35,8 @@ defineProps({
   avatarFontSize: { type: String, default: '74px' },
   roleLabel: { type: String, default: '' },
   statusLabel: { type: String, default: '' },
-  roleStyle: { type: Object as () => { icon: string }, default: () => ({ icon: 'mdi:account' }) },
-  statusStyle: { type: Object as () => { icon: string }, default: () => ({ icon: 'mdi:help-circle-outline' }) },
+  roleStyle: { type: Object as () => { icon: string }, default: () => ({ icon: 'lucide:user' }) },
+  statusStyle: { type: Object as () => { icon: string }, default: () => ({ icon: 'lucide:circle-help' }) },
 })
 </script>
 

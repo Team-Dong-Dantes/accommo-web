@@ -5,8 +5,9 @@
     tabindex="0"
   >
 
-    <q-avatar size="42px" color="primary" text-color="white" class="text-weight-bold" style="font-size: 18px;">
-      {{ authStore.user?.initials || 'MA' }}
+    <q-avatar size="42px" font-size="18px" color="primary" text-color="white" class="text-weight-bold">
+      <img v-if="authStore.user?.avatar_url" :src="authStore.user.avatar_url" :alt="authStore.user.full_name" />
+      <template v-else>{{ authStore.user?.initials || 'MA' }}</template>
     </q-avatar>
 
     <div class="column q-ml-sm q-mr-xs">
@@ -19,7 +20,7 @@
     </div>
 
     <span class="menu-chevron">
-      <Icon icon="mdi:chevron-down" width="18" height="18" />
+      <Icon icon="lucide:chevron-down" width="18" height="18" />
     </span>
 
     <q-menu anchor="bottom right" self="top right" :offset="[0, 12]"
@@ -28,7 +29,7 @@
       <q-list class="q-py-xs">
         <q-item clickable v-ripple to="/settings" class="menu-row">
           <q-item-section avatar class="menu-ico">
-            <Icon icon="mdi:cog-outline" width="20" height="20" color="#424242" />
+            <Icon icon="lucide:settings" width="20" height="20" color="#424242" />
           </q-item-section>
           <q-item-section class="menu-label">Settings</q-item-section>
         </q-item>
@@ -37,7 +38,7 @@
 
         <q-item clickable v-ripple @click="handleLogout" class="menu-row">
           <q-item-section avatar class="menu-ico">
-            <Icon icon="mdi:logout" width="20" height="20" color="#ef5350" />
+            <Icon icon="lucide:log-out" width="20" height="20" color="#ef5350" />
           </q-item-section>
           <q-item-section class="menu-label text-danger text-weight-bold">Sign Out</q-item-section>
         </q-item>
@@ -62,7 +63,7 @@ async function handleLogout() {
   try {
     await authStore.logout();
     void router.push('/login');
-  } catch (error) {
+  } catch {
     notifyError('Error signing out');
   }
 }

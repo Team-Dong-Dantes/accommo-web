@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { getInitials, getTimeAgo, capitalize } from '@/utils/format'
@@ -7,6 +7,7 @@ export interface TicketMessage {
   id: string
   authorRole: 'student' | 'agent'
   authorName: string
+  authorAvatarUrl: string
   body: string
   isInternal: boolean
   attachments: string[]
@@ -33,6 +34,8 @@ export interface Ticket {
   accommodationManagerName: string | null
   initials: string
   avatarColor: string
+  /** The reporter's profile photo, when they have one. */
+  avatarUrl: string
   reportedAt: string
   updatedAt: string
   photoUrls: string[]
@@ -53,28 +56,19 @@ const ENRICHED_SELECT = `
   id, subject, description, category, priority, status, assignee_id, reporter_name, reported_at, updated_at, resolved_at, photo_urls, lease_id, student_id, accommodation_id, accommodation_manager_id,
   lease:lease_id (
     id,
-    student:student_id ( id, full_name, email, phone, student_profiles ( program, college ) ),
+    student:student_id ( id, full_name, email, phone, avatar_url, student_profiles ( program, college ) ),
     room:room_id ( id, label, accommodation:accommodation_id ( id, name, accommodation_manager:accommodation_manager_id ( full_name ) ) )
   ),
-  reporter:student_id ( id, full_name, email, phone, role ),
+  reporter:student_id ( id, full_name, email, phone, role, avatar_url ),
+  manager:accommodation_manager_id ( id, full_name, email, phone, role, avatar_url ),
   accommodation:accommodation_id ( id, name, accommodation_manager:accommodation_manager_id ( full_name ) ),
   assignee:assignee_id ( id, full_name ),
   ticket_messages (
     id, body, author_role, is_internal, attachment_urls, created_at,
-    author:author_id ( full_name )
+    author:author_id ( full_name, avatar_url )
   )
 `
 
-const BASE_SELECT = `
-  id, subject, description, category, priority, status, reporter_name, reported_at, updated_at, resolved_at, photo_urls, lease_id, student_id, accommodation_id, accommodation_manager_id,
-  lease:lease_id (
-    id,
-    student:student_id ( id, full_name, email, phone, student_profiles ( program, college ) ),
-    room:room_id ( id, label, accommodation:accommodation_id ( id, name, accommodation_manager:accommodation_manager_id ( full_name ) ) )
-  ),
-  reporter:student_id ( id, full_name, email, phone, role ),
-  accommodation:accommodation_id ( id, name, accommodation_manager:accommodation_manager_id ( full_name ) )
-`
 
 function safeGet<T = any>(val: any): T | null {
   if (val == null) return null
@@ -84,13 +78,13 @@ function safeGet<T = any>(val: any): T | null {
 function mapTicket(r: any, seenRequesterMessageIds: Set<string> = new Set()): Ticket {
   const lease = safeGet(r.lease) || {}
   const student = safeGet(lease.student) || {}
-  const studentProfile = safeGet(student.student_profiles) || {}
   const room = safeGet(lease.room) || {}
   const leaseAccommodation = safeGet(room.accommodation) || {}
   const directAccommodation = safeGet(r.accommodation) || {}
   const accommodation = directAccommodation.id ? directAccommodation : leaseAccommodation
   const accommodationManager = safeGet(accommodation.accommodation_manager) || {}
-  const reporter = safeGet(r.reporter) || {}
+  // Manager-filed tickets carry no student_id, so the manager is the reporter.
+  const reporter = safeGet(r.reporter) || safeGet(r.manager) || {}
   const assignee = safeGet(r.assignee) || {}
 
   const hasLease = !!lease.id
@@ -106,6 +100,7 @@ function mapTicket(r: any, seenRequesterMessageIds: Set<string> = new Set()): Ti
       id: m.id,
       authorRole: m.author_role === 'agent' ? 'agent' : 'student',
       authorName: m.author?.full_name || (m.author_role === 'agent' ? 'Agent' : 'Requester'),
+      authorAvatarUrl: m.author?.avatar_url || '',
       body: m.body || '',
       isInternal: !!m.is_internal,
       attachments: Array.isArray(m.attachment_urls) ? m.attachment_urls : [],
@@ -147,6 +142,7 @@ function mapTicket(r: any, seenRequesterMessageIds: Set<string> = new Set()): Ti
     accommodationManagerName: accommodationManager.full_name || null,
     initials: getInitials(reporterName ?? ''),
     avatarColor: avatarColorFor(r.id),
+    avatarUrl: reporter.avatar_url || student.avatar_url || '',
     reportedAt: r.reported_at,
     updatedAt: r.updated_at || r.reported_at,
     photoUrls: Array.isArray(r.photo_urls) ? r.photo_urls : [],

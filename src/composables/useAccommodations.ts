@@ -1,10 +1,31 @@
 import { ref } from 'vue'
 import { supabase } from '@/utils/supabase'
-import { getInitialsWide as initialsOf } from '@/utils/format'
+import { getStatus, type StatusTone } from '@/utils/status.config'
+import { getInitialsWide as initialsOf, humanizeEnum } from '@/utils/format'
 
 // Real accommodation shape pulled from Supabase. Fields the DB doesn't carry
 // (audit results, inspectors, compliance permits, performance scores) are
 // deliberately absent/empty — the UI renders '—' for them instead of inventing data.
+
+/**
+ * BadgePill takes a concrete icon, while the status table leaves it optional,
+ * so the badge gets a floor rather than every caller guarding for it.
+ */
+export interface BadgeStyle { tone: StatusTone; icon: string }
+
+function badgeStyle(status: string): BadgeStyle {
+  const def = getStatus(status)
+  return { tone: def.tone, icon: def.icon ?? 'lucide:circle' }
+}
+
+/** The most recent upload among a property's permits, ISO, or null. */
+function newestUpload(rows: { uploaded_at?: string | null }[]): string | null {
+  return rows.reduce<string | null>(
+    (latest, row) =>
+      row.uploaded_at && (!latest || row.uploaded_at > latest) ? row.uploaded_at : latest,
+    null,
+  )
+}
 
 export interface RealPermit {
   id: string
@@ -18,13 +39,25 @@ export interface RealPermit {
 
 export interface RealAccommodation {
   id: string
+  /**
+   * When the property was put forward, ISO. `accommodations` carries no
+   * created-at column, so its age is the newest of its permit uploads — the same
+   * reading the verification queue uses to order accreditation requests.
+   */
+  submittedAt: string | null
   name: string
   type: string
   accommodationManager: string
   accommodationManagerInitials: string
+  /** The manager's profile photo, when they have one. */
+  accommodationManagerAvatarUrl: string
   contact: string
+  /** Derived: only an accredited property is visible to students. */
   verified: boolean
   status: string
+  /** Sentence-case label and tone/icon for the status badge. */
+  statusLabel: string
+  statusStyle: BadgeStyle
   rating: string
   totalRooms: number
   occupiedRooms: number
@@ -67,6 +100,8 @@ export interface RealRoom {
 export interface RealOccupant {
   name: string
   initials: string
+  /** Their profile photo, when they have one. */
+  avatarUrl: string
   gender: 'female' | 'male'
   course: string
   year: string
@@ -81,10 +116,9 @@ const IMAGES = [
   'https://picsum.photos/400/300?random=25',
 ]
 
-function titleCase(s: string | null | undefined): string {
-  if (!s) return '—'
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
+// `accommodation_type` holds snake_case enum values, so the old
+// charAt(0).toUpperCase() rendered "boarding_house" as "Boarding_house" — the
+// underscore was visible in the hub table and the map list.
 
 export function useAccommodations() {
   const loading = ref(true)
@@ -101,14 +135,14 @@ export function useAccommodations() {
             total_rooms, total_floors, description, status, rating_avg,
             reviews_count, accommodation_manager_id, business_name, accreditation_status,
             accredited_at, accreditation_expires_at,
-            accommodation_manager:users!accommodations_accommodation_manager_id_fkey(id, full_name, phone, initials)`
+            accommodation_manager:users!accommodations_accommodation_manager_id_fkey(id, full_name, phone, initials, avatar_url)`
         ),
         supabase.from('rooms').select(
           `id, room_number, label, floor, capacity, current_pax, status, monthly_rent, accommodation_id`
         ),
         supabase.from('leases').select(
           `id, status, room_id, student_id, start_date,
-           student:users!leases_student_id_fkey(id, full_name, initials, sex)`
+           student:users!leases_student_id_fkey(id, full_name, initials, sex, avatar_url)`
         ).in('status', ['active', 'leave_requested']),
         supabase.from('accommodation_manager_profiles').select(
           `user_id, response_rate`
@@ -196,6 +230,7 @@ export function useAccommodations() {
             return {
               name: st.full_name ?? 'Unknown',
               initials: st.initials ?? initialsOf(st.full_name),
+              avatarUrl: st.avatar_url ?? '',
               gender: sex,
               course: '—',
               year: '—',
@@ -207,12 +242,15 @@ export function useAccommodations() {
         return {
           id: p.id,
           name: p.name ?? 'Unnamed Accommodation',
-          type: titleCase(p.accommodation_type),
+          type: humanizeEnum(p.accommodation_type),
           accommodationManager: accommodationManagerName,
           accommodationManagerInitials: accommodationManager?.initials ?? initialsOf(accommodationManagerName),
+          accommodationManagerAvatarUrl: accommodationManager?.avatar_url ?? '',
           contact: accommodationManager?.phone ?? '—',
           verified,
           status: p.status ?? 'unknown',
+          statusLabel: humanizeEnum(p.status ?? 'unknown'),
+          statusStyle: badgeStyle(p.status ?? 'unknown'),
           rating: p.rating_avg != null ? p.rating_avg.toFixed(1) : '—',
           totalRooms,
           occupiedRooms,
@@ -226,7 +264,7 @@ export function useAccommodations() {
           floors: p.total_floors ?? 0,
           lat: p.lat,
           lng: p.lng,
-          accommodationType: titleCase(p.accommodation_type),
+          accommodationType: humanizeEnum(p.accommodation_type),
           roomType: p.room_type ?? '—',
           description: p.description ?? '',
           businessName: p.business_name ?? null,
@@ -234,6 +272,7 @@ export function useAccommodations() {
           accreditedAt: p.accredited_at ?? null,
           accreditationExpiresAt: p.accreditation_expires_at ?? null,
           responseRate: profile?.response_rate ?? null,
+          submittedAt: newestUpload(permitsByAccommodation.get(p.id) ?? []),
           rooms: mappedRooms,
           permits: (permitsByAccommodation.get(p.id) ?? []).map((dm): RealPermit => ({
             id: dm.id,
@@ -246,6 +285,10 @@ export function useAccommodations() {
           })),
         }
       })
+      // Newest first, so the map and its list open on what just came in rather
+      // than on whatever order Postgres happened to return. Undated properties
+      // sort last instead of jumping the queue.
+      accommodations.value.sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''))
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load accommodations'
     } finally {

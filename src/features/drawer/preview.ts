@@ -25,6 +25,17 @@ export interface PreviewDetail {
   icon?: string
   avatar?: { initials: string; name?: string }
 }
+/**
+ * A titled group of detail rows, rendered as one section of the detail card.
+ * Mirrors accommo-mobile's ProfileBlock: an icon, an uppercase title, and rows
+ * beneath it. Replaces the flat `details` list, which put a student's e-mail,
+ * college and join date at the same level with no grouping.
+ */
+export interface PreviewDetailGroup {
+  title: string
+  icon?: string
+  rows: PreviewDetail[]
+}
 export interface PreviewCardCell {
   label: string
   value?: string
@@ -65,7 +76,16 @@ export interface PreviewHistoryCard {
 }
 export interface PreviewFile {
   name: string
+  /**
+   * Stored reference. Documents live in Cloudinary under `authenticated`
+   * delivery, so this is a `cld:` reference, not something a browser can open —
+   * `docId` is what turns it into a signed URL via `utils/docUrl`.
+   */
   url: string
+  docId?: string
+  docTable?: 'verification_documents' | 'accommodation_documents'
+  /** The uploaded file's own name, for classifying and icon choice. */
+  filename?: string
 }
 export interface PreviewRoom {
   id: string
@@ -81,6 +101,8 @@ export interface PreviewOccupant {
   id: string
   name: string
   initials: string
+  /** Their profile photo, when they have one. */
+  avatarUrl?: string
   gender?: string | null
   since?: string | null
   status?: string | null
@@ -157,7 +179,7 @@ export interface DrawerPreview {
   meta?: string
   metaIcon?: string
   stats?: PreviewStat[]
-  details?: PreviewDetail[]
+  detailGroups?: PreviewDetailGroup[]
   placement?: PreviewPlacement
   history?: PreviewTimelineItem[]
   files?: PreviewFile[]

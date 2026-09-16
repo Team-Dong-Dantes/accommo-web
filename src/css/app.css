@@ -163,6 +163,71 @@ h4,
   font-size: 22px !important;
 }
 
+/* ---- Fluid density ------------------------------------------------------
+   The tokens in tokens.css already narrow with the window, but most of this
+   app's chrome is hardcoded in px rather than read from a token — so the parts
+   that actually fill the screen (table rows, tabs, pagination, the search
+   field) have to be re-expressed in the same units here.
+
+   Everything is written as a multiple of --u / --ut, so each value lands on its
+   original desktop pixel size at 1440px and up and narrows continuously below
+   that. There is no breakpoint on purpose: an earlier version stepped at 1200px
+   and 1080px, which looked right on one tablet and wrong on every size between
+   the steps.
+
+   `!important` is deliberate. The values being replaced are either inline
+   `style="font-size: 13px"` attributes on the cells or scoped component styles
+   (whose `[data-v-…]` attribute outranks a plain class), and a stylesheet
+   !important is what wins against both. */
+
+/* Quasar's spacing helpers are the page gutter nearly everywhere */
+.q-pa-md { padding: var(--sp-4) !important; }
+.q-py-md { padding-top: var(--sp-4) !important; padding-bottom: var(--sp-4) !important; }
+.q-px-md { padding-left: var(--sp-4) !important; padding-right: var(--sp-4) !important; }
+.q-mb-md { margin-bottom: var(--sp-4) !important; }
+.q-mt-md { margin-top: var(--sp-4) !important; }
+.q-mr-md { margin-right: var(--sp-4) !important; }
+.q-ml-md { margin-left: var(--sp-4) !important; }
+
+/* Tables carry most of the weight on screen */
+.custom-data-table thead th,
+.custom-data-table tbody td {
+  padding: 0 var(--sp-4) !important;
+  font-size: calc(1.625 * var(--ut)) !important;   /* 13px */
+}
+.custom-data-table tbody tr {
+  min-height: calc(5.75 * var(--ut)) !important;   /* 46px */
+  max-height: calc(9.5 * var(--ut)) !important;    /* 76px */
+}
+.custom-data-table thead tr { min-height: calc(5.5 * var(--ut)) !important; }
+
+/* Folder tabs above each table */
+.folder-tabs { min-height: calc(5.75 * var(--ut)) !important; }
+.folder-tab {
+  min-height: calc(5.75 * var(--ut)) !important;
+  padding: 0 calc(2.75 * var(--u)) !important;     /* 22px */
+  font-size: calc(1.625 * var(--ut)) !important;   /* 13px */
+}
+
+/* Pagination footer */
+.pagination-btn,
+.pagination-number {
+  width: calc(4 * var(--ut)) !important;           /* 32px */
+  height: calc(4 * var(--ut)) !important;
+}
+.pagination-number { font-size: calc(1.625 * var(--ut)) !important; }
+.page-input .q-field__control { height: calc(4 * var(--ut)) !important; }
+
+/* The search field's fixed 300px is a third of a 1024px table header, so it
+   narrows with everything else. It must NOT be made to flex-grow: the search and
+   the filter button are one content-sized group on the left of a
+   `justify-between` row, and growing the input pushes the filter out of place. */
+.table-bar .q-input { width: clamp(180px, 20.8vw, 300px) !important; }
+
+.rounded-button { height: calc(5 * var(--ut)); padding: 0 var(--sp-4); }
+.review-btn { padding: calc(0.5 * var(--u)) calc(1.75 * var(--u)); font-size: calc(1.5 * var(--ut)); }
+.q-toolbar { min-height: calc(6.25 * var(--ut)); }
+
 @media (prefers-reduced-motion: reduce) {
   .rise-in { animation: none; }
   * { transition: none !important; }

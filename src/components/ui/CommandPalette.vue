@@ -3,7 +3,7 @@
     transition-show="fade" transition-hide="fade" class="command-palette-dialog" @show="onShow" @hide="onHide">
     <q-card class="command-palette" flat>
       <div class="cp-search row items-center no-wrap">
-        <Icon icon="mdi:magnify" width="20" height="20" class="cp-search-icon" />
+        <Icon icon="lucide:search" width="20" height="20" class="cp-search-icon" />
         <input ref="inputRef" v-model="query" type="text" placeholder="Search pages, actions…"
           class="cp-input" @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)"
           @keydown.enter.prevent="selectActive" />
@@ -14,7 +14,7 @@
 
       <q-scroll-area class="cp-results" :thumb-style="{ width: '6px', borderRadius: '6px', background: 'rgba(0,0,0,0.18)' }">
         <div v-if="filtered.length === 0" class="cp-empty">
-          <Icon icon="mdi:search-off-outline" width="32" height="32" />
+          <Icon icon="lucide:search-x" width="32" height="32" />
           <div class="q-mt-sm">No results for "{{ query }}"</div>
         </div>
 
@@ -24,7 +24,7 @@
             @mouseenter="activeIndex = idx" @click="selectItem(item)">
             <Icon :icon="item.icon" width="20" height="20" class="cp-item-icon" />
             <span class="cp-item-label">{{ item.label }}</span>
-            <Icon v-if="idx === activeIndex" icon="mdi:keyboard-return" width="16" height="16" class="cp-item-enter" />
+            <Icon v-if="idx === activeIndex" icon="lucide:corner-down-left" width="16" height="16" class="cp-item-enter" />
           </div>
         </div>
       </q-scroll-area>
@@ -46,7 +46,7 @@ import { ref, computed, nextTick, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { flattenNav, type FlatNavItem } from '../layout/nav-config';
 
-const props = defineProps<{ modelValue: boolean }>();
+defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>();
 
 const router = useRouter();

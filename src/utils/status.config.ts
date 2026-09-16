@@ -27,43 +27,47 @@ export interface StatusDef {
 
 export const STATUS_MAP: Record<string, StatusDef> = {
   // Roles
-  admin: { tone: 'primary', icon: 'mdi:shield-account' },
-  accommodation_manager: { tone: 'primary', icon: 'mdi:domain' },
-  student: { tone: 'neutral', icon: 'mdi:school' },
-  agent: { tone: 'info', icon: 'mdi:headset' },
+  admin: { tone: 'primary', icon: 'lucide:shield-user' },
+  accommodation_manager: { tone: 'primary', icon: 'lucide:building-2' },
+  student: { tone: 'neutral', icon: 'lucide:graduation-cap' },
+  agent: { tone: 'info', icon: 'lucide:headset' },
 
   // Account / verification status
-  verified: { tone: 'success', icon: 'mdi:check-decagram' },
-  active: { tone: 'success', icon: 'mdi:check-circle' },
-  accredited: { tone: 'success', icon: 'mdi:certificate' },
-  published: { tone: 'success', icon: 'mdi:publish' },
-  unverified: { tone: 'neutral', icon: 'mdi:help-circle-outline' },
-  unknown: { tone: 'neutral', icon: 'mdi:account-question' },
+  verified: { tone: 'success', icon: 'lucide:badge-check' },
+  active: { tone: 'success', icon: 'lucide:circle-check' },
+  accredited: { tone: 'success', icon: 'lucide:award' },
+  published: { tone: 'success', icon: 'lucide:upload' },
+  unverified: { tone: 'neutral', icon: 'lucide:circle-help' },
+  unknown: { tone: 'neutral', icon: 'lucide:user-search' },
 
-  pending: { tone: 'warning', icon: 'mdi:clock-outline' },
-  reviewing: { tone: 'info', icon: 'mdi:eye' },
-  scheduled: { tone: 'info', icon: 'mdi:calendar-clock' },
-  draft: { tone: 'neutral', icon: 'mdi:file-document-outline' },
-  archived: { tone: 'neutral', icon: 'mdi:archive-outline' },
+  pending: { tone: 'warning', icon: 'lucide:clock' },
+  // A refusal the manager can fix, so it is a warning rather than a failure.
+  needs_revision: { tone: 'warning', icon: 'lucide:file-pen' },
+  // The manager took their own property off the market; nothing is wrong with it.
+  delisted: { tone: 'neutral', icon: 'lucide:eye-off' },
+  reviewing: { tone: 'info', icon: 'lucide:eye' },
+  scheduled: { tone: 'info', icon: 'lucide:calendar-clock' },
+  draft: { tone: 'neutral', icon: 'lucide:file-text' },
+  archived: { tone: 'neutral', icon: 'lucide:archive' },
 
-  rejected: { tone: 'danger', icon: 'mdi:close-circle' },
-  suspended: { tone: 'danger', icon: 'mdi:cancel' },
-  banned: { tone: 'danger', icon: 'mdi:block-helper' },
-  expired: { tone: 'danger', icon: 'mdi:alert-outline' },
-  upcoming: { tone: 'warning', icon: 'mdi:calendar-clock' },
+  rejected: { tone: 'danger', icon: 'lucide:circle-x' },
+  suspended: { tone: 'danger', icon: 'lucide:ban' },
+  banned: { tone: 'danger', icon: 'lucide:ban' },
+  expired: { tone: 'danger', icon: 'lucide:triangle-alert' },
+  upcoming: { tone: 'warning', icon: 'lucide:calendar-clock' },
 
-  open: { tone: 'warning', icon: 'mdi:folder-open-outline' },
-  in_progress: { tone: 'info', icon: 'mdi:progress-clock' },
-  resolved: { tone: 'success', icon: 'mdi:check' },
-  urgent: { tone: 'danger', icon: 'mdi:alert-octagon' },
-  high: { tone: 'danger', icon: 'mdi:alert' },
-  medium: { tone: 'warning', icon: 'mdi:equal' },
-  low: { tone: 'info', icon: 'mdi:chevron-double-down' },
+  open: { tone: 'warning', icon: 'lucide:folder-open' },
+  in_progress: { tone: 'info', icon: 'lucide:hourglass' },
+  resolved: { tone: 'success', icon: 'lucide:check' },
+  urgent: { tone: 'danger', icon: 'lucide:octagon-alert' },
+  high: { tone: 'danger', icon: 'lucide:triangle-alert' },
+  medium: { tone: 'warning', icon: 'lucide:equal' },
+  low: { tone: 'info', icon: 'lucide:chevrons-down' },
 
-  all: { tone: 'neutral', icon: 'mdi:account-group' },
-  students: { tone: 'info', icon: 'mdi:school' },
-  accommodation_managers: { tone: 'primary', icon: 'mdi:domain' },
-  public: { tone: 'neutral', icon: 'mdi:earth' }
+  all: { tone: 'neutral', icon: 'lucide:users' },
+  students: { tone: 'info', icon: 'lucide:graduation-cap' },
+  accommodation_managers: { tone: 'primary', icon: 'lucide:building-2' },
+  public: { tone: 'neutral', icon: 'lucide:globe' }
 }
 
 export function getStatus(key?: string | null): StatusDef {

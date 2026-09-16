@@ -11,7 +11,7 @@
         <q-input outlined dense v-model="invite.email" label="Email address" type="email"
           class="field col-12 col-sm-7" @keyup.enter="inviteAdmin" />
         <q-btn unelevated color="primary" no-caps class="text-weight-bold invite-btn" :loading="inviting" @click="inviteAdmin">
-          <Icon icon="mdi:email-send-outline" class="on-left" width="18" height="18" />
+          <Icon icon="lucide:send" class="on-left" width="18" height="18" />
           Send invite
         </q-btn>
       </div>
@@ -21,7 +21,7 @@
         <div class="row items-center justify-between q-mb-xs">
           <span class="text-caption text-muted">Invite link (share if the email doesn't arrive):</span>
           <q-btn flat dense no-caps @click="copyLink">
-            <Icon icon="mdi:content-copy" class="on-left" width="16" height="16" />
+            <Icon icon="lucide:copy" class="on-left" width="16" height="16" />
             Copy
           </q-btn>
         </div>
@@ -32,7 +32,7 @@
         <div class="row items-center justify-between q-mb-xs">
           <span class="text-caption text-muted">One-time password (email unavailable — share securely):</span>
           <q-btn flat dense no-caps @click="copyPassword">
-            <Icon icon="mdi:content-copy" class="on-left" width="16" height="16" />
+            <Icon icon="lucide:copy" class="on-left" width="16" height="16" />
             Copy
           </q-btn>
         </div>
@@ -50,7 +50,8 @@
       <q-item v-for="a in admins" :key="a.id" class="toggle-item">
         <q-item-section avatar>
           <q-avatar size="38px" color="primary" text-color="white" class="text-weight-bold">
-            {{ a.initials || '?' }}
+            <img v-if="a.avatar_url" :src="a.avatar_url" :alt="a.full_name || 'Administrator'" />
+            <template v-else>{{ a.initials || '?' }}</template>
           </q-avatar>
         </q-item-section>
         <q-item-section>
@@ -61,18 +62,18 @@
           <div class="row items-center q-gutter-xs no-wrap">
             <BadgePill :tone="adminTone(a)" :label="adminLabel(a)" />
             <q-btn flat dense round @click.stop>
-              <Icon icon="mdi:dots-vertical" width="18" height="18" class="text-muted" />
+              <Icon icon="lucide:ellipsis-vertical" width="18" height="18" class="text-muted" />
               <q-menu>
                 <q-list dense style="min-width: 190px">
                   <q-item v-if="!a.onboarding_complete" clickable v-close-popup @click="confirmAction('revoke', a)">
                     <q-item-section avatar style="min-width: 32px">
-                      <Icon icon="mdi:email-remove-outline" width="18" height="18" class="text-negative" />
+                      <Icon icon="lucide:mail-x" width="18" height="18" class="text-negative" />
                     </q-item-section>
                     <q-item-section class="text-negative">Cancel invite</q-item-section>
                   </q-item>
                   <q-item v-if="canRemove(a)" clickable v-close-popup @click="confirmAction('remove', a)">
                     <q-item-section avatar style="min-width: 32px">
-                      <Icon icon="mdi:account-remove-outline" width="18" height="18" class="text-negative" />
+                      <Icon icon="lucide:user-minus" width="18" height="18" class="text-negative" />
                     </q-item-section>
                     <q-item-section class="text-negative">Remove admin</q-item-section>
                   </q-item>
@@ -105,6 +106,7 @@ export interface AdminRow {
   full_name: string | null
   email: string
   initials: string
+  avatar_url: string | null
   is_superadmin: boolean
   onboarding_complete: boolean
 }
@@ -123,7 +125,7 @@ const admins = ref<AdminRow[]>([])
 async function loadAdmins() {
   const { data, error } = await supabase
     .from('users')
-    .select('id, full_name, email, initials, is_superadmin, onboarding_complete')
+    .select('id, full_name, email, initials, avatar_url, is_superadmin, onboarding_complete')
     .eq('role', 'admin')
     .order('is_superadmin', { ascending: false })
     .order('full_name')

@@ -7,7 +7,7 @@ import {
 } from 'vue-router';
 import routes from './routes';
 import { supabase } from '@/utils/supabase';
-import { useAuthStore } from '@/stores/auth';
+import { useAuthStore, type AppUser } from '@/stores/auth';
 
 export default defineRouter(() => {
   const createHistory = import.meta.env.QUASAR_SERVER
@@ -22,23 +22,25 @@ export default defineRouter(() => {
 
   let roleFetchInProgress: Promise<string | null> | null = null;
 
+  // Deliberately NOT cached across navigations. `status` has to be re-read, or a
+  // session minted before a suspension keeps the run of the admin console until
+  // its token expires. The in-flight promise still collapses the redirect chain
+  // of a single navigation into one query.
   async function fetchUserRole(session: { user: { id: string } }): Promise<string | null> {
     const authStore = useAuthStore();
-    if (authStore.cachedRole) return authStore.cachedRole;
-
     if (roleFetchInProgress) return roleFetchInProgress;
 
     roleFetchInProgress = (async () => {
        try {
          const { data, error } = await supabase
            .from('users')
-            .select('id, full_name, email, initials, avatar_color, phone, is_superadmin, onboarding_complete, role')
+            .select('id, full_name, email, initials, avatar_color, phone, is_superadmin, onboarding_complete, role, status')
            .eq('id', session.user.id)
            .maybeSingle();
 
          if (error || !data) return null;
 
-         authStore.user = data as any;
+         authStore.user = data as unknown as AppUser;
          authStore.cachedRole = data.role;
          return data.role;
        } catch {
@@ -68,6 +70,17 @@ export default defineRouter(() => {
 
     // Authenticated: load the role/profile so we can check onboarding state.
     const role = await fetchUserRole(session);
+
+    // Suspension has to bite on every navigation, not just at sign-in — an admin
+    // suspended mid-session would otherwise keep working until their token ran
+    // out. Mirrors the same check in accommo-mobile/src/router/index.ts.
+    if (authStore.user?.status === 'suspended') {
+      await supabase.auth.signOut();
+      authStore.user = null;
+      authStore.clearCachedRole();
+      return '/auth/login?suspended=true';
+    }
+
     const needsOnboarding =
       !!authStore.user &&
       authStore.user.role === 'admin' &&

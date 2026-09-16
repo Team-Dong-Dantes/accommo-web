@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -71,6 +71,112 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "accommodation_documents_accommodation_id_fkey"
+            columns: ["accommodation_id"]
+            isOneToOne: false
+            referencedRelation: "accommodations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accommodation_facilities: {
+        Row: {
+          access_scope: string
+          accommodation_id: string
+          description: string | null
+          facility_type: string
+          floor: number | null
+          id: string
+          label: string | null
+          room_id: string | null
+          sort_order: number
+        }
+        Insert: {
+          access_scope: string
+          accommodation_id: string
+          description?: string | null
+          facility_type: string
+          floor?: number | null
+          id?: string
+          label?: string | null
+          room_id?: string | null
+          sort_order?: number
+        }
+        Update: {
+          access_scope?: string
+          accommodation_id?: string
+          description?: string | null
+          facility_type?: string
+          floor?: number | null
+          id?: string
+          label?: string | null
+          room_id?: string | null
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accommodation_facilities_accommodation_id_fkey"
+            columns: ["accommodation_id"]
+            isOneToOne: false
+            referencedRelation: "accommodations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accommodation_facilities_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accommodation_facility_images: {
+        Row: {
+          facility_id: string
+          id: string
+          sort_order: number
+          url: string
+        }
+        Insert: {
+          facility_id: string
+          id?: string
+          sort_order?: number
+          url: string
+        }
+        Update: {
+          facility_id?: string
+          id?: string
+          sort_order?: number
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accommodation_facility_images_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "accommodation_facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accommodation_floors: {
+        Row: {
+          accommodation_id: string
+          created_at: string
+          floor_number: number
+        }
+        Insert: {
+          accommodation_id: string
+          created_at?: string
+          floor_number: number
+        }
+        Update: {
+          accommodation_id?: string
+          created_at?: string
+          floor_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accommodation_floors_accommodation_id_fkey"
             columns: ["accommodation_id"]
             isOneToOne: false
             referencedRelation: "accommodations"
@@ -181,7 +287,7 @@ export type Database = {
           {
             foreignKeyName: "accommodation_manager_reviews_lease_id_fkey"
             columns: ["lease_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "leases"
             referencedColumns: ["id"]
           },
@@ -289,7 +395,7 @@ export type Database = {
           {
             foreignKeyName: "accommodation_reviews_lease_id_fkey"
             columns: ["lease_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "leases"
             referencedColumns: ["id"]
           },
@@ -321,7 +427,7 @@ export type Database = {
           name: string
           rating_avg: number | null
           reviews_count: number | null
-          room_type: Database["public"]["Enums"]["room_type"]
+          room_type: Database["public"]["Enums"]["room_type"] | null
           status: Database["public"]["Enums"]["accommodation_status"]
           total_floors: number | null
           total_rooms: number | null
@@ -344,7 +450,7 @@ export type Database = {
           name: string
           rating_avg?: number | null
           reviews_count?: number | null
-          room_type: Database["public"]["Enums"]["room_type"]
+          room_type?: Database["public"]["Enums"]["room_type"] | null
           status: Database["public"]["Enums"]["accommodation_status"]
           total_floors?: number | null
           total_rooms?: number | null
@@ -367,7 +473,7 @@ export type Database = {
           name?: string
           rating_avg?: number | null
           reviews_count?: number | null
-          room_type?: Database["public"]["Enums"]["room_type"]
+          room_type?: Database["public"]["Enums"]["room_type"] | null
           status?: Database["public"]["Enums"]["accommodation_status"]
           total_floors?: number | null
           total_rooms?: number | null
@@ -413,36 +519,67 @@ export type Database = {
       }
       announcements: {
         Row: {
+          accommodation_id: string | null
           archived: boolean
           audience: Database["public"]["Enums"]["audience_type"]
           author_id: string
           body: string
+          deadline_at: string | null
+          event_at: string | null
+          event_end: string | null
           expires_at: string | null
           id: string
+          image_url: string | null
+          location: string | null
+          notified_at: string | null
           published_at: string | null
+          summary: string | null
           title: string
         }
         Insert: {
+          accommodation_id?: string | null
           archived?: boolean
           audience?: Database["public"]["Enums"]["audience_type"]
           author_id: string
           body: string
+          deadline_at?: string | null
+          event_at?: string | null
+          event_end?: string | null
           expires_at?: string | null
           id?: string
+          image_url?: string | null
+          location?: string | null
+          notified_at?: string | null
           published_at?: string | null
+          summary?: string | null
           title: string
         }
         Update: {
+          accommodation_id?: string | null
           archived?: boolean
           audience?: Database["public"]["Enums"]["audience_type"]
           author_id?: string
           body?: string
+          deadline_at?: string | null
+          event_at?: string | null
+          event_end?: string | null
           expires_at?: string | null
           id?: string
+          image_url?: string | null
+          location?: string | null
+          notified_at?: string | null
           published_at?: string | null
+          summary?: string | null
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "announcements_accommodation_id_fkey"
+            columns: ["accommodation_id"]
+            isOneToOne: false
+            referencedRelation: "accommodations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "announcements_author_id_fkey"
             columns: ["author_id"]
@@ -547,10 +684,70 @@ export type Database = {
           },
         ]
       }
+      concerns: {
+        Row: {
+          acknowledged_at: string | null
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          in_progress_at: string | null
+          lease_id: string
+          manager_response: string | null
+          photo_url: string | null
+          reported_at: string
+          resolved_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          in_progress_at?: string | null
+          lease_id: string
+          manager_response?: string | null
+          photo_url?: string | null
+          reported_at?: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          in_progress_at?: string | null
+          lease_id?: string
+          manager_response?: string | null
+          photo_url?: string | null
+          reported_at?: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "concerns_lease_id_fkey"
+            columns: ["lease_id"]
+            isOneToOne: false
+            referencedRelation: "leases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           id: string
+          inquiry_room_id: string | null
+          invited_at: string | null
+          invited_room_id: string | null
           last_message: string | null
+          last_sender_id: string | null
           last_time: string | null
           unread_a: number
           unread_b: number
@@ -559,7 +756,11 @@ export type Database = {
         }
         Insert: {
           id?: string
+          inquiry_room_id?: string | null
+          invited_at?: string | null
+          invited_room_id?: string | null
           last_message?: string | null
+          last_sender_id?: string | null
           last_time?: string | null
           unread_a?: number
           unread_b?: number
@@ -568,7 +769,11 @@ export type Database = {
         }
         Update: {
           id?: string
+          inquiry_room_id?: string | null
+          invited_at?: string | null
+          invited_room_id?: string | null
           last_message?: string | null
+          last_sender_id?: string | null
           last_time?: string | null
           unread_a?: number
           unread_b?: number
@@ -576,6 +781,27 @@ export type Database = {
           user_b_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "conversations_inquiry_room_id_fkey"
+            columns: ["inquiry_room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_invited_room_id_fkey"
+            columns: ["invited_room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_last_sender_id_fkey"
+            columns: ["last_sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "conversations_user_a_id_fkey"
             columns: ["user_a_id"]
@@ -596,6 +822,7 @@ export type Database = {
         Row: {
           accommodation_manager_id: string
           advance_paid: number | null
+          decision_reason: string | null
           deposit_paid: number | null
           end_date: string
           ended_reason: string | null
@@ -610,6 +837,7 @@ export type Database = {
         Insert: {
           accommodation_manager_id: string
           advance_paid?: number | null
+          decision_reason?: string | null
           deposit_paid?: number | null
           end_date: string
           ended_reason?: string | null
@@ -624,6 +852,7 @@ export type Database = {
         Update: {
           accommodation_manager_id?: string
           advance_paid?: number | null
+          decision_reason?: string | null
           deposit_paid?: number | null
           end_date?: string
           ended_reason?: string | null
@@ -661,6 +890,7 @@ export type Database = {
       }
       messages: {
         Row: {
+          attachment_url: string | null
           body: string
           conversation_id: string
           id: string
@@ -669,6 +899,7 @@ export type Database = {
           status: Database["public"]["Enums"]["msg_status"]
         }
         Insert: {
+          attachment_url?: string | null
           body: string
           conversation_id: string
           id?: string
@@ -677,6 +908,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["msg_status"]
         }
         Update: {
+          attachment_url?: string | null
           body?: string
           conversation_id?: string
           id?: string
@@ -708,6 +940,8 @@ export type Database = {
           id: string
           link_url: string | null
           read_at: string | null
+          ref_id: string | null
+          source: string | null
           title: string
           type: string
           user_id: string
@@ -718,6 +952,8 @@ export type Database = {
           id?: string
           link_url?: string | null
           read_at?: string | null
+          ref_id?: string | null
+          source?: string | null
           title: string
           type: string
           user_id: string
@@ -728,6 +964,8 @@ export type Database = {
           id?: string
           link_url?: string | null
           read_at?: string | null
+          ref_id?: string | null
+          source?: string | null
           title?: string
           type?: string
           user_id?: string
@@ -752,6 +990,7 @@ export type Database = {
           month: string
           paid_at: string | null
           proof_url: string | null
+          rejection_reason: string | null
           status: Database["public"]["Enums"]["payment_status"]
           txn_reference: string | null
           verified_by: string | null
@@ -765,6 +1004,7 @@ export type Database = {
           month: string
           paid_at?: string | null
           proof_url?: string | null
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           txn_reference?: string | null
           verified_by?: string | null
@@ -778,6 +1018,7 @@ export type Database = {
           month?: string
           paid_at?: string | null
           proof_url?: string | null
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           txn_reference?: string | null
           verified_by?: string | null
@@ -837,6 +1078,48 @@ export type Database = {
           },
         ]
       }
+      qr_scans: {
+        Row: {
+          id: string
+          method: string
+          result: string
+          scanned_at: string
+          scanner_id: string
+          student_id: string | null
+        }
+        Insert: {
+          id?: string
+          method?: string
+          result: string
+          scanned_at?: string
+          scanner_id: string
+          student_id?: string | null
+        }
+        Update: {
+          id?: string
+          method?: string
+          result?: string
+          scanned_at?: string
+          scanner_id?: string
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qr_scans_scanner_id_fkey"
+            columns: ["scanner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qr_scans_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       room_images: {
         Row: {
           id: string
@@ -869,35 +1152,50 @@ export type Database = {
       rooms: {
         Row: {
           accommodation_id: string
+          advance_months: number | null
           capacity: number | null
           current_pax: number | null
+          custom_room_type: string | null
+          deposit_months: number | null
           floor: number | null
           id: string
           label: string | null
           monthly_rent: number | null
+          rent_basis: string
           room_number: string | null
+          room_type: string | null
           status: Database["public"]["Enums"]["room_status"]
         }
         Insert: {
           accommodation_id: string
+          advance_months?: number | null
           capacity?: number | null
           current_pax?: number | null
+          custom_room_type?: string | null
+          deposit_months?: number | null
           floor?: number | null
           id?: string
           label?: string | null
           monthly_rent?: number | null
+          rent_basis?: string
           room_number?: string | null
+          room_type?: string | null
           status: Database["public"]["Enums"]["room_status"]
         }
         Update: {
           accommodation_id?: string
+          advance_months?: number | null
           capacity?: number | null
           current_pax?: number | null
+          custom_room_type?: string | null
+          deposit_months?: number | null
           floor?: number | null
           id?: string
           label?: string | null
           monthly_rent?: number | null
+          rent_basis?: string
           room_number?: string | null
+          room_type?: string | null
           status?: Database["public"]["Enums"]["room_status"]
         }
         Relationships: [
@@ -920,6 +1218,8 @@ export type Database = {
           osas_verified_at: string | null
           program: string | null
           qr_code_token: string | null
+          qr_token_expires_at: string | null
+          qr_token_rotated_at: string | null
           school_id_url: string | null
           student_id: string | null
           user_id: string
@@ -934,6 +1234,8 @@ export type Database = {
           osas_verified_at?: string | null
           program?: string | null
           qr_code_token?: string | null
+          qr_token_expires_at?: string | null
+          qr_token_rotated_at?: string | null
           school_id_url?: string | null
           student_id?: string | null
           user_id: string
@@ -948,6 +1250,8 @@ export type Database = {
           osas_verified_at?: string | null
           program?: string | null
           qr_code_token?: string | null
+          qr_token_expires_at?: string | null
+          qr_token_rotated_at?: string | null
           school_id_url?: string | null
           student_id?: string | null
           user_id?: string
@@ -1002,7 +1306,7 @@ export type Database = {
           {
             foreignKeyName: "tenant_reviews_lease_id_fkey"
             columns: ["lease_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "leases"
             referencedColumns: ["id"]
           },
@@ -1156,10 +1460,44 @@ export type Database = {
           },
         ]
       }
+      user_pins: {
+        Row: {
+          attempts: number
+          locked_until: string | null
+          pin_hash: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          locked_until?: string | null
+          pin_hash: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          locked_until?: string | null
+          pin_hash?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_pins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_color: string | null
+          avatar_url: string | null
           created_at: string | null
+          date_of_birth: string | null
           email: string
           email_verified_at: string | null
           full_name: string
@@ -1167,16 +1505,22 @@ export type Database = {
           initials: string
           is_superadmin: boolean
           last_login_at: string | null
+          notification_prefs: Json
           onboarding_complete: boolean
           phone: string
+          privacy_accepted_at: string | null
+          registered_at: string | null
           role: Database["public"]["Enums"]["user_role"]
           sex: string | null
           status: Database["public"]["Enums"]["user_status"]
+          terms_accepted_at: string | null
           updated_at: string | null
         }
         Insert: {
           avatar_color?: string | null
+          avatar_url?: string | null
           created_at?: string | null
+          date_of_birth?: string | null
           email: string
           email_verified_at?: string | null
           full_name: string
@@ -1184,16 +1528,22 @@ export type Database = {
           initials: string
           is_superadmin?: boolean
           last_login_at?: string | null
+          notification_prefs?: Json
           onboarding_complete?: boolean
           phone: string
+          privacy_accepted_at?: string | null
+          registered_at?: string | null
           role: Database["public"]["Enums"]["user_role"]
           sex?: string | null
           status?: Database["public"]["Enums"]["user_status"]
+          terms_accepted_at?: string | null
           updated_at?: string | null
         }
         Update: {
           avatar_color?: string | null
+          avatar_url?: string | null
           created_at?: string | null
+          date_of_birth?: string | null
           email?: string
           email_verified_at?: string | null
           full_name?: string
@@ -1201,11 +1551,15 @@ export type Database = {
           initials?: string
           is_superadmin?: boolean
           last_login_at?: string | null
+          notification_prefs?: Json
           onboarding_complete?: boolean
           phone?: string
+          privacy_accepted_at?: string | null
+          registered_at?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           sex?: string | null
           status?: Database["public"]["Enums"]["user_status"]
+          terms_accepted_at?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -1261,6 +1615,53 @@ export type Database = {
           },
         ]
       }
+      verification_requests: {
+        Row: {
+          created_at: string
+          decision_notes: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          rejection_reasons: string[] | null
+          reviewed_at: string
+          reviewed_by: string | null
+          status: string
+          type: string | null
+        }
+        Insert: {
+          created_at?: string
+          decision_notes?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          rejection_reasons?: string[] | null
+          reviewed_at?: string
+          reviewed_by?: string | null
+          status: string
+          type?: string | null
+        }
+        Update: {
+          created_at?: string
+          decision_notes?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          rejection_reasons?: string[] | null
+          reviewed_at?: string
+          reviewed_by?: string | null
+          status?: string
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       latest_accommodation_documents: {
@@ -1283,15 +1684,101 @@ export type Database = {
           },
         ]
       }
+      review_admin_feed: {
+        Row: {
+          accommodation_id: string | null
+          author_id: string | null
+          comment: string | null
+          created_at: string | null
+          id: string | null
+          kind: string | null
+          lease_id: string | null
+          rating: number | null
+          subject_id: string | null
+        }
+        Relationships: []
+      }
+      review_inbox: {
+        Row: {
+          accommodation_id: string | null
+          accommodation_name: string | null
+          comment: string | null
+          created_at: string | null
+          id: string | null
+          kind: string | null
+          rating: number | null
+        }
+        Relationships: []
+      }
+      review_written_leases: {
+        Row: {
+          comment: string | null
+          kind: string | null
+          lease_id: string | null
+          rating: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      announce_due: { Args: never; Returns: number }
+      announcement_reach: {
+        Args: { p_id: string }
+        Returns: {
+          seen: number
+          sent: number
+        }[]
+      }
+      archive_expired_announcements: { Args: never; Returns: number }
+      can_notify: { Args: { target: string }; Returns: boolean }
       check_student_id_exists: {
         Args: { p_student_id: string }
         Returns: boolean
       }
+      clear_pin: { Args: { p_current: string }; Returns: boolean }
+      confirm_email_ownership: { Args: never; Returns: boolean }
       current_is_superadmin: { Args: never; Returns: boolean }
+      current_qr_token: {
+        Args: never
+        Returns: {
+          expires_at: string
+          token: string
+        }[]
+      }
+      fanout_announcement: { Args: { p_id: string }; Returns: number }
       get_my_role: { Args: never; Returns: string }
+      get_verification_queue: {
+        Args: never
+        Returns: {
+          created_at: string
+          doc_id: string
+          doc_status: string
+          doc_type: string
+          email: string
+          file_url: string
+          filename: string
+          full_name: string
+          role: string
+          user_id: string
+          user_status: string
+        }[]
+      }
+      has_pin: { Args: never; Returns: boolean }
+      invite_application: {
+        Args: { p_conversation: string }
+        Returns: undefined
+      }
       is_admin: { Args: { p_uid: string }; Returns: boolean }
+      mark_conversation_read: {
+        Args: { p_conversation: string }
+        Returns: undefined
+      }
+      my_accommodation_ids: {
+        Args: never
+        Returns: {
+          id: string
+        }[]
+      }
       notify_admins: {
         Args: {
           p_body: string
@@ -1301,10 +1788,37 @@ export type Database = {
         }
         Returns: undefined
       }
+      pin_attempt: { Args: { p_pin: string }; Returns: boolean }
+      purge_unverified_accounts: {
+        Args: { p_older_than?: string }
+        Returns: number
+      }
+      recompute_room_occupancy: {
+        Args: { p_room_id: string }
+        Returns: undefined
+      }
+      resubmit_verification: { Args: never; Returns: undefined }
+      rotate_qr_token: { Args: never; Returns: string }
       set_audit_context: {
         Args: { p_ip_address?: string; p_user_agent?: string }
         Returns: undefined
       }
+      set_pin: { Args: { p_pin: string }; Returns: boolean }
+      submit_student_review: {
+        Args: {
+          p_acc_comment: string
+          p_acc_rating: number
+          p_accommodation_id: string
+          p_accommodation_manager_id: string
+          p_lease_id: string
+          p_manager_comment: string
+          p_manager_rating: number
+        }
+        Returns: undefined
+      }
+      sweep_expired_permits: { Args: never; Returns: undefined }
+      verify_pin: { Args: { p_pin: string }; Returns: boolean }
+      verify_student_qr: { Args: { p_code: string }; Returns: Json }
     }
     Enums: {
       accommodation_status:
@@ -1324,11 +1838,22 @@ export type Database = {
         | "cctv"
       audience_type: "all" | "students" | "accommodation_managers"
       doc_status: "pending" | "approved" | "rejected"
-      lease_status: "active" | "ended" | "terminated" | "leave_requested"
+      lease_status:
+        | "active"
+        | "ended"
+        | "terminated"
+        | "leave_requested"
+        | "pending"
+        | "rejected"
       msg_status: "sent" | "delivered" | "read"
       office: "osas" | "registrar" | "housing"
       payment_method: "gcash" | "maya" | "bank" | "cash" | "others"
-      payment_status: "due" | "paid" | "overdue" | "pending_verification"
+      payment_status:
+        | "due"
+        | "paid"
+        | "overdue"
+        | "pending_verification"
+        | "rejected"
       room_status: "available" | "occupied" | "maintenance"
       room_type: "solo" | "duo" | "triple" | "bedspace" | "studio"
       user_role: "student" | "accommodation_manager" | "admin"
@@ -1354,12 +1879,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1383,11 +1908,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1408,11 +1933,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1433,11 +1958,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1450,11 +1975,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1485,11 +2010,24 @@ export const Constants = {
       ],
       audience_type: ["all", "students", "accommodation_managers"],
       doc_status: ["pending", "approved", "rejected"],
-      lease_status: ["active", "ended", "terminated", "leave_requested"],
+      lease_status: [
+        "active",
+        "ended",
+        "terminated",
+        "leave_requested",
+        "pending",
+        "rejected",
+      ],
       msg_status: ["sent", "delivered", "read"],
       office: ["osas", "registrar", "housing"],
       payment_method: ["gcash", "maya", "bank", "cash", "others"],
-      payment_status: ["due", "paid", "overdue", "pending_verification"],
+      payment_status: [
+        "due",
+        "paid",
+        "overdue",
+        "pending_verification",
+        "rejected",
+      ],
       room_status: ["available", "occupied", "maintenance"],
       room_type: ["solo", "duo", "triple", "bedspace", "studio"],
       user_role: ["student", "accommodation_manager", "admin"],

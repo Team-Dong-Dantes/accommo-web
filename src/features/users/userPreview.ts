@@ -2,8 +2,16 @@
 // Extracted verbatim from pages/admin/Users.vue; the page keeps the fetch
 // logic and passes its refs' values in.
 
-import { getTone, getStatus, type StatusTone } from '@/utils/status.config'
+import { getTone, type StatusTone } from '@/utils/status.config'
+import { escapeHtml, humanizeEnum } from '@/utils/format'
 import type { DrawerPreview, PreviewChip, PreviewLease, PreviewPayment } from '@/features/drawer/preview'
+
+const DOC_LABELS: Record<string, string> = {
+  school_id: 'School ID',
+  assessment_of_fees: 'Assessment of Fees',
+  government_id: 'Government ID',
+  business_permit: 'Business Permit',
+}
 
 export function cap(s: string | null | undefined) {
   if (!s) return '—'
@@ -76,7 +84,7 @@ function paymentMethodLabel(method: string): string {
 
 function fmtCurrency(amount: number | null | undefined): string {
   if (amount == null) return '—'
-  return `₱${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `₱${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
 function fmtMonth(month: string): string {
@@ -96,22 +104,32 @@ export interface UserDetailInput {
   boardingHistory: any[]
   accommodationRows: any[]
   userReviews: any[]
+  /** Rows from `verification_documents` for this user. */
+  verificationDocs?: {
+    id: string
+    doc_type: string
+    filename: string | null
+    file_url: string | null
+    status: string | null
+    uploaded_at?: string | null
+    verified_at?: string | null
+  }[]
   leases?: any[]
   payments?: any[]
 }
 
 export function buildUserPreview(input: UserDetailInput): DrawerPreview {
-  const { selectedUser: u, userDetail: detail, housing, boardingHistory, accommodationRows, userReviews, leases, payments } = input
-  if (!u) return { title: 'User Preview', name: '', avatar: '', stats: [], details: [] }
+  const { selectedUser: u, userDetail: detail, housing, boardingHistory, accommodationRows, userReviews, verificationDocs, leases, payments } = input
+  if (!u) return { title: 'User Preview', name: '', avatar: '', stats: [], detailGroups: [] }
 
   const isStudent = (u.role || '').toLowerCase() === 'student'
   const isAccommodationManager = (u.role || '').toLowerCase() === 'accommodation_manager'
   const respTime = fmtMinutes(detail?.avg_response_minutes)
 
   const roleChip: PreviewChip = isStudent
-    ? { text: 'Student', tone: 'neutral', icon: 'mdi:school' }
+    ? { text: 'Student', tone: 'neutral', icon: 'lucide:graduation-cap' }
     : isAccommodationManager
-      ? { text: 'Accommodation Manager', tone: 'primary', icon: 'mdi:domain' }
+      ? { text: 'Accommodation Manager', tone: 'primary', icon: 'lucide:building-2' }
       : { text: cap(u.role), tone: 'neutral' }
 
   const chips: PreviewChip[] = [roleChip, statusChip(u.status, u.statusStyle?.tone ?? 'neutral', u.statusStyle?.icon)]
@@ -125,28 +143,45 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     : []
 
   const telLink = (c: string) => c.startsWith('+') ? `tel:${c.replace(/\s/g, '')}` : undefined
-  type PDetail = NonNullable<DrawerPreview['details']>[number]
+  type PDetail = NonNullable<DrawerPreview['detailGroups']>[number]['rows'][number]
   const detailRow = (label: string, value: string, link?: string): PDetail => {
     const row: PDetail = { label, value }
     if (link) row.link = link
     return row
   }
 
-  const details = isStudent
+  const contactGroup = {
+    title: 'Contact',
+    icon: 'lucide:contact',
+    rows: [
+      detailRow('Email', u.email, `mailto:${u.email}`),
+      detailRow('Phone', u.contact, telLink(u.contact)),
+      detailRow('Date of birth', fmtDate(u.dateOfBirth)),
+    ],
+  }
+  const accountGroup = {
+    title: 'Account',
+    icon: 'lucide:user',
+    rows: [detailRow('Joined', u.joined)],
+  }
+  // Managers have no academic record, so they get two sections rather than an
+  // Academic block full of "Not set".
+  const detailGroups = isStudent
     ? [
-        detailRow('Email', u.email, `mailto:${u.email}`),
-        detailRow('Phone', u.contact, telLink(u.contact)),
-        detailRow('College', detail?.college || '—'),
-        detailRow('Program', detail?.program || '—'),
-        detailRow('Year Level', detail?.year_level ?? '—'),
-        detailRow('Student ID', detail?.student_id || '—'),
-        detailRow('Joined', u.joined),
+        contactGroup,
+        {
+          title: 'Academic',
+          icon: 'lucide:graduation-cap',
+          rows: [
+            detailRow('College', detail?.college || '—'),
+            detailRow('Program', detail?.program || '—'),
+            detailRow('Year Level', String(detail?.year_level ?? '—')),
+            detailRow('Student ID', detail?.student_id || '—'),
+          ],
+        },
+        accountGroup,
       ]
-    : [
-        detailRow('Email', u.email, `mailto:${u.email}`),
-        detailRow('Phone', u.contact, telLink(u.contact)),
-        detailRow('Joined', u.joined),
-      ]
+    : [contactGroup, accountGroup]
 
   let card: DrawerPreview['card']
   const historyCards: any[] = []
@@ -154,7 +189,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     if (housing?.placed) {
       const h = housing
       historyCards.push({
-        icon: 'mdi:home',
+        icon: 'lucide:house',
         title: h.accommodationName,
         status: 'Current',
         statusTone: 'success',
@@ -167,7 +202,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     }
     boardingHistory.forEach((hh) => {
       historyCards.push({
-        icon: 'mdi:history',
+        icon: 'lucide:history',
         title: hh.accommodationName,
         status: 'Past',
         statusTone: 'neutral',
@@ -202,6 +237,11 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
 
   // Activity feed — what the user has actually done / experienced in the app,
   // derived from real lifecycle events (most recent first).
+  //
+  // `text` is rendered with v-html by ActivityTab.vue so the names can be
+  // bolded, which makes every value spliced in here an injection point: names
+  // and accommodation names are typed by users. escapeHtml() on each one; the
+  // <strong> tags are ours and stay literal.
   type ActivityEvent = { text: string; time: string; ts: number; icon: string; tone: StatusTone }
   const events: ActivityEvent[] = []
 
@@ -209,10 +249,10 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     const ts = new Date(u.joined).getTime()
     if (!isNaN(ts)) {
       events.push({
-        text: `<strong>${u.name}</strong> created their account`,
+        text: `<strong>${escapeHtml(u.name)}</strong> created their account`,
         time: fmtDate(u.joined),
         ts,
-        icon: 'mdi:account-plus',
+        icon: 'lucide:user-plus',
         tone: 'primary',
       })
     }
@@ -222,10 +262,10 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     const ts = new Date(detail.osas_verified_at).getTime()
     if (!isNaN(ts)) {
       events.push({
-        text: `<strong>${u.name}</strong> was verified by OSAS`,
+        text: `<strong>${escapeHtml(u.name)}</strong> was verified by OSAS`,
         time: fmtDate(detail.osas_verified_at),
         ts,
-        icon: 'mdi:shield-check',
+        icon: 'lucide:shield-check',
         tone: 'success',
       })
     }
@@ -235,10 +275,10 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     const ts = new Date(housing.moveIn).getTime()
     if (!isNaN(ts)) {
       events.push({
-        text: `Moved into <strong>${housing.accommodationName}</strong>`,
+        text: `Moved into <strong>${escapeHtml(housing.accommodationName)}</strong>`,
         time: fmtDate(housing.moveIn),
         ts,
-        icon: 'mdi:home',
+        icon: 'lucide:house',
         tone: 'success',
       })
     }
@@ -248,10 +288,10 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     const ts = new Date(hh.period_start).getTime()
     if (isNaN(ts)) return
     events.push({
-      text: `Boarded at <strong>${hh.accommodationName}</strong>`,
+      text: `Boarded at <strong>${escapeHtml(hh.accommodationName)}</strong>`,
       time: hh.period,
       ts,
-      icon: 'mdi:history',
+      icon: 'lucide:history',
       tone: 'neutral',
     })
   })
@@ -259,28 +299,69 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
   userReviews.forEach((r) => {
     const ts = new Date(r.created_at).getTime()
     if (isNaN(ts)) return
-    const author = r.author_name && r.author_name !== 'Anonymous' ? ` from ${r.author_name}` : ''
+    const author = r.author_name && r.author_name !== 'Anonymous' ? ` from ${escapeHtml(r.author_name)}` : ''
     events.push({
       text: `Received a <strong>${r.rating}★</strong> review${author}`,
       time: fmtDate(r.created_at),
       ts,
-      icon: 'mdi:star',
+      icon: 'lucide:star',
       tone: 'warning',
     })
   })
 
+  for (const doc of verificationDocs ?? []) {
+    const label = DOC_LABELS[doc.doc_type] || humanizeEnum(doc.doc_type)
+    const uploadedTs = doc.uploaded_at ? new Date(doc.uploaded_at).getTime() : NaN
+    if (!isNaN(uploadedTs)) {
+      events.push({
+        text: `Uploaded <strong>${escapeHtml(label)}</strong>`,
+        time: fmtDate(doc.uploaded_at),
+        ts: uploadedTs,
+        icon: 'lucide:file-up',
+        tone: 'info',
+      })
+    }
+    const reviewedTs = doc.verified_at ? new Date(doc.verified_at).getTime() : NaN
+    if (!isNaN(reviewedTs) && doc.status && doc.status !== 'pending') {
+      events.push({
+        text: `<strong>${escapeHtml(label)}</strong> ${doc.status === 'approved' ? 'approved' : cap(doc.status)}`,
+        time: fmtDate(doc.verified_at),
+        ts: reviewedTs,
+        icon: doc.status === 'approved' ? 'lucide:badge-check' : 'lucide:octagon-x',
+        tone: doc.status === 'approved' ? 'success' : 'danger',
+      })
+    }
+  }
+
   events.sort((a, b) => b.ts - a.ts)
 
-  const activity = events.length
-    ? events.map((e) => ({ text: e.text, time: e.time, icon: e.icon, tone: e.tone }))
-    : [{ text: `<strong>${u.name}</strong> has no recorded activity yet`, time: '', icon: 'mdi:calendar-blank', tone: 'neutral' as StatusTone }]
+  const activity = events.map((e) => ({ text: e.text, time: e.time, icon: e.icon, tone: e.tone }))
 
-  const files: { name: string; url: string }[] = []
+  // Uploads live in `verification_documents`, which is also the only place a
+  // manager's business permit exists. The profile URL columns are kept as a
+  // fallback for records written before uploads were tracked there.
+  const files: NonNullable<DrawerPreview['files']> = []
+  const seen = new Set<string>()
+  for (const doc of verificationDocs ?? []) {
+    if (!doc.file_url) continue
+    const label = DOC_LABELS[doc.doc_type] || humanizeEnum(doc.doc_type)
+    files.push({
+      name: doc.status && doc.status !== 'approved' ? `${label} · ${cap(doc.status)}` : label,
+      url: doc.file_url,
+      docId: doc.id,
+      docTable: 'verification_documents',
+      ...(doc.filename ? { filename: doc.filename } : {}),
+    })
+    seen.add(doc.doc_type)
+  }
+  const fallback = (type: string, label: string, url: string | null | undefined) => {
+    if (url && !seen.has(type)) files.push({ name: label, url })
+  }
   if (isStudent) {
-    if (detail?.school_id_url) files.push({ name: 'School ID', url: detail.school_id_url })
-    if (detail?.assessment_of_fees_url) files.push({ name: 'Assessment of Fees', url: detail.assessment_of_fees_url })
+    fallback('school_id', 'School ID', detail?.school_id_url)
+    fallback('assessment_of_fees', 'Assessment of Fees', detail?.assessment_of_fees_url)
   } else if (isAccommodationManager) {
-    if (detail?.government_id_url) files.push({ name: 'Government ID', url: detail.government_id_url })
+    fallback('government_id', 'Government ID', detail?.government_id_url)
   }
 
   type PHistory = NonNullable<DrawerPreview['history']>
@@ -303,12 +384,11 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         desc: [cap(h.roomType), h.accommodationManagerName, h.address].filter(Boolean).join(' · '),
         meta: `Move-in ${fmtDate(h.moveIn)}`,
         tone: 'success',
-        icon: 'mdi:home',
+        icon: 'lucide:house',
         active: true,
       })
     } else {
       placement = { status: 'Not placed', statusTone: 'neutral', accommodation: 'No active placement' }
-      history.push({ title: 'No active placement', tone: 'neutral', icon: 'mdi:home-outline' })
     }
     boardingHistory.forEach((hh) => {
       history.push({
@@ -316,7 +396,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         desc: [hh.roomType ? cap(hh.roomType) : '', hh.address].filter(Boolean).join(' · '),
         meta: hh.period,
         tone: 'neutral',
-        icon: 'mdi:history',
+        icon: 'lucide:history',
       })
     })
   }
@@ -376,10 +456,12 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     title: 'User Preview',
     viewDetailsLabel: 'View Full Details',
     name: u.name,
-    avatar: avatarUrl(u.name),
+    // Their own photo when they have one; the generated initials image is the
+    // fallback, since this drawer header is always an image slot.
+    avatar: u.avatarUrl || avatarUrl(u.name),
     chips,
     stats,
-    details,
+    detailGroups,
     activity,
   }
   if (card) result.card = card

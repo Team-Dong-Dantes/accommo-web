@@ -12,7 +12,7 @@
 
     <div class="row items-center q-gutter-x-md">
       <q-btn flat dense color="grey-6" class="refresh-btn" @click="$emit('refresh')" :loading="loading">
-        <Icon icon="mdi:refresh" width="18" height="18" />
+        <Icon icon="lucide:refresh-cw" width="18" height="18" />
         <q-tooltip>Refresh</q-tooltip>
       </q-btn>
       <q-badge color="grey-2" text-color="muted" class="q-px-sm q-py-xs text-weight-bold total-badge">

@@ -8,7 +8,7 @@
     :color="dateRange ? 'primary' : 'ink'"
     :text-color="dateRange ? 'primary' : 'ink'"
   >
-    <Icon icon="mdi:calendar-range" width="20" height="20" />
+    <Icon icon="lucide:calendar-range" width="20" height="20" />
     <q-badge v-if="dateRange" floating color="primary" rounded transparent class="date-active-dot" />
     <q-tooltip v-if="dateRangeLabel">{{ dateRangeLabel }}</q-tooltip>
     <q-menu anchor="bottom right" self="top right" :offset="[0, 8]" class="date-menu">
