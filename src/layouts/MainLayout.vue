@@ -20,12 +20,14 @@
       <router-view />
     </q-page-container>
 
+    <ScreenGate />
   </q-layout>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import Sidebar from '@/components/layout/AppSidebar.vue'
+import ScreenGate from '@/components/layout/ScreenGate.vue'
 import HeaderNotification from '@/components/ui/Notification.vue'
 import HeaderProfile from '@/components/layout/UserMenu.vue'
 import PageHeader from '@/components/ui/PageHeader.vue'

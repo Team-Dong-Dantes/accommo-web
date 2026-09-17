@@ -20,6 +20,10 @@ import { Icon } from '@iconify/vue'
 import { screenGateState, MIN_LONG_EDGE, MIN_SHORT_EDGE, type ScreenGateState } from '@/utils/screenGate'
 
 /**
+ * Mounted by the admin layouts only, never by App.vue: the public landing
+ * page is where students download the app from a phone, so it must not be
+ * gated on a landscape tablet.
+ *
  * Null when the app should be shown. The panel is drawn *over* the app rather
  * than replacing it, so a rotation does not unmount the page the reviewer was
  * working on and lose their search, filters and current page.

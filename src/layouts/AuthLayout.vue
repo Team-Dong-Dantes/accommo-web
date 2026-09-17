@@ -20,8 +20,12 @@
         </main>
       </div>
     </q-page-container>
+    <ScreenGate />
   </q-layout>
 </template>
+<script setup lang="ts">
+import ScreenGate from '@/components/layout/ScreenGate.vue'
+</script>
 
 <style scoped>
 /* The photograph runs the full width and the panel dissolves into it, so the
