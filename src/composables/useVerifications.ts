@@ -82,6 +82,25 @@ const ACCOMMODATION_PERMITS = [
   { type: 'building_permit', label: 'Building permit' },
 ]
 
+/** A document as the verification queue view returns it. */
+interface QueueDocumentRow {
+  id: string
+  filename: string | null
+  doc_type: string | null
+}
+
+/**
+ * A file already mapped onto a queue request. `url` is empty until the request
+ * is opened — documents have no readable URL without a signature — and `id` is
+ * optional because the profile-column fallbacks carry a URL but no row.
+ */
+interface QueueFile {
+  id?: string
+  name: string
+  url: string
+  type?: string
+}
+
 export function useVerifications() {
   const loading = ref(true)
   const notify = useNotify()
@@ -184,7 +203,7 @@ export function useVerifications() {
           owner: '',
           initials: getInitials(user.full_name),
           type: manager ? 'Accommodation Manager Identity' : 'Enrollment Form / COR',
-          files: user.documents.map((document: any) => ({
+          files: user.documents.map((document: QueueDocumentRow) => ({
             id: document.id,
             name: document.filename || document.doc_type || 'Verification document',
             // Signed on demand in selectRequest — documents have no readable URL.
@@ -528,7 +547,7 @@ export function useVerifications() {
     // request's files, on open, rather than minting URLs for the whole queue.
     const table = row.id.startsWith('REQ-AC') ? 'accommodation_documents' : 'verification_documents'
     const signed = await Promise.all(
-      row.files.map(async (file: any) => ({ ...file, url: await secureDocUrl(table, file.id) })),
+      row.files.map(async (file: QueueFile) => ({ ...file, url: await secureDocUrl(table, file.id) })),
     )
     // Matched by id, not by object identity, and merged rather than replaced.
     // Claiming the review and loading the profile both swap `selectedRequest`
@@ -787,8 +806,8 @@ export function useVerifications() {
       const following = decidedIndex >= 0 ? queue.value[decidedIndex] : undefined
       selectedRequest.value = null
       if (following) void selectRequest(following)
-    } catch (error: any) {
-      console.error('Failed to update status:', error.message)
+    } catch (error: unknown) {
+      console.error('Failed to update status:', error instanceof Error ? error.message : error)
       selectedRequest.value = null
     } finally {
       loading.value = false
