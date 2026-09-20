@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { supabase } from '@/utils/supabase'
 import { getStatus, type StatusTone } from '@/utils/status.config'
 import { getInitialsWide as initialsOf, humanizeEnum } from '@/utils/format'
+import { facilityIcon, facilityLabel } from '@/utils/facilities'
 
 // Real accommodation shape pulled from Supabase. Fields the DB doesn't carry
 // (audit results, inspectors, compliance permits, performance scores) are
@@ -85,6 +86,18 @@ export interface RealAccommodation {
   responseRate: number | null
   rooms: RealRoom[]
   permits: RealPermit[]
+  /** Shared facilities (bathrooms, kitchen, study area) on this property. */
+  facilities: RealFacility[]
+}
+
+export interface RealFacility {
+  id: string
+  type: string
+  label: string
+  icon: string
+  description: string
+  floor: number | null
+  photoCount: number
 }
 
 export interface RealRoom {
@@ -110,13 +123,13 @@ export interface RealOccupant {
   since: string
 }
 
-const IMAGES = [
-  'https://picsum.photos/400/300?random=21',
-  'https://picsum.photos/400/300?random=22',
-  'https://picsum.photos/400/300?random=23',
-  'https://picsum.photos/400/300?random=24',
-  'https://picsum.photos/400/300?random=25',
-]
+/**
+ * Shown when a property has no photo on file. It used to be one of five random
+ * picsum images handed out round-robin, so the hub showed an unrelated stock
+ * photo for every house whether or not real ones had been uploaded — and the
+ * same house got a different building each time the list re-sorted.
+ */
+const NO_PHOTO = ''
 
 // `accommodation_type` holds snake_case enum values, so the old
 // charAt(0).toUpperCase() rendered "boarding_house" as "Boarding_house" — the
@@ -131,7 +144,7 @@ export function useAccommodations() {
     loading.value = true
     error.value = null
     try {
-      const [propsRes, roomsRes, leasesRes, profilesRes, permitsRes] = await Promise.all([
+      const [propsRes, roomsRes, leasesRes, profilesRes, permitsRes, imagesRes, facilitiesRes, facilityImagesRes] = await Promise.all([
         supabase.from('accommodations').select(
           `id, name, address, city, barangay, lat, lng, room_type, accommodation_type,
             total_rooms, total_floors, description, status, rating_avg,
@@ -152,6 +165,13 @@ export function useAccommodations() {
         supabase.from('accommodation_documents').select(
           `id, accommodation_id, doc_type, file_url, version, issued_at, expires_at, uploaded_at`
         ).order('version', { ascending: false }),
+        supabase.from('accommodation_images').select('accommodation_id, url, sort_order')
+          .order('sort_order', { ascending: true }),
+        supabase.from('accommodation_facilities')
+          .select('id, accommodation_id, facility_type, label, description, floor, sort_order')
+          .eq('access_scope', 'shared')
+          .order('sort_order', { ascending: true }),
+        supabase.from('accommodation_facility_images').select('facility_id'),
       ])
 
       if (propsRes.error) throw propsRes.error
@@ -161,6 +181,46 @@ export function useAccommodations() {
       const leases = (leasesRes.data ?? []) as any[]
       const accommodationManagerProfiles = (profilesRes.data ?? []) as any[]
       const permits = (permitsRes.data ?? []) as any[]
+      const images = (imagesRes.data ?? []) as any[]
+      const facilities = (facilitiesRes.data ?? []) as any[]
+      const facilityImages = (facilityImagesRes.data ?? []) as any[]
+
+      // Photo count per facility, so a row can say "3" without fetching the URLs
+      // the hub never renders.
+      const photoCountByFacility = new Map<string, number>()
+      for (const fi of facilityImages) {
+        if (!fi.facility_id) continue
+        photoCountByFacility.set(fi.facility_id, (photoCountByFacility.get(fi.facility_id) ?? 0) + 1)
+      }
+
+      // Shared facilities by accommodation. The query already filters to
+      // access_scope='shared', and the table's own check constraint guarantees
+      // those are exactly the rows with no room_id.
+      const facilitiesByAccommodation = new Map<string, RealFacility[]>()
+      for (const f of facilities) {
+        if (!f.accommodation_id) continue
+        if (!facilitiesByAccommodation.has(f.accommodation_id)) {
+          facilitiesByAccommodation.set(f.accommodation_id, [])
+        }
+        facilitiesByAccommodation.get(f.accommodation_id)!.push({
+          id: f.id,
+          type: f.facility_type ?? 'other',
+          label: facilityLabel(f.facility_type, f.label),
+          icon: facilityIcon(f.facility_type),
+          description: f.description ?? '',
+          floor: f.floor ?? null,
+          photoCount: photoCountByFacility.get(f.id) ?? 0,
+        })
+      }
+
+      // First photo per accommodation, by sort order — the card wants one image,
+      // not the gallery.
+      const coverByAccommodation = new Map<string, string>()
+      for (const im of images) {
+        if (im.accommodation_id && im.url && !coverByAccommodation.has(im.accommodation_id)) {
+          coverByAccommodation.set(im.accommodation_id, im.url)
+        }
+      }
 
       // Index accommodation-manager profiles by user_id.
       const profileByUserId = new Map<string, any>()
@@ -176,10 +236,21 @@ export function useAccommodations() {
         roomsByAccommodation.get(accommodationId)!.push(r)
       }
 
-      // Index permits by accommodation id.
+      // Index permits by accommodation id, newest version of each type only.
+      //
+      // accommodation_documents keeps every version on purpose — replacing a
+      // permit inserts version n+1 rather than overwriting — but a superseded
+      // version is history, not a second document. Passing them all through
+      // listed one property's business permit three times in the detail
+      // drawer, the two older copies both reading "Expired" because they were.
+      // The rows arrive version-descending, so the first of each type wins.
       const permitsByAccommodation = new Map<string, any[]>()
+      const newestPermit = new Set<string>()
       for (const pm of permits) {
         const accommodationId = pm.accommodation_id
+        const key = `${accommodationId}:${pm.doc_type}`
+        if (newestPermit.has(key)) continue
+        newestPermit.add(key)
         if (!permitsByAccommodation.has(accommodationId)) permitsByAccommodation.set(accommodationId, [])
         permitsByAccommodation.get(accommodationId)!.push(pm)
       }
@@ -192,7 +263,7 @@ export function useAccommodations() {
         occupantsByRoom.get(l.room_id)!.push(l)
       }
 
-      accommodations.value = props.map((p, i): RealAccommodation => {
+      accommodations.value = props.map((p): RealAccommodation => {
         const accommodationManager = p.accommodation_manager
         const accommodationManagerName = accommodationManager?.full_name ?? 'Unknown Accommodation Manager'
         const profile = profileByUserId.get(p.accommodation_manager_id)
@@ -262,7 +333,7 @@ export function useAccommodations() {
           occupancyRate: totalCapacity > 0 ? Math.round((totalPax / totalCapacity) * 100) : 0,
           femaleCount,
           maleCount,
-          image: IMAGES[i % IMAGES.length] ?? IMAGES[0] ?? '',
+          image: coverByAccommodation.get(p.id) ?? NO_PHOTO,
           address: [p.address, p.barangay, p.city].filter(Boolean).join(', ') || '—',
           floors: p.total_floors ?? 0,
           lat: p.lat,
@@ -286,6 +357,7 @@ export function useAccommodations() {
             expiresAt: dm.expires_at ?? null,
             uploadedAt: dm.uploaded_at ?? null,
           })),
+          facilities: facilitiesByAccommodation.get(p.id) ?? [],
         }
       })
       // Newest first, so the map and its list open on what just came in rather

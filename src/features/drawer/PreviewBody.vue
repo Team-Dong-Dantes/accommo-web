@@ -166,6 +166,10 @@
               <RoomsTab :preview="preview" @go-room="(rm) => $emit('go-room', rm)" />
             </q-tab-panel>
 
+            <q-tab-panel name="facilities" class="dd-panel">
+              <FacilitiesTab :preview="preview" />
+            </q-tab-panel>
+
             <q-tab-panel name="occupants" class="dd-panel">
               <OccupantsTab :preview="preview" />
             </q-tab-panel>
@@ -197,6 +201,7 @@ import TabNav from '@/components/ui/TabNav.vue'
 import HistoryTab from './HistoryTab.vue'
 import FilesTab from './FilesTab.vue'
 import RoomsTab from './RoomsTab.vue'
+import FacilitiesTab from './FacilitiesTab.vue'
 import OccupantsTab from './OccupantsTab.vue'
 import PhotosTab from './PhotosTab.vue'
 import ActivityTab from './ActivityTab.vue'
@@ -255,6 +260,7 @@ const showHistoryTab = computed(
 )
 const showDocsTab = computed(() => props.preview.files !== undefined && !props.loading)
 const showRoomsTab = computed(() => props.preview.rooms !== undefined && !props.loading)
+const showFacilitiesTab = computed(() => props.preview.facilities !== undefined && !props.loading)
 const showOccupantsTab = computed(() => props.preview.occupants !== undefined && !props.loading)
 const roomHero = computed(() => props.preview.kind === 'room')
 const coverUrl = computed(() => props.preview.photos?.[0]?.url || '')
@@ -262,9 +268,9 @@ const showPhotosTab = computed(() => props.preview.photos !== undefined && !prop
 const showActivityTab = computed(() => props.preview.activity !== undefined)
 const showReviewsTab = computed(() => props.preview.reviews !== undefined && !props.loading)
 const multiTab = computed(
-  () => [showOverviewTab.value, showHistoryTab.value, showDocsTab.value, showRoomsTab.value, showOccupantsTab.value, showPhotosTab.value, showActivityTab.value, showReviewsTab.value].filter(Boolean).length >= 2
+  () => [showOverviewTab.value, showHistoryTab.value, showDocsTab.value, showRoomsTab.value, showFacilitiesTab.value, showOccupantsTab.value, showPhotosTab.value, showActivityTab.value, showReviewsTab.value].filter(Boolean).length >= 2
 )
-const hasTabs = computed(() => !!(showOverviewTab.value || showHistoryTab.value || showDocsTab.value || showRoomsTab.value || showOccupantsTab.value || showPhotosTab.value || showActivityTab.value || showReviewsTab.value))
+const hasTabs = computed(() => !!(showOverviewTab.value || showHistoryTab.value || showDocsTab.value || showRoomsTab.value || showFacilitiesTab.value || showOccupantsTab.value || showPhotosTab.value || showActivityTab.value || showReviewsTab.value))
 
 const visibleTabs = computed(() => {
   const tabs: string[] = []
@@ -272,6 +278,7 @@ const visibleTabs = computed(() => {
   if (showHistoryTab.value) tabs.push('history')
   if (showDocsTab.value) tabs.push('documents')
   if (showRoomsTab.value) tabs.push('rooms')
+  if (showFacilitiesTab.value) tabs.push('facilities')
   if (showOccupantsTab.value) tabs.push('occupants')
   if (showPhotosTab.value) tabs.push('photos')
   if (showActivityTab.value) tabs.push('activity')
@@ -294,6 +301,7 @@ const tabs = computed(() => {
   if (showHistoryTab.value) t.push({ name: 'history', label: props.preview.card?.title || 'Boarding History' })
   if (showDocsTab.value) t.push({ name: 'documents', label: 'Documents' })
   if (showRoomsTab.value) t.push({ name: 'rooms', label: 'Rooms' })
+  if (showFacilitiesTab.value) t.push({ name: 'facilities', label: props.preview.kind === 'room' ? 'Private Facilities' : 'Shared Facilities' })
   if (showOccupantsTab.value) t.push({ name: 'occupants', label: 'Occupants' })
   if (showPhotosTab.value) t.push({ name: 'photos', label: 'Photos' })
   if (showActivityTab.value) t.push({ name: 'activity', label: 'Activity' })
@@ -539,5 +547,60 @@ const placementStats = computed<PreviewStat[]>(() => {
 .dd-tabs-over :deep(.folder-tab:not(.q-tab--active):hover) {
   color: #fff;
   background-color: rgba(255, 255, 255, 0.24);
+}
+
+/* Off the photo there is nothing behind the strip but a flat panel, so
+   backdrop-filter has nothing to act on — blurring a flat colour returns the
+   same flat colour. The glass has to be built out of the fill instead: a
+   translucent tint, a bright hairline edge, and a highlight along the top so
+   the tab catches light like a pane. The blur stays for the rare case where
+   content does scroll under it.
+
+   Plain `--c-muted` on the opaque `--c-surface-2` is what was not reading. */
+.dd-tabs-wrap:not(.dd-tabs-over) :deep(.folder-tab:not(.q-tab--active)) {
+  color: var(--c-ink);
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--c-surface) 92%, transparent),
+    color-mix(in srgb, var(--c-surface-2) 70%, transparent)
+  );
+  background-color: transparent;
+  border-color: color-mix(in srgb, var(--c-border-strong, var(--c-border)) 85%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
+    0 1px 2px color-mix(in srgb, #000 6%, transparent);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+}
+.dd-tabs-wrap:not(.dd-tabs-over) :deep(.folder-tab:not(.q-tab--active):hover) {
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--c-surface) 100%, transparent),
+    color-mix(in srgb, var(--c-surface-2) 88%, transparent)
+  );
+  border-color: var(--c-border-strong, var(--c-border));
+}
+/* A 55%-white top highlight reads as a lit edge on a pale surface and as a
+   scratch on a dark one, so dark mode gets a much fainter one. */
+:global([data-theme='dark']) .dd-tabs-wrap:not(.dd-tabs-over) :deep(.folder-tab:not(.q-tab--active)) {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent),
+    0 1px 2px color-mix(in srgb, #000 28%, transparent);
+}
+
+/* Quasar shrinks tab labels to fit before it will do anything else, and five
+   tabs at the shared 22px padding overrun a 540px drawer — "Shared Facilities"
+   came out clipped to a few characters. Tighter gutters here buy back ~90px,
+   which is enough, and keep it local to the drawer: the page-level strips in
+   Accommodation Hub and Account Management have the full window to spread into
+   and should stay as they are.
+
+   Scrolling the strip is not an option — `.q-tabs__content` above is
+   deliberately `overflow: visible` so the active tab's ::after can draw the
+   seam that merges it into the card below. */
+.dd-tabs-strip :deep(.folder-tab) {
+  flex: 0 0 auto;
+  padding: 0 13px;
+  white-space: nowrap;
 }
 </style>

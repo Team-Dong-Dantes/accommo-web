@@ -1,26 +1,39 @@
 <template>
   <div v-if="preview.files?.length" class="dd-files">
-    <!-- A row opens the document in the viewer rather than navigating away.
-         `DocumentViewer` is the same panel the Verifications page reviews with,
-         so images zoom and rotate in place instead of becoming a browser tab. -->
-    <button
-      v-for="(f, i) in preview.files"
-      :key="i"
-      type="button"
-      class="dd-file"
-      @click="open(i)"
-    >
-      <span class="dd-file-iconwrap">
-        <Icon :icon="fileIcon(f.filename || f.name)" width="22" height="22" />
-      </span>
-      <span class="col min-width-0 text-left">
-        <span class="dd-file-name">{{ f.name }}</span>
-        <span class="dd-file-meta">Open in viewer</span>
-      </span>
-      <span class="dd-file-eye" aria-hidden="true">
-        <Icon icon="lucide:eye" width="18" height="18" />
-      </span>
-    </button>
+    <!-- Grouped so a manager's own uploads and each accommodation's permits read
+         as separate blocks rather than one undifferentiated list. Files with no
+         group fall under a single unlabelled section. -->
+    <template v-for="section in groupedFiles" :key="section.title || '_'">
+      <h4 v-if="section.title" class="dd-files-head">{{ section.title }}</h4>
+
+      <!-- A row opens the document in the viewer rather than navigating away.
+           `DocumentViewer` is the same panel the Verifications page reviews with,
+           so images zoom and rotate in place instead of becoming a browser tab. -->
+      <button
+        v-for="entry in section.files"
+        :key="entry.index"
+        type="button"
+        class="dd-file"
+        @click="open(entry.index)"
+      >
+        <span class="dd-file-iconwrap">
+          <Icon :icon="fileIcon(entry.file.filename || entry.file.name)" width="22" height="22" />
+        </span>
+        <span class="col min-width-0 text-left">
+          <span class="dd-file-name">{{ entry.file.name }}</span>
+          <span class="dd-file-meta">{{ entry.file.expiry || 'Open in viewer' }}</span>
+        </span>
+        <BadgePill
+          v-if="entry.file.status"
+          :tone="entry.file.statusTone ?? 'neutral'"
+          :label="entry.file.status"
+          class="dd-file-badge"
+        />
+        <span class="dd-file-eye" aria-hidden="true">
+          <Icon icon="lucide:eye" width="18" height="18" />
+        </span>
+      </button>
+    </template>
   </div>
   <TabEmptyState v-else icon="lucide:file-text" title="No documents" message="Nothing has been uploaded for this account yet." />
 
@@ -54,15 +67,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { signDocUrl } from '@/utils/docUrl'
 import TabEmptyState from './TabEmptyState.vue'
 import DocumentViewer from '@/features/verifications/DocumentViewer.vue'
+import BadgePill from '@/components/user/BadgePill.vue'
 import { fileIcon } from '@/features/verifications/fileUtils'
 import { Icon } from '@iconify/vue'
-import type { DrawerPreview } from './preview'
+import type { DrawerPreview, PreviewFile } from './preview'
 
 const props = defineProps<{ preview: DrawerPreview }>()
+
+/**
+ * Files bucketed by `group`, preserving the order they were built in. Each entry
+ * keeps its index into the flat `preview.files` array, because that is what the
+ * viewer pages through — grouping is presentation only and must not renumber
+ * the documents behind it.
+ */
+const groupedFiles = computed(() => {
+  const sections: { title: string; files: { file: PreviewFile; index: number }[] }[] = []
+  ;(props.preview.files ?? []).forEach((file, index) => {
+    const title = file.group ?? ''
+    let section = sections.find((s) => s.title === title)
+    if (!section) {
+      section = { title, files: [] }
+      sections.push(section)
+    }
+    section.files.push({ file, index })
+  })
+  return sections
+})
 
 const viewerOpen = ref(false)
 const viewerIndex = ref(0)
@@ -106,6 +140,20 @@ async function open(index: number) {
   flex-direction: column;
   gap: 10px;
 }
+
+/* Section label above a block of documents — the accommodation they belong to,
+   or the account itself. Matches the uppercase group heads in DetailSections. */
+.dd-files-head {
+  margin: 6px 0 -2px;
+  color: var(--c-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.dd-files-head:first-child { margin-top: 0; }
+
+.dd-file-badge { flex: none; }
 .dd-file {
   display: flex;
   width: 100%;

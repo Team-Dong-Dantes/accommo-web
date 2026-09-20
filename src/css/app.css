@@ -228,6 +228,17 @@ h4,
 .review-btn { padding: calc(0.5 * var(--u)) calc(1.75 * var(--u)); font-size: calc(1.5 * var(--ut)); }
 .q-toolbar { min-height: calc(6.25 * var(--ut)); }
 
+/* Quasar sizes a photo inside a QAvatar with `width: inherit; height: inherit`
+   and no object-fit, so it force-fits the image to the avatar's square box —
+   a portrait phone photo comes out visibly squashed. Cropping is what every
+   one of these circles wants, and eight components render an <img> inside a
+   q-avatar, so it is one rule here rather than the same line repeated in each.
+   `.q-img__image` is excluded to match Quasar's own selector: QImg handles its
+   own fit and must not be overridden. */
+.q-avatar img:not(.q-icon):not(.q-img__image) {
+  object-fit: cover;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rise-in { animation: none; }
   * { transition: none !important; }

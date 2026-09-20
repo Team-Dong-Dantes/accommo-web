@@ -173,6 +173,38 @@ export async function fetchVerificationDocs(userId: string): Promise<Verificatio
   return (data ?? []) as unknown as VerificationDocRow[]
 }
 
+/** A permit or certificate filed against an accommodation. */
+export interface AccommodationDocRow {
+  id: string
+  accommodation_id: string
+  doc_type: string
+  file_url: string | null
+  version: number | null
+  issued_at: string | null
+  expires_at: string | null
+  uploaded_at: string | null
+}
+
+/**
+ * Permits for a set of accommodations, newest version first.
+ *
+ * A manager's record has to account for the properties they run, not just the
+ * documents filed against their own account — a business permit that lapsed on
+ * one of their houses is a fact about that manager. `useAccommodations` already
+ * loads these for the Property Hub, but the user drawer only needs the permits
+ * of one manager's accommodations, so it asks for exactly those.
+ */
+export async function fetchAccommodationDocs(accommodationIds: string[]): Promise<AccommodationDocRow[]> {
+  if (!accommodationIds.length) return []
+  const { data, error } = await supabase
+    .from('accommodation_documents')
+    .select('id, accommodation_id, doc_type, file_url, version, issued_at, expires_at, uploaded_at')
+    .in('accommodation_id', accommodationIds)
+    .order('version', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as unknown as AccommodationDocRow[]
+}
+
 /** user_id → doc types uploaded, for the whole verification pipeline. */
 export async function fetchVerificationDocIndex(): Promise<Map<string, string[]>> {
   const { data, error } = await supabase

@@ -147,7 +147,6 @@ export interface AccommodationExtras {
     cooking: boolean | null
     laundry: boolean | null
     pets: boolean | null
-    smoking: boolean | null
   } | null
 }
 
@@ -162,7 +161,7 @@ export async function fetchAccommodationExtras(accommodationId: string): Promise
     supabase.from('accommodation_amenities').select('amenity').eq('accommodation_id', accommodationId),
     supabase
       .from('accommodation_policies')
-      .select('curfew_time, quiet_hours, visitor_policy, cooking, laundry, pets, smoking')
+      .select('curfew_time, quiet_hours, visitor_policy, cooking, laundry, pets')
       .eq('accommodation_id', accommodationId)
       .maybeSingle(),
   ])

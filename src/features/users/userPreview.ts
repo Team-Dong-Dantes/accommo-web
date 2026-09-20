@@ -4,6 +4,7 @@
 
 import { getTone, type StatusTone } from '@/utils/status.config'
 import { escapeHtml, humanizeEnum } from '@/utils/format'
+import { PERMIT_STATE, expiryLabel, permitStateOf } from '@/utils/permitExpiry'
 import type { DrawerPreview, PreviewChip, PreviewLease, PreviewPayment } from '@/features/drawer/preview'
 
 const DOC_LABELS: Record<string, string> = {
@@ -11,6 +12,10 @@ const DOC_LABELS: Record<string, string> = {
   assessment_of_fees: 'Assessment of Fees',
   government_id: 'Government ID',
   business_permit: 'Business Permit',
+  // Property permit types, from accommodation_documents.
+  sanitary_permit: 'Sanitary Permit',
+  fire_safety: 'Fire Safety Certificate',
+  building_permit: 'Building Permit',
 }
 
 export function cap(s: string | null | undefined) {
@@ -18,7 +23,7 @@ export function cap(s: string | null | undefined) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-export function composeAddress(p: any) {
+export function composeAddress(p: { address?: string | null; barangay?: string | null; city?: string | null } | null | undefined) {
   if (!p) return '—'
   const parts = [p.address, p.barangay, p.city].filter(Boolean)
   return parts.length ? parts.join(', ') : '—'
@@ -97,13 +102,67 @@ function fmtMonth(month: string): string {
   return `${months[mi]} ${year}`
 }
 
+/**
+ * One accommodation a manager runs, as Users.vue selects it. Only the columns
+ * this builder reads — widening it means widening the query too.
+ */
+export interface PreviewAccommodationRow {
+  id: string
+  name: string | null
+  status: string | null
+  room_type: string | null
+  total_rooms: number | null
+  rating_avg: number | null
+  reviews_count: number | null
+  address: string | null
+  barangay: string | null
+  city: string | null
+}
+
+/** A review of this person, from the `review_admin_feed` view. */
+export interface PreviewReviewRow {
+  author_name: string | null
+  rating: number
+  comment: string | null
+  created_at: string
+}
+
+/** A past tenancy, already mapped by Users.vue out of `boarding_history`. */
+export interface PreviewBoardingRow {
+  accommodationId?: string
+  accommodationName: string
+  roomType: string
+  address: string
+  period: string
+  period_start: string
+}
+
+/** The student's current placement, mapped by Users.vue from the active lease. */
+export interface PreviewHousing {
+  placed: boolean
+  accommodationId?: string
+  accommodationName?: string
+  roomType?: string
+  accommodationManagerName?: string
+  address?: string
+  moveIn?: string | null
+}
+
 export interface UserDetailInput {
+  /**
+   * The table row for the selected person (mapUserData's output in Users.vue).
+   * Left loose on purpose: the drawer reads a dozen presentational fields that
+   * the row builder derives rather than selects, and pinning them here would
+   * duplicate that shape in two places. The rows below are database shapes and
+   * are typed.
+   */
   selectedUser: any | null
+  /** student_profiles or accommodation_manager_profiles, depending on role. */
   userDetail: any | null
-  housing: any | null
-  boardingHistory: any[]
-  accommodationRows: any[]
-  userReviews: any[]
+  housing: PreviewHousing | null
+  boardingHistory: PreviewBoardingRow[]
+  accommodationRows: PreviewAccommodationRow[]
+  userReviews: PreviewReviewRow[]
   /** Rows from `verification_documents` for this user. */
   verificationDocs?: {
     id: string
@@ -113,13 +172,23 @@ export interface UserDetailInput {
     status: string | null
     uploaded_at?: string | null
     verified_at?: string | null
+    expires_at?: string | null
+  }[]
+  /** Rows from `accommodation_documents` for every accommodation this manager runs. */
+  accommodationDocs?: {
+    id: string
+    accommodation_id: string
+    doc_type: string
+    file_url: string | null
+    version: number | null
+    expires_at: string | null
   }[]
   leases?: any[]
   payments?: any[]
 }
 
 export function buildUserPreview(input: UserDetailInput): DrawerPreview {
-  const { selectedUser: u, userDetail: detail, housing, boardingHistory, accommodationRows, userReviews, verificationDocs, leases, payments } = input
+  const { selectedUser: u, userDetail: detail, housing, boardingHistory, accommodationRows, userReviews, verificationDocs, accommodationDocs, leases, payments } = input
   if (!u) return { title: 'User Preview', name: '', avatar: '', stats: [], detailGroups: [] }
 
   const isStudent = (u.role || '').toLowerCase() === 'student'
@@ -213,11 +282,13 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
       })
     })
   } else if (isAccommodationManager && accommodationRows.length) {
-    const p = accommodationRows[0]
+    // `accommodationRows.length` is checked above, but the compiler cannot see
+    // that through the index — and `name` really is nullable in the database.
+    const p = accommodationRows[0]!
     card = {
       title: 'Active Listing',
       accommodationId: p.id,
-      head: { title: p.name, location: composeAddress(p), status: cap(p.status), statusTone: getTone(p.status) },
+      head: { title: p.name ?? 'Unnamed accommodation', location: composeAddress(p), status: cap(p.status), statusTone: getTone(p.status) },
       cells: [
         { label: 'Type', value: cap(p.room_type) },
         { label: 'Rooms', value: p.total_rooms != null ? String(p.total_rooms) : '—' },
@@ -228,10 +299,11 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
   }
 
   type PReview = NonNullable<DrawerPreview['reviews']>
-  const reviews: PReview = userReviews.map((r: any) => ({
+  const reviews: PReview = userReviews.map((r: PreviewReviewRow) => ({
     author: r.author_name || 'Anonymous',
     rating: r.rating,
-    comment: r.comment || undefined,
+    // Omitted rather than set to undefined — exactOptionalPropertyTypes.
+    ...(r.comment ? { comment: r.comment } : {}),
     time: fmtDate(r.created_at),
   }))
 
@@ -342,26 +414,66 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
   // fallback for records written before uploads were tracked there.
   const files: NonNullable<DrawerPreview['files']> = []
   const seen = new Set<string>()
+  const ownGroup = isAccommodationManager ? 'Account documents' : ''
   for (const doc of verificationDocs ?? []) {
     if (!doc.file_url) continue
     const label = DOC_LABELS[doc.doc_type] || humanizeEnum(doc.doc_type)
+    // The status used to be spliced into the name, and only when it was not
+    // 'approved' — so an approved document looked like it had no state at all
+    // and the badge column stayed empty for most rows.
     files.push({
-      name: doc.status && doc.status !== 'approved' ? `${label} · ${cap(doc.status)}` : label,
+      name: label,
       url: doc.file_url,
       docId: doc.id,
       docTable: 'verification_documents',
+      status: cap(doc.status) || 'Pending',
+      statusTone: getTone(doc.status ?? 'pending'),
+      expiry: expiryLabel(doc.expires_at),
+      ...(ownGroup ? { group: ownGroup } : {}),
       ...(doc.filename ? { filename: doc.filename } : {}),
     })
     seen.add(doc.doc_type)
   }
   const fallback = (type: string, label: string, url: string | null | undefined) => {
-    if (url && !seen.has(type)) files.push({ name: label, url })
+    if (url && !seen.has(type)) {
+      files.push({ name: label, ...(ownGroup ? { group: ownGroup } : {}), url })
+    }
   }
   if (isStudent) {
     fallback('school_id', 'School ID', detail?.school_id_url)
     fallback('assessment_of_fees', 'Assessment of Fees', detail?.assessment_of_fees_url)
   } else if (isAccommodationManager) {
     fallback('government_id', 'Government ID', detail?.government_id_url)
+
+    // Permits filed against the properties this manager runs. A lapsed permit
+    // on one of their houses belongs on their record — reviewing the manager
+    // without it means reviewing half the compliance picture.
+    //
+    // Only the newest version of each permit type per accommodation: the rows
+    // arrive version-descending, and older versions are superseded paperwork,
+    // not additional documents.
+    const nameById = new Map<string, string>(
+      (accommodationRows ?? []).map((p: PreviewAccommodationRow) => [p.id, p.name || 'Accommodation']),
+    )
+    const newest = new Set<string>()
+    for (const doc of accommodationDocs ?? []) {
+      if (!doc.file_url) continue
+      const key = `${doc.accommodation_id}:${doc.doc_type}`
+      if (newest.has(key)) continue
+      newest.add(key)
+
+      const state = PERMIT_STATE[permitStateOf(doc.expires_at)]
+      files.push({
+        name: DOC_LABELS[doc.doc_type] || humanizeEnum(doc.doc_type),
+        url: doc.file_url,
+        docId: doc.id,
+        docTable: 'accommodation_documents',
+        status: state.label,
+        statusTone: state.tone,
+        expiry: expiryLabel(doc.expires_at),
+        group: nameById.get(doc.accommodation_id) || 'Accommodation',
+      })
+    }
   }
 
   type PHistory = NonNullable<DrawerPreview['history']>
@@ -374,9 +486,11 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         status: 'Housed',
         statusTone: 'success',
         accommodation: h.accommodationName || 'Accommodation',
-        roomType: h.roomType,
-        accommodationManager: h.accommodationManagerName,
-        address: h.address,
+        // exactOptionalPropertyTypes is on: an optional field must be absent,
+        // not present-and-undefined.
+        ...(h.roomType ? { roomType: h.roomType } : {}),
+        ...(h.accommodationManagerName ? { accommodationManager: h.accommodationManagerName } : {}),
+        ...(h.address ? { address: h.address } : {}),
         moveIn: fmtDate(h.moveIn),
       }
       history.push({

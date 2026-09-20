@@ -313,7 +313,6 @@ export type Database = {
           min_stay: number | null
           pets: boolean | null
           quiet_hours: string | null
-          smoking: boolean | null
           visitor_policy: string | null
         }
         Insert: {
@@ -328,7 +327,6 @@ export type Database = {
           min_stay?: number | null
           pets?: boolean | null
           quiet_hours?: string | null
-          smoking?: boolean | null
           visitor_policy?: string | null
         }
         Update: {
@@ -343,7 +341,6 @@ export type Database = {
           min_stay?: number | null
           pets?: boolean | null
           quiet_hours?: string | null
-          smoking?: boolean | null
           visitor_policy?: string | null
         }
         Relationships: [
@@ -1567,6 +1564,7 @@ export type Database = {
       verification_documents: {
         Row: {
           doc_type: string | null
+          expires_at: string | null
           file_url: string | null
           filename: string | null
           id: string
@@ -1578,6 +1576,7 @@ export type Database = {
         }
         Insert: {
           doc_type?: string | null
+          expires_at?: string | null
           file_url?: string | null
           filename?: string | null
           id?: string
@@ -1589,6 +1588,7 @@ export type Database = {
         }
         Update: {
           doc_type?: string | null
+          expires_at?: string | null
           file_url?: string | null
           filename?: string | null
           id?: string

@@ -2,8 +2,13 @@
   <!-- One card holding titled sections, the shape accommo-mobile's ProfileCard /
        ProfileBlock / ProfileField already settled on. The drawer used to render a
        bare "Details" heading over an undifferentiated two-column list, so a
-       student's e-mail, college and join date all read at the same level. Rows
-       stay in two columns here because the drawer is far wider than a phone. -->
+       student's e-mail, college and join date all read at the same level.
+
+       Rows are a single stack, as they are on mobile. Splitting a section down
+       the middle halved the room available to each value, and a drawer-width
+       column cannot hold "College of Business, Accountancy and Public
+       Administration (CBAPA)" — the Academic block's second column was pushed
+       out of view entirely, hiding Year Level and Student ID. -->
   <section class="ds-card">
     <div v-for="group in groups" :key="group.title" class="ds-group">
       <header class="ds-head">
@@ -11,33 +16,31 @@
         <h3 class="ds-head-title">{{ group.title }}</h3>
       </header>
 
-      <div class="ds-body" :class="{ 'is-single': group.rows.length <= 3 }">
-        <ul v-for="(column, ci) in columnsOf(group)" :key="ci" class="ds-col">
-          <li v-for="row in column" :key="row.label" class="ds-row">
-            <span class="ds-label">{{ row.label }}</span>
+      <ul class="ds-col">
+        <li v-for="row in group.rows" :key="row.label" class="ds-row">
+          <span class="ds-label">{{ row.label }}</span>
 
-            <a v-if="row.link" :href="row.link" class="ds-value ds-link">{{ row.value }}</a>
+          <a v-if="row.link" :href="row.link" class="ds-value ds-link">{{ row.value }}</a>
 
-            <span v-else-if="row.avatar" class="ds-value ds-avatar">
-              <q-avatar size="22px" color="primary" text-color="white" class="ds-avatar-badge">
-                {{ row.avatar.initials }}
-              </q-avatar>
-              {{ row.avatar.name }}
-            </span>
+          <span v-else-if="row.avatar" class="ds-value ds-avatar">
+            <q-avatar size="22px" color="primary" text-color="white" class="ds-avatar-badge">
+              {{ row.avatar.initials }}
+            </q-avatar>
+            {{ row.avatar.name }}
+          </span>
 
-            <span v-else class="ds-value" :class="{ 'is-empty': isEmpty(row.value) }">
-              {{ isEmpty(row.value) ? 'Not set' : row.value }}
-            </span>
-          </li>
-        </ul>
-      </div>
+          <span v-else class="ds-value" :class="{ 'is-empty': isEmpty(row.value) }">
+            {{ isEmpty(row.value) ? 'Not set' : row.value }}
+          </span>
+        </li>
+      </ul>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
-import type { PreviewDetail, PreviewDetailGroup } from '@/features/drawer/preview'
+import type { PreviewDetailGroup } from '@/features/drawer/preview'
 
 defineProps<{ groups: PreviewDetailGroup[] }>()
 
@@ -45,18 +48,6 @@ defineProps<{ groups: PreviewDetailGroup[] }>()
 function isEmpty(value: string | undefined): boolean {
   const text = (value ?? '').trim()
   return text === '' || text === '—' || text === '-'
-}
-
-/**
- * Two columns, splitting down the middle — the same split the drawer used
- * before. Under four rows it stays in one column: an odd split leaves the short
- * column's half of the section visibly empty below its last row.
- */
-function columnsOf(group: PreviewDetailGroup): PreviewDetail[][] {
-  const rows = group.rows
-  if (rows.length <= 3) return [rows]
-  const half = Math.ceil(rows.length / 2)
-  return [rows.slice(0, half), rows.slice(half)]
 }
 </script>
 
@@ -87,11 +78,6 @@ function columnsOf(group: PreviewDetailGroup): PreviewDetail[][] {
   text-transform: uppercase;
 }
 
-/* Column gutter is a hairline, so the two columns read as one table. */
-.ds-body { display: grid; grid-template-columns: 1fr 1fr; }
-.ds-body.is-single { grid-template-columns: 1fr; }
-.ds-col + .ds-col { border-left: 1px solid var(--c-border); }
-
 .ds-col { margin: 0; padding: 0; list-style: none; }
 .ds-row {
   display: flex;
@@ -102,7 +88,7 @@ function columnsOf(group: PreviewDetailGroup): PreviewDetail[][] {
   padding: 8px 14px;
   border-bottom: 1px solid var(--c-border);
 }
-.ds-col:last-child .ds-row:last-child { border-bottom: 0; }
+.ds-row:last-child { border-bottom: 0; }
 
 .ds-label {
   flex: 0 0 auto;
@@ -110,26 +96,21 @@ function columnsOf(group: PreviewDetailGroup): PreviewDetail[][] {
   font-size: 12.5px;
   font-weight: 600;
 }
+/* Wraps rather than ellipsising. A full college name still overruns even the
+   full-width row, and a truncated one is the same problem in a smaller form:
+   the reader cannot see the value. */
 .ds-value {
   min-width: 0;
-  overflow: hidden;
   color: var(--c-ink);
   font-size: 13.5px;
   font-weight: 600;
+  line-height: 1.45;
   text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .ds-value.is-empty { color: var(--c-muted); font-style: italic; font-weight: 500; }
 .ds-link { color: var(--c-primary); text-decoration: none; }
 .ds-link:hover { text-decoration: underline; }
 .ds-avatar { display: inline-flex; align-items: center; gap: 7px; }
 .ds-avatar-badge { flex: none; font-size: 10px; font-weight: 700; }
-
-/* A narrow drawer gets mobile's single stack. */
-@media (max-width: 720px) {
-  .ds-body { grid-template-columns: 1fr; }
-  .ds-col + .ds-col { border-left: 0; }
-  .ds-col:not(:last-child) .ds-row:last-child { border-bottom: 1px solid var(--c-border); }
-}
 </style>

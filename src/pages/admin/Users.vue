@@ -89,7 +89,7 @@ import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
 import { buildUserPreview, cap, composeAddress, periodLabel } from '@/features/users/userPreview'
 import { fetchStudentLeaseHistory, fetchPaymentsForLeases } from '@/api/leases'
-import { fetchVerificationDocs, type VerificationDocRow } from '@/api/users'
+import { fetchAccommodationDocs, fetchVerificationDocs, type AccommodationDocRow, type VerificationDocRow } from '@/api/users'
 import { downloadCsv } from '@/utils/csv'
 import { useNotify } from '@/utils/notify'
 import type { DrawerPreview } from '@/components/ui/DetailDrawer.vue'
@@ -111,6 +111,7 @@ const drawerExpanded = ref(false)
 const selectedUser = ref<any | null>(null)
 const userDetail = ref<any | null>(null)
 const verificationDocs = ref<VerificationDocRow[]>([])
+const accommodationDocs = ref<AccommodationDocRow[]>([])
 const userReviews = ref<any[]>([])
 const detailLoading = ref(false)
 
@@ -268,6 +269,7 @@ async function openUser(row: any) {
   accommodationRows.value = []
   userReviews.value = []
   verificationDocs.value = []
+  accommodationDocs.value = []
   leases.value = []
   payments.value = []
   sectionTab.value = 'overview'
@@ -384,6 +386,19 @@ async function fetchDetail(userId: string, role: string) {
       verificationDocs.value = []
     }
 
+    // A manager's record accounts for their properties' permits too, so the
+    // Documents tab is the whole compliance picture rather than only the two
+    // files they uploaded against their own account.
+    if (normalized === 'accommodation_manager') {
+      try {
+        accommodationDocs.value = await fetchAccommodationDocs(
+          accommodationRows.value.map((p: any) => p.id).filter(Boolean),
+        )
+      } catch {
+        accommodationDocs.value = []
+      }
+    }
+
     userDetail.value = detail
   } catch (err) {
     console.error('Failed to load user detail:', err)
@@ -493,6 +508,7 @@ const userPreview = computed<DrawerPreview>(() =>
     accommodationRows: accommodationRows.value,
     userReviews: userReviews.value,
     verificationDocs: verificationDocs.value,
+    accommodationDocs: accommodationDocs.value,
     leases: leases.value,
     payments: payments.value,
   })

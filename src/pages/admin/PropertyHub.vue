@@ -45,7 +45,7 @@
               <template #body="{ props }">
                 <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openAccommodation(props.row)">
                   <q-td key="accommodation" :props="props">
-                    <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :subtitle="props.row.type" />
+                    <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :avatar-url="props.row.accommodationManagerAvatarUrl" :subtitle="props.row.type" />
                   </q-td>
                   <q-td key="accommodationManager" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accommodationManager }}</q-td>
                   <q-td key="rooms" :props="props" class="text-center text-ink" style="font-size: 13px;">{{ props.row.totalRooms }}</q-td>
@@ -71,7 +71,7 @@
               <template #body="{ props }">
                 <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openAccommodation(props.row)">
                   <q-td key="accommodation" :props="props">
-                    <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :subtitle="props.row.type" />
+                    <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :avatar-url="props.row.accommodationManagerAvatarUrl" :subtitle="props.row.type" />
                   </q-td>
                   <q-td v-for="perm in requiredPermits" :key="perm" :props="props" class="text-center">
                     <BadgePill
@@ -98,7 +98,7 @@
               <template #body="{ props }">
                 <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openAccommodation(props.row)">
                   <q-td key="accommodation" :props="props">
-                    <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :subtitle="props.row.type" />
+                    <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :avatar-url="props.row.accommodationManagerAvatarUrl" :subtitle="props.row.type" />
                   </q-td>
                   <q-td key="accommodationManager" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accommodationManager }}</q-td>
                   <q-td key="rating" :props="props" class="text-ink" style="font-size: 13px;">
@@ -153,6 +153,7 @@ import { useNotify } from '@/utils/notify'
 import { escapeHtml, formatDateTime, humanizeEnum } from '@/utils/format'
 import { fetchAccommodationEvents, type AccommodationEventRow } from '@/api/accommodations'
 import { downloadCsv } from '@/utils/csv'
+import { PERMIT_STATE, expiryLabel, permitStateOf, type PermitState } from '@/utils/permitExpiry'
 import { useAccommodations } from '@/composables/useAccommodations'
 
 const search = ref('')
@@ -458,6 +459,7 @@ const accommodations = computed(() => realAccommodations.value.map((p) => ({
   type: p.accommodationType,
   businessName: p.businessName,
   initials: p.accommodationManagerInitials,
+  accommodationManagerAvatarUrl: p.accommodationManagerAvatarUrl,
   accommodationManager: p.accommodationManager,
   contact: p.contact,
   verified: p.verified,
@@ -486,6 +488,7 @@ const accommodations = computed(() => realAccommodations.value.map((p) => ({
   submittedAt: p.submittedAt,
   rooms: p.rooms,
   permits: p.permits,
+  facilities: p.facilities,
 })))
 
 // Set of permits a boarding house is required to submit for verification.
@@ -503,33 +506,14 @@ function findPermit(prop: any, requiredType: string): any {
   })
 }
 
-// Compliance state of one required permit for an accommodation.
-//   'missing'  -> no document uploaded
-//   'expired'  -> document past its expiry date
-//   'expiring' -> document valid but expires within 30 days
-//   'valid'    -> document present and not expiring soon
-function permitStatus(prop: any, requiredType: string): 'missing' | 'expired' | 'expiring' | 'valid' {
+// Compliance state of one required permit for an accommodation. The date
+// comparison itself lives in utils/permitExpiry so the Compliance tab and the
+// detail drawers cannot drift apart on what "expiring" means.
+function permitStatus(prop: any, requiredType: string): PermitState {
   const pm = findPermit(prop, requiredType)
   if (!pm) return 'missing'
-
-  const exp = pm.expiresAt ? new Date(pm.expiresAt).getTime() : null
-  if (exp == null) return 'valid' // no expiry recorded -> treat as valid
-
-  const today = Date.now()
-  const days30 = 30 * 24 * 60 * 60 * 1000
-  if (exp < today) return 'expired'
-  if (exp < today + days30) return 'expiring'
-  return 'valid'
+  return permitStateOf(pm.expiresAt)
 }
-
-// Presentational settings for each compliance state, reusing BadgePill tones
-// so each permit renders as a capsule in the table (no separate legend needed).
-const PERMIT_STATE = {
-  missing: { tone: 'neutral', icon: 'lucide:circle-x', label: 'Not Submitted' },
-  expired: { tone: 'danger', icon: 'lucide:circle-x', label: 'Expired' },
-  expiring: { tone: 'warning', icon: 'lucide:clock-alert', label: 'Expiring' },
-  valid: { tone: 'success', icon: 'lucide:circle-check', label: 'Valid' },
-} as const
 
 const filteredAccommodations = computed(() => {
   let result = [...accommodations.value]
@@ -622,14 +606,23 @@ const accommodationPreview = computed<DrawerPreview>(() => {
     },
   ]
   // Documents regarding the accommodation (permits / certificates with an uploaded file).
+  // Each permit already carries its expiry from useAccommodations; the drawer
+  // used to build a name and a link and throw the rest away, so a reviewer
+  // could see a permit existed but not whether it was still in force.
   const files = (p.permits ?? [])
     .filter((pm: any) => pm.fileUrl)
-    .map((pm: any) => ({
-      name: String(pm.type || 'Document').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
-      url: pm.fileUrl,
-      docId: pm.id,
-      docTable: 'accommodation_documents' as const,
-    }))
+    .map((pm: any) => {
+      const state = PERMIT_STATE[permitStateOf(pm.expiresAt)]
+      return {
+        name: String(pm.type || 'Document').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+        url: pm.fileUrl,
+        docId: pm.id,
+        docTable: 'accommodation_documents' as const,
+        status: state.label,
+        statusTone: state.tone,
+        expiry: expiryLabel(pm.expiresAt),
+      }
+    })
   // Rooms of this accommodation — clickable to jump to Room Hub.
   const rooms = (p.rooms ?? []).map((r: any) => ({
     id: r.id,
@@ -683,6 +676,7 @@ const accommodationPreview = computed<DrawerPreview>(() => {
     detailGroups,
     files,
     rooms,
+    facilities: p.facilities ?? [],
     activity,
   }
 })

@@ -86,6 +86,34 @@ export interface PreviewFile {
   docTable?: 'verification_documents' | 'accommodation_documents'
   /** The uploaded file's own name, for classifying and icon choice. */
   filename?: string
+  /**
+   * Review or compliance state, as a badge. An account document carries its own
+   * `status` from the reviewer; a property permit has none and gets one derived
+   * from its expiry by `utils/permitExpiry`.
+   */
+  status?: string
+  statusTone?: StatusTone
+  /** Already phrased for display ("Expires 14 Mar 2027" / "No expiry recorded"). */
+  expiry?: string
+  /** Section heading to file this document under, e.g. an accommodation name. */
+  group?: string
+}
+/**
+ * A facility on an accommodation (shared) or a room (private). Which of the two
+ * is decided by where the row hangs in `accommodation_facilities`, not by a flag
+ * carried here — the drawer only ever shows one scope at a time.
+ */
+export interface PreviewFacility {
+  id: string
+  /** `facility_type` from the database. */
+  type: string
+  /** The manager's own label, falling back to the type's name. */
+  label: string
+  icon: string
+  description?: string
+  floor?: number | null
+  /** How many photos are filed against it. */
+  photoCount?: number
 }
 export interface PreviewRoom {
   id: string
@@ -184,6 +212,12 @@ export interface DrawerPreview {
   history?: PreviewTimelineItem[]
   files?: PreviewFile[]
   rooms?: PreviewRoom[]
+  /**
+   * Shared facilities on an accommodation, private ones on a room. Undefined
+   * means this kind of record has no facilities concept and the tab is hidden;
+   * an empty array means none are on file and the tab shows its empty state.
+   */
+  facilities?: PreviewFacility[]
   occupants?: PreviewOccupant[]
   photos?: PreviewPhoto[]
   card?: PreviewCard

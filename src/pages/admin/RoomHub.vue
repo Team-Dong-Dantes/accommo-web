@@ -76,6 +76,7 @@ import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import type { DrawerPreview, PreviewChip } from '@/components/ui/DetailDrawer.vue'
 import type { StatusTone } from '@/utils/status.config'
 import { getInitialsWide as initialsOf } from '@/utils/format'
+import { facilityIcon, facilityLabel } from '@/utils/facilities'
 
 const loading = ref(true)
 const search = ref('')
@@ -172,6 +173,41 @@ async function fetchRoomDetail(raw: any) {
         .filter((p) => p.url)
         .map((p) => ({ id: p.id, url: p.url }))
       selectedRoom.value = { ...selectedRoom.value, photos: imgs }
+    }
+
+    // This room's own facilities — its private bathroom or balcony. The scope
+    // filter is belt and braces: accommodation_facilities already constrains a
+    // private row to carry a room_id and a shared one not to.
+    const { data: facilities, error: facilitiesError } = await supabase
+      .from('accommodation_facilities')
+      .select('id, facility_type, label, description, floor, sort_order')
+      .eq('room_id', raw.id)
+      .eq('access_scope', 'private')
+      .order('sort_order', { ascending: true })
+    if (!facilitiesError) {
+      const facilityIds = (facilities ?? []).map((f: any) => f.id)
+      const countById = new Map<string, number>()
+      if (facilityIds.length) {
+        const { data: facImgs } = await supabase
+          .from('accommodation_facility_images')
+          .select('facility_id')
+          .in('facility_id', facilityIds)
+        for (const fi of (facImgs ?? []) as any[]) {
+          countById.set(fi.facility_id, (countById.get(fi.facility_id) ?? 0) + 1)
+        }
+      }
+      selectedRoom.value = {
+        ...selectedRoom.value,
+        facilities: (facilities ?? []).map((f: any) => ({
+          id: f.id,
+          type: f.facility_type ?? 'other',
+          label: facilityLabel(f.facility_type, f.label),
+          icon: facilityIcon(f.facility_type),
+          description: f.description ?? '',
+          floor: f.floor ?? null,
+          photoCount: countById.get(f.id) ?? 0,
+        })),
+      }
     }
   } catch {
     // keep the raw row already assigned above
@@ -349,6 +385,9 @@ const roomPreview = computed<DrawerPreview>(() => {
     detailGroups,
     occupants: (r.occupants as any[]) || undefined,
     photos: (r.photos as any[]) || undefined,
+    // Always an array once the detail has loaded, so the tab shows its empty
+    // state for a bedspace room rather than vanishing.
+    facilities: (r.facilities as any[]) ?? [],
   }
 })
 

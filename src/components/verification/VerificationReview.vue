@@ -351,7 +351,6 @@ const accommodationGroups = computed<InfoGroup[]>(() => {
         { label: 'Cooking', value: allowed(rules?.cooking) },
         { label: 'Laundry', value: allowed(rules?.laundry) },
         { label: 'Pets', value: allowed(rules?.pets) },
-        { label: 'Smoking', value: allowed(rules?.smoking) },
         { label: 'Visitors', value: rules?.visitor_policy || '', block: true },
       ],
     },
