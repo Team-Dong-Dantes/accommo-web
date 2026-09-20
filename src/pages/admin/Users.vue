@@ -147,11 +147,52 @@ function clearFilters() {
   activeFilters.value = { role: [], status: [] }
 }
 
+/** ISO timestamp -> YYYY-MM-DD, so a spreadsheet sorts the column. */
+function csvDate(v: string | null | undefined): string {
+  return v ? String(v).slice(0, 10) : ''
+}
+
+/** Emergency contact is a jsonb blob of { name, relationship, phone }. */
+function ec(raw: any, key: 'name' | 'relationship' | 'phone'): string {
+  return raw && typeof raw === 'object' ? (raw[key] ?? '') : ''
+}
+
+/**
+ * One wide sheet covering every field collected at registration, for both
+ * roles — the role-specific columns sit empty for the other role. The old
+ * 7-column version exported a truncated `USR-XXXX` display token as "User ID",
+ * which no other system can be joined against, and dropped the student number
+ * even though the page had already fetched it.
+ *
+ * Deliberately excluded: `qr_code_token` and its rotation timestamps (a live
+ * credential), `notification_prefs` and `avatar_color` (noise).
+ */
 function handleExport() {
   downloadCsv(
     'users_export',
-    ['Name', 'User ID', 'Email', 'Contact', 'Role', 'Status', 'Joined'],
-    filteredRows.value.map((r) => [r.name, r.id, r.email, r.contact, cap(r.role), r.status, r.joined]),
+    ['Name', 'User ID', 'Reference', 'Email', 'Contact', 'Sex', 'Date of Birth', 'Role', 'Status',
+      'Joined', 'Registered', 'Email Verified', 'Last Login', 'Last Updated',
+      'Terms Accepted', 'Privacy Accepted', 'Onboarding Complete', 'Main Admin', 'Under Review Since',
+      'Student Number', 'College', 'Program', 'Year Level', 'OSAS Verified', 'Emergency Contact', 'Emergency Relationship', 'Emergency Phone',
+      'School ID Document', 'Assessment of Fees Document', 'Extracted Name', 'Extracted School ID',
+      'Government ID Document', 'Extracted Government ID', 'Response Rate (%)', 'Avg Response (min)'],
+    filteredRows.value.map((r) => {
+      const p = r.profile ?? {}
+      return [
+        r.name, r.rawId, r.id, r.email, r.contact, r.sex ?? '', csvDate(r.dateOfBirth),
+        cap(r.role), r.status,
+        r.joined, csvDate(r.registeredAt), csvDate(r.emailVerifiedAt), csvDate(r.lastLoginAt),
+        csvDate(r.updatedAt), csvDate(r.termsAcceptedAt), csvDate(r.privacyAcceptedAt),
+        r.onboardingComplete ? 'Yes' : 'No', r.isSuperadmin ? 'Yes' : 'No', csvDate(r.reviewingAt),
+        p.student_id ?? '', p.college ?? '', p.program ?? '', p.year_level ?? '',
+        csvDate(p.osas_verified_at), ec(p.emergency_contact_json, 'name'),
+        ec(p.emergency_contact_json, 'relationship'), ec(p.emergency_contact_json, 'phone'),
+        p.school_id_url ?? '', p.assessment_of_fees_url ?? '',
+        p.extracted_name ?? '', p.extracted_school_id ?? '',
+        p.government_id_url ?? '', p.extracted_gov_id ?? '',
+        p.response_rate ?? '', p.avg_response_minutes ?? '',
+      ]
+    }),
   )
 }
 
@@ -162,7 +203,11 @@ async function fetchUsers() {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, full_name, email, phone, role, status, created_at, date_of_birth, avatar_url')
+      .select(
+        `id, full_name, email, phone, sex, role, status, created_at, registered_at, updated_at,
+         date_of_birth, avatar_url, email_verified_at, last_login_at, terms_accepted_at,
+         privacy_accepted_at, onboarding_complete, is_superadmin, reviewing_at`
+      )
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -170,17 +215,28 @@ async function fetchUsers() {
       console.error('Supabase Query Error:', error.message)
     } else if (data) {
       const ids = data.map((u: any) => u.id)
-      let sidMap: Record<string, string> = {}
+      // Both role profiles are loaded up front, not just the student number:
+      // the export needs every registration field for either role, and the
+      // table already paid for one `.in()` round trip here anyway.
+      // `qr_code_token` is deliberately not selected — it is a live credential,
+      // not a record field, and must not reach a CSV.
+      const profileByUser: Record<string, any> = {}
       if (ids.length) {
-        const { data: profiles } = await supabase
-          .from('student_profiles')
-          .select('user_id, student_id')
-          .in('user_id', ids)
-        ;(profiles || []).forEach((p: any) => {
-          if (p.user_id) sidMap[p.user_id] = p.student_id || ''
-        })
+        const [studentRes, managerRes] = await Promise.all([
+          supabase
+            .from('student_profiles')
+            .select('user_id, student_id, program, year_level, college, osas_verified_at, emergency_contact_json, school_id_url, assessment_of_fees_url, extracted_name, extracted_school_id')
+            .in('user_id', ids),
+          supabase
+            .from('accommodation_manager_profiles')
+            .select('user_id, government_id_url, response_rate, avg_response_minutes, extracted_name, extracted_gov_id')
+            .in('user_id', ids),
+        ])
+        for (const p of [...(studentRes.data ?? []), ...(managerRes.data ?? [])] as any[]) {
+          if (p.user_id) profileByUser[p.user_id] = p
+        }
       }
-      rawUsers.value = data.map((u: any) => mapUserData(u, sidMap[u.id] || ''))
+      rawUsers.value = data.map((u: any) => mapUserData(u, profileByUser[u.id] ?? {}))
     }
   } catch (err) {
     fetchError.value = err instanceof Error ? err.message : String(err)
@@ -337,7 +393,7 @@ async function fetchDetail(userId: string, role: string) {
   }
 }
 
-function mapUserData(user: any, studentId = '') {
+function mapUserData(user: any, profile: any = {}) {
   const displayName = user.full_name || 'Unknown User'
   const contact = user.phone || 'No phone provided'
 
@@ -380,10 +436,21 @@ function mapUserData(user: any, studentId = '') {
     statusStyle,
     joined: joinedDate,
     dateOfBirth: user.date_of_birth ?? null,
+    sex: user.sex ?? null,
+    registeredAt: user.registered_at ?? null,
+    updatedAt: user.updated_at ?? null,
+    emailVerifiedAt: user.email_verified_at ?? null,
+    lastLoginAt: user.last_login_at ?? null,
+    termsAcceptedAt: user.terms_accepted_at ?? null,
+    privacyAcceptedAt: user.privacy_accepted_at ?? null,
+    onboardingComplete: user.onboarding_complete ?? false,
+    isSuperadmin: user.is_superadmin ?? false,
+    reviewingAt: user.reviewing_at ?? null,
     initials,
     avatarColor,
     avatarUrl: user.avatar_url || '',
-    studentId
+    studentId: profile.student_id || '',
+    profile,
   }
 }
 
