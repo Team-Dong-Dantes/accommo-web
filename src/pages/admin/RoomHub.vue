@@ -78,6 +78,39 @@ import type { StatusTone } from '@/utils/status.config'
 import { getInitialsWide as initialsOf } from '@/utils/format'
 import { facilityIcon, facilityLabel } from '@/utils/facilities'
 
+/** A room row as the rooms query returns it, before mapping to a table row. */
+interface RoomQueryRow {
+  id: string
+  label: string | null
+  room_number: string | null
+  room_type: string | null
+  custom_room_type: string | null
+  floor: number | null
+  capacity: number | null
+  current_pax: number | null
+  monthly_rent: number | null
+  status: string | null
+  accommodation_id: string | null
+  accommodation?: unknown
+}
+
+/** One row of the Room Hub table; `_raw` is the query row the drawer reopens. */
+interface RoomTableRow {
+  id: string
+  name: string
+  initials: string
+  accommodation: string
+  accommodationId: string | null
+  accommodationManager: string
+  occupantNames: string[]
+  floor: number | null
+  capacity: number | null
+  occupants: number | null
+  rent: number | null
+  status: string | null
+  _raw: RoomQueryRow
+}
+
 const loading = ref(true)
 const search = ref('')
 const currentPage = ref(1)
@@ -90,7 +123,7 @@ const tabs = [
 const activeFilters = ref<Record<string, any[]>>({})
 
 const filterConfig = computed(() => {
-  const statuses = [...new Set(rooms.value.map((r: any) => r.status).filter(Boolean))].sort()
+  const statuses = [...new Set(rooms.value.map((r) => r.status).filter((s): s is string => !!s))].sort()
   return [
     {
       label: 'Status',
@@ -107,12 +140,12 @@ watch(activeFilters, () => {
   currentPage.value = 1
 })
 
-const rooms = ref<any[]>([])
+const rooms = ref<RoomTableRow[]>([])
 
 const drawerOpen = ref(false)
 const detailLoading = ref(false)
 const selectedRoom = ref<any | null>(null)
-function openRoom(r: any) {
+function openRoom(r: RoomTableRow) {
   const raw = r._raw
   selectedRoom.value = raw
   drawerOpen.value = true
@@ -224,7 +257,7 @@ function cap(s: string | null | undefined) {
 }
 // The room type is what identifies a room in this table; label/number is the
 // fallback for rows created before room_type existed.
-function roomTypeName(r: any): string {
+function roomTypeName(r: RoomQueryRow): string {
   const type = r.custom_room_type || (r.room_type ? cap(String(r.room_type).replace('_', ' ')) : '')
   return type || r.label || 'Room ' + (r.room_number || '—')
 }
@@ -275,7 +308,7 @@ async function fetchRooms() {
         occMap.get(l.room_id)!.push(nm)
       }
     }
-    rooms.value = (data || []).map((r: any) => {
+    rooms.value = (data || []).map((r: RoomQueryRow) => {
       const accommodation = Array.isArray(r.accommodation) ? r.accommodation[0] : r.accommodation
       const accommodationName = accommodation?.name || '—'
       const manager = Array.isArray(accommodation?.accommodation_manager) ? accommodation.accommodation_manager[0] : accommodation?.accommodation_manager
@@ -313,7 +346,7 @@ const filteredRooms = computed(() => {
   const f = activeFilters.value
   const statuses = f.status
   if (statuses && statuses.length) {
-    result = result.filter((r: any) => statuses.includes(r.status))
+    result = result.filter((r) => statuses.includes(r.status))
   }
   const q = search.value.toLowerCase().trim()
   if (q) {
@@ -403,8 +436,9 @@ onMounted(async () => {
   // accommodation id → open the room detail drawer immediately.
   const accQuery = route.query.accommodation
   if (accQuery != null) {
-    const accRooms = rooms.value.filter((r: any) => r.accommodationId === String(accQuery))
-    if (accRooms.length) openRoom(accRooms[0])
+    const accRooms = rooms.value.filter((r) => r.accommodationId === String(accQuery))
+    const first = accRooms[0]
+    if (first) openRoom(first)
   }
 })
 </script>
