@@ -198,13 +198,73 @@ function clearFilters() {
   activeFilters.value = {}
 }
 
+/** ISO timestamp -> YYYY-MM-DD, so a spreadsheet sorts the column. */
+function csvDate(v: string | null | undefined): string {
+  return v ? String(v).slice(0, 10) : ''
+}
+
+/**
+ * Export what the open tab is actually showing. A single fixed column set
+ * exported none of the Compliance permits and none of the Performance figures,
+ * so a permit-compliance view downloaded a CSV with no permit column in it.
+ * Overview carries every field on the row; the two other tabs stay narrow so
+ * each CSV is readable. Nested rooms and occupants are not flattened here —
+ * that is Room Hub's export.
+ */
 function handleExport() {
+  const rows = filteredAccommodations.value
+
+  if (activeTab.value === 'compliance') {
+    downloadCsv(
+      'accommodation_compliance_export',
+      [
+        'Accommodation', 'Accommodation Manager', 'Status',
+        ...requiredPermits.flatMap((perm) => {
+          const label = `${perm.charAt(0).toUpperCase()}${perm.slice(1)} Permit`
+          return [label, `${label} Issued`, `${label} Expires`, `${label} Version`]
+        }),
+      ],
+      rows.map((p) => [
+        p.name, p.accommodationManager, p.statusLabel,
+        ...requiredPermits.flatMap((perm) => {
+          const pm = findPermit(p, perm)
+          return [
+            PERMIT_STATE[permitStatus(p, perm)].label,
+            csvDate(pm?.issuedAt), csvDate(pm?.expiresAt), pm?.version ?? '',
+          ]
+        }),
+      ]),
+    )
+    return
+  }
+
+  if (activeTab.value === 'performance') {
+    downloadCsv(
+      'accommodation_performance_export',
+      ['Accommodation', 'Accommodation Manager', 'Rating', 'Reviews', 'Response Rate (%)',
+        'Occupants', 'Capacity', 'Occupancy (%)', 'Occupied Rooms', 'Total Rooms'],
+      rows.map((p) => [
+        p.name, p.accommodationManager, p.rating, p.reviewsCount, p.responseRate ?? '',
+        p.totalStudents, p.totalCapacity, p.occupancyRate, p.occupiedRooms, p.totalRooms,
+      ]),
+    )
+    return
+  }
+
   downloadCsv(
     'accommodations_export',
-    ['Accommodation', 'Type', 'Accommodation Manager', 'Address', 'Status', 'Rooms', 'Occupants', 'Capacity', 'Rating'],
-    filteredAccommodations.value.map((p) => [
-      p.name, p.type, p.accommodationManager, p.address, p.status,
-      p.totalRooms, p.totalStudents, p.totalCapacity, p.rating,
+    ['Accommodation', 'Business Name', 'Accommodation Type', 'Room Type', 'Description',
+      'Accommodation Manager', 'Contact', 'Address', 'Latitude', 'Longitude', 'Floors',
+      'Status', 'Accreditation Status', 'Submitted', 'Accredited', 'Accreditation Expires',
+      'Total Rooms', 'Occupied Rooms', 'Occupants', 'Capacity', 'Occupancy (%)',
+      'Female Occupants', 'Male Occupants', 'Rating', 'Reviews', 'Response Rate (%)', 'ID'],
+    rows.map((p) => [
+      p.name, p.businessName ?? '', p.type, p.roomType, p.description,
+      p.accommodationManager, p.contact, p.address, p.lat ?? '', p.lng ?? '', p.floors,
+      p.statusLabel, p.accreditationStatus ? humanizeEnum(p.accreditationStatus) : '',
+      csvDate(p.submittedAt), csvDate(p.accreditedAt), csvDate(p.accreditationExpiresAt),
+      p.totalRooms, p.occupiedRooms, p.totalStudents, p.totalCapacity, p.occupancyRate,
+      p.femaleCount, p.maleCount, p.rating, p.reviewsCount, p.responseRate ?? '', p.id,
     ]),
   )
 }
@@ -396,6 +456,7 @@ const accommodations = computed(() => realAccommodations.value.map((p) => ({
   id: p.id,
   name: p.name,
   type: p.accommodationType,
+  businessName: p.businessName,
   initials: p.accommodationManagerInitials,
   accommodationManager: p.accommodationManager,
   contact: p.contact,
@@ -404,7 +465,10 @@ const accommodations = computed(() => realAccommodations.value.map((p) => ({
   statusLabel: p.statusLabel,
   statusStyle: p.statusStyle,
   rating: p.rating,
+  reviewsCount: p.reviewsCount,
   address: p.address,
+  lat: p.lat,
+  lng: p.lng,
   floors: p.floors,
   totalRooms: p.totalRooms,
   occupiedRooms: p.occupiedRooms,
@@ -419,6 +483,7 @@ const accommodations = computed(() => realAccommodations.value.map((p) => ({
   accreditedAt: p.accreditedAt,
   accreditationExpiresAt: p.accreditationExpiresAt,
   responseRate: p.responseRate,
+  submittedAt: p.submittedAt,
   rooms: p.rooms,
   permits: p.permits,
 })))

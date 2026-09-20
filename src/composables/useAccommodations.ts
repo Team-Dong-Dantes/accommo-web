@@ -59,6 +59,8 @@ export interface RealAccommodation {
   statusLabel: string
   statusStyle: BadgeStyle
   rating: string
+  /** How many student reviews the rating averages over. */
+  reviewsCount: number
   totalRooms: number
   occupiedRooms: number
   totalStudents: number
@@ -252,6 +254,7 @@ export function useAccommodations() {
           statusLabel: humanizeEnum(p.status ?? 'unknown'),
           statusStyle: badgeStyle(p.status ?? 'unknown'),
           rating: p.rating_avg != null ? p.rating_avg.toFixed(1) : '—',
+          reviewsCount: p.reviews_count ?? 0,
           totalRooms,
           occupiedRooms,
           totalStudents: totalPax,
