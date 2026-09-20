@@ -2,41 +2,59 @@
   <!-- The wordmark and the standing line live in AuthLayout now; both auth
        screens were rendering their own copy. -->
   <div class="onboard">
-    <header class="onboard-head">
-      <h1>Complete your profile</h1>
-      <p>Set your name so the rest of the team knows who acted on a record.</p>
-    </header>
-
-    <q-form @submit.prevent="submit" ref="formRef" class="onboard-form">
-      <label class="field">
-        <span class="field-label">Full name</span>
-        <AuthInput v-model="fullName" autocomplete="name"
-          :rules="[(val: string) => !!val.trim() || 'Please enter your full name']">
-          <template #prepend><Icon icon="lucide:user" width="18" height="18" /></template>
-        </AuthInput>
-      </label>
-
-      <label class="field">
-        <span class="field-label">Phone number <span class="field-optional">optional</span></span>
-        <AuthInput v-model="phone" autocomplete="tel">
-          <template #prepend><Icon icon="lucide:phone" width="18" height="18" /></template>
-        </AuthInput>
-      </label>
-
-      <div class="onboard-actions">
-        <AuthButton type="submit" :loading="saving">Finish setup</AuthButton>
+    <!-- While the Google chooser is on its way the form would only flash past,
+         so the page says what it is doing instead. -->
+    <template v-if="connecting">
+      <header class="onboard-head">
+        <h1>Connecting your Google account</h1>
+        <p>Choose the account you want to use for Accommo.</p>
+      </header>
+      <div class="onboard-connecting">
+        <q-spinner size="22px" />
       </div>
-    </q-form>
+    </template>
 
-    <p class="onboard-foot">
-      Signed in as the wrong account?
-      <button type="button" class="onboard-signout" @click="logout">Sign out</button>
-    </p>
+    <template v-else>
+      <header class="onboard-head">
+        <div v-if="photo" class="onboard-photo">
+          <img :src="photo" alt="" />
+        </div>
+        <h1>Complete your profile</h1>
+        <p v-if="photo">Your name and photo came from the Google account you just connected. Change the name if it isn't how you want to appear.</p>
+        <p v-else>Set your name so the rest of the team knows who acted on a record.</p>
+      </header>
+
+      <q-form @submit.prevent="submit" ref="formRef" class="onboard-form">
+        <label class="field">
+          <span class="field-label">Full name</span>
+          <AuthInput v-model="fullName" autocomplete="name"
+            :rules="[(val: string) => !!val.trim() || 'Please enter your full name']">
+            <template #prepend><Icon icon="lucide:user" width="18" height="18" /></template>
+          </AuthInput>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Phone number <span class="field-optional">optional</span></span>
+          <AuthInput v-model="phone" autocomplete="tel">
+            <template #prepend><Icon icon="lucide:phone" width="18" height="18" /></template>
+          </AuthInput>
+        </label>
+
+        <div class="onboard-actions">
+          <AuthButton type="submit" :loading="saving">Finish setup</AuthButton>
+        </div>
+      </q-form>
+
+      <p class="onboard-foot">
+        Signed in as the wrong account?
+        <button type="button" class="onboard-signout" @click="logout">Sign out</button>
+      </p>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar, type QForm } from 'quasar';
 import { useAuthStore } from '@/stores/auth';
@@ -51,7 +69,51 @@ const authStore = useAuthStore();
 const fullName = ref('');
 const phone = ref('');
 const saving = ref(false);
+const connecting = ref(false);
+const photo = ref('');
 const formRef = ref<QForm | null>(null);
+
+// Survives the full page load that linkIdentity's redirect causes, which a
+// module-scoped ref would not. Per tab, so it clears itself.
+const LINK_TRIED_KEY = 'accommo.googleLinkTried';
+
+/**
+ * Accepting the invite is meant to connect the admin's Google account, so the
+ * chooser opens on arrival rather than waiting behind a button. Google still
+ * requires them to pick an account and consent — that part cannot be silent —
+ * but they never have to find or click anything here.
+ *
+ * Runs at most once per tab: dismissing the chooser returns them to this same
+ * page, and re-triggering would trap them in a redirect loop. The typed-name
+ * form is the fallback for that case, and for any failure — a profile photo is
+ * never worth blocking someone out of their own account over.
+ */
+onMounted(async () => {
+  try {
+    const googleName = await authStore.syncGoogleProfile();
+    if (googleName || authStore.user?.avatar_url) {
+      // Only ever prefill a real name. `full_name` still holds the email
+      // address invite-admin parked there to satisfy the NOT NULL column, and
+      // offering that as their display name is worse than an empty field.
+      fullName.value = googleName ?? '';
+      photo.value = authStore.user?.avatar_url ?? '';
+      return;
+    }
+  } catch {
+    // Nothing linked, or the identity lookup failed. Fall through.
+  }
+
+  if (sessionStorage.getItem(LINK_TRIED_KEY)) return;
+
+  connecting.value = true;
+  try {
+    sessionStorage.setItem(LINK_TRIED_KEY, '1');
+    await authStore.connectGoogle();
+  } catch (e) {
+    connecting.value = false;
+    $q.notify({ message: e instanceof Error ? e.message : 'Could not connect Google. Fill in your name instead.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' });
+  }
+});
 
 function initialsFrom(name: string): string {
   return name
@@ -121,6 +183,26 @@ async function logout() {
   color: rgba(255, 255, 255, 0.76);
   font-size: 0.9rem;
   line-height: 1.5;
+}
+
+.onboard-photo {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  border-radius: 50%;
+  overflow: hidden;
+}
+.onboard-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.onboard-connecting {
+  margin-top: 28px;
+  color: rgba(255, 255, 255, 0.76);
 }
 
 .onboard-form {

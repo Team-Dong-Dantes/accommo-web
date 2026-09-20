@@ -107,6 +107,73 @@ export const useAuthStore = defineStore('auth', {
       this.cachedRole = null;
     },
 
+    /**
+     * Attach a Google account to the admin who is already signed in.
+     *
+     * `linkIdentity` rather than `signInWithOAuth`: the invite link has already
+     * established the session, so Google binds to *that* user. OAuth sign-in
+     * would match by email instead, and Supabase refuses to auto-link against
+     * an unverified address (pre-account-takeover protection) — a pending
+     * invitee would have ended up with a second, separate account.
+     *
+     * Needs "Allow manual linking" on under Authentication -> Sign In /
+     * Providers, and the return URL on the Redirect URLs allow list. This
+     * navigates away; nothing after it runs.
+     */
+    async connectGoogle() {
+      const { error } = await supabase.auth.linkIdentity({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/onboarding` },
+      });
+      if (error) throw sanitizeError(error);
+    },
+
+    /**
+     * Copy the linked Google account's name and photo onto the users row.
+     * Returns the Google name so the caller can prefill its form, or null when
+     * no Google identity is attached.
+     *
+     * Reads `identity_data` rather than `user_metadata`: a link does not
+     * reliably refresh the metadata blob. (accommo-mobile reads metadata for
+     * its drawer avatar, but that is a sign-in flow, not a link.)
+     *
+     * Overwrites unconditionally — accommo-web has no avatar upload for admins,
+     * so Google is the only source and there is nothing to preserve.
+     */
+    async syncGoogleProfile(): Promise<string | null> {
+      const { data, error } = await supabase.auth.getUserIdentities();
+      if (error) throw sanitizeError(error);
+
+      const google = data?.identities?.find((i) => i.provider === 'google');
+      if (!google) return null;
+
+      const identity = google.identity_data ?? {};
+      const name = typeof identity.name === 'string' ? identity.name.trim() : '';
+      const picture = typeof identity.picture === 'string' ? identity.picture : '';
+      if (!name && !picture) return null;
+
+      const patch: { full_name?: string; initials?: string; avatar_url?: string } = {};
+      if (name) {
+        patch.full_name = name;
+        patch.initials = name
+          .split(/\s+/)
+          .map((p) => p[0])
+          .slice(0, 2)
+          .join('')
+          .toUpperCase();
+      }
+      if (picture) patch.avatar_url = picture;
+
+      const { error: updateError } = await supabase
+        .from('users')
+        .update(patch)
+        .eq('id', google.user_id);
+      if (updateError) throw sanitizeError(updateError);
+
+      await this.loadProfileById(google.user_id);
+      return name || null;
+    },
+
     async getSessionProfile() {
       const {
         data: { session },
