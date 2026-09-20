@@ -105,10 +105,15 @@ onMounted(async () => {
 
   if (sessionStorage.getItem(LINK_TRIED_KEY)) return;
 
+  // No address to hint with means Google would just show its chooser, which is
+  // the thing this flow exists to avoid. Let them type their name instead.
+  const invitedEmail = authStore.user?.email;
+  if (!invitedEmail) return;
+
   connecting.value = true;
   try {
     sessionStorage.setItem(LINK_TRIED_KEY, '1');
-    await authStore.connectGoogle();
+    await authStore.connectGoogle(invitedEmail);
   } catch (e) {
     connecting.value = false;
     $q.notify({ message: e instanceof Error ? e.message : 'Could not connect Google. Fill in your name instead.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' });

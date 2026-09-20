@@ -116,14 +116,24 @@ export const useAuthStore = defineStore('auth', {
      * an unverified address (pre-account-takeover protection) — a pending
      * invitee would have ended up with a second, separate account.
      *
+     * `login_hint` names the address the invite was sent to, so Google goes
+     * straight to that account instead of asking which one. Without it Google
+     * falls back to its own default and shows the account chooser whenever more
+     * than one account is signed in — the invited admin should not have to pick
+     * their own address out of a list. It is a hint, not a constraint: they can
+     * still switch accounts on Google's side if they want to.
+     *
      * Needs "Allow manual linking" on under Authentication -> Sign In /
      * Providers, and the return URL on the Redirect URLs allow list. This
      * navigates away; nothing after it runs.
      */
-    async connectGoogle() {
+    async connectGoogle(email: string) {
       const { error } = await supabase.auth.linkIdentity({
         provider: 'google',
-        options: { redirectTo: `${window.location.origin}/onboarding` },
+        options: {
+          redirectTo: `${window.location.origin}/onboarding`,
+          queryParams: { login_hint: email },
+        },
       });
       if (error) throw sanitizeError(error);
     },
