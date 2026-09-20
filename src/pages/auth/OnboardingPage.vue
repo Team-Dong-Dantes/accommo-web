@@ -40,6 +40,53 @@
           </AuthInput>
         </label>
 
+        <!-- Same five rules as accommo-mobile's registration, so one password
+             policy covers the whole product. -->
+        <label class="field">
+          <span class="field-label">Password</span>
+          <AuthInput v-model="password" :type="showPassword ? 'text' : 'password'" autocomplete="new-password"
+            :rules="[
+              (val: string) => !!val || 'Password is required',
+              (val: string) => val.length >= 8 || 'At least 8 characters',
+              (val: string) => /[a-z]/.test(val) || 'Must include a lowercase letter',
+              (val: string) => /[A-Z]/.test(val) || 'Must include an uppercase letter',
+              (val: string) => /\d/.test(val) || 'Must include a number',
+              (val: string) => /[!@#$%^&*]/.test(val) || 'Must include a special character (!@#$%^&*)',
+            ]">
+            <template #prepend><Icon icon="lucide:lock" width="18" height="18" /></template>
+            <template #append>
+              <button type="button" class="reveal" :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                @click="showPassword = !showPassword">
+                <Icon :icon="showPassword ? 'lucide:eye-off' : 'lucide:eye'" width="18" height="18" />
+              </button>
+            </template>
+          </AuthInput>
+        </label>
+
+        <div class="pw-checks">
+          <span v-for="item in passwordChecks" :key="item.short" class="pw-chip" :class="{ ok: item.ok }">
+            <Icon :icon="item.ok ? 'lucide:check' : 'lucide:minus'" width="12" height="12" />
+            {{ item.short }}
+          </span>
+        </div>
+
+        <label class="field">
+          <span class="field-label">Confirm password</span>
+          <AuthInput v-model="confirmPassword" :type="showConfirm ? 'text' : 'password'" autocomplete="new-password"
+            :rules="[
+              (val: string) => !!val || 'Please confirm your password',
+              (val: string) => val === password || 'Passwords do not match',
+            ]">
+            <template #prepend><Icon icon="lucide:lock" width="18" height="18" /></template>
+            <template #append>
+              <button type="button" class="reveal" :aria-label="showConfirm ? 'Hide password' : 'Show password'"
+                @click="showConfirm = !showConfirm">
+                <Icon :icon="showConfirm ? 'lucide:eye-off' : 'lucide:eye'" width="18" height="18" />
+              </button>
+            </template>
+          </AuthInput>
+        </label>
+
         <div class="onboard-actions">
           <AuthButton type="submit" :loading="saving">Finish setup</AuthButton>
         </div>
@@ -54,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar, type QForm } from 'quasar';
 import { useAuthStore } from '@/stores/auth';
@@ -68,10 +115,28 @@ const authStore = useAuthStore();
 
 const fullName = ref('');
 const phone = ref('');
+const password = ref('');
+const confirmPassword = ref('');
+const showPassword = ref(false);
+const showConfirm = ref(false);
 const saving = ref(false);
 const connecting = ref(false);
 const photo = ref('');
 const formRef = ref<QForm | null>(null);
+
+// Mirrors accommo-mobile's RegisterPage chips: the same five rules shown as a
+// row of short chips rather than a list of error messages that only appear
+// once you have already got it wrong.
+const passwordChecks = computed(() => {
+  const pwd = password.value;
+  return [
+    { short: '8+ characters', ok: pwd.length >= 8 },
+    { short: 'a–z', ok: /[a-z]/.test(pwd) },
+    { short: 'A–Z', ok: /[A-Z]/.test(pwd) },
+    { short: '0–9', ok: /\d/.test(pwd) },
+    { short: '!@#$%^&*', ok: /[!@#$%^&*]/.test(pwd) },
+  ];
+});
 
 // Survives the full page load that linkIdentity's redirect causes, which a
 // module-scoped ref would not. Per tab, so it clears itself.
@@ -144,6 +209,14 @@ async function submit() {
 
   saving.value = true;
   try {
+    // Password first. If it fails the row keeps onboarding_complete = false, so
+    // the guard sends them back here rather than leaving an admin who looks set
+    // up but can only ever get in by magic link.
+    const { error: passwordError } = await supabase.auth.updateUser({
+      password: password.value,
+    });
+    if (passwordError) throw passwordError;
+
     const { error } = await supabase
       .from('users')
       .update({
@@ -229,6 +302,44 @@ async function logout() {
   color: rgba(255, 255, 255, 0.55);
   font-weight: 400;
 }
+
+/* A row of chips attached to the field they describe — same treatment as
+   accommo-mobile's registration, a fifth of the height of a bullet list. */
+.pw-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -6px;
+}
+.pw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.72rem;
+  font-weight: 600;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+.pw-chip.ok {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #ffffff;
+}
+
+.reveal {
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+.reveal:hover { color: rgba(255, 255, 255, 0.9); }
 
 .onboard-actions { margin-top: 10px; }
 
