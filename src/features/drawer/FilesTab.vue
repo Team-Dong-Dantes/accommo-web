@@ -35,14 +35,14 @@
       </button>
     </template>
   </div>
-  <TabEmptyState v-else icon="lucide:file-text" title="No documents" message="Nothing has been uploaded for this account yet." />
+  <TabEmptyState v-else icon="lucide:file-text" title="No requirements" message="Nothing has been submitted for this account yet." />
 
   <!-- The X is the only way out: a stray click outside or a reflexive Esc
        should not throw away the document being reviewed. -->
   <q-dialog v-model="viewerOpen" persistent no-esc-dismiss no-backdrop-dismiss>
     <q-card class="dd-viewer-card">
       <header class="dd-viewer-head">
-        <h2 class="dd-viewer-title">Documents</h2>
+        <h2 class="dd-viewer-title">Requirements</h2>
         <q-btn v-close-popup flat dense round aria-label="Close viewer">
           <Icon icon="lucide:x" width="20" height="20" />
         </q-btn>

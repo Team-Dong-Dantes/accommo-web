@@ -3,9 +3,11 @@
 // logic and passes its refs' values in.
 
 import { getTone, type StatusTone } from '@/utils/status.config'
-import { escapeHtml, humanizeEnum } from '@/utils/format'
+import { cap, composeAddress, escapeHtml, fmtDate, humanizeEnum, landlordTitle } from '@/utils/format'
 import { PERMIT_STATE, expiryLabel, permitStateOf } from '@/utils/permitExpiry'
 import type { DrawerPreview, PreviewChip, PreviewLease, PreviewPayment } from '@/features/drawer/preview'
+import { accountActivity } from './accountActivity'
+import { NO_STANDING, type AccountEvent, type AccountStanding } from '@/api/accounts'
 
 const DOC_LABELS: Record<string, string> = {
   school_id: 'School ID',
@@ -18,23 +20,10 @@ const DOC_LABELS: Record<string, string> = {
   building_permit: 'Building Permit',
 }
 
-export function cap(s: string | null | undefined) {
-  if (!s) return '—'
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
+// Re-exported so Users.vue keeps one import surface for the drawer; the
+// implementations live in utils/format.ts (ARCHITECTURE.md rule 4).
+export { cap, composeAddress, fmtDate }
 
-export function composeAddress(p: { address?: string | null; barangay?: string | null; city?: string | null } | null | undefined) {
-  if (!p) return '—'
-  const parts = [p.address, p.barangay, p.city].filter(Boolean)
-  return parts.length ? parts.join(', ') : '—'
-}
-
-export function fmtDate(d: string | null | undefined) {
-  if (!d) return '—'
-  const dt = new Date(d)
-  if (isNaN(dt.getTime())) return '—'
-  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
 
 export function periodLabel(start: string | null, end: string | null) {
   const s = fmtDate(start)
@@ -47,9 +36,6 @@ export function fmtMinutes(m: number | null | undefined) {
   const min = Math.round(m % 60)
   return h > 0 ? `${h}h ${min}m` : `${min}m`
 }
-
-export const avatarUrl = (name: string) =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=160&background=0F766E&color=fff&bold=true`
 
 function statusChip(label: string, tone: StatusTone, icon?: string): PreviewChip {
   const c: PreviewChip = { text: label, tone }
@@ -103,7 +89,7 @@ function fmtMonth(month: string): string {
 }
 
 /**
- * One accommodation a manager runs, as Users.vue selects it. Only the columns
+ * One accommodation a landlord/landlady runs, as Users.vue selects it. Only the columns
  * this builder reads — widening it means widening the query too.
  */
 export interface PreviewAccommodationRow {
@@ -117,6 +103,8 @@ export interface PreviewAccommodationRow {
   address: string | null
   barangay: string | null
   city: string | null
+  /** Its rooms, for the portfolio chart's beds taken / capacity. */
+  rooms?: { capacity: number | null; current_pax: number | null }[] | null
 }
 
 /** A review of this person, from the `review_admin_feed` view. */
@@ -143,9 +131,11 @@ export interface PreviewHousing {
   accommodationId?: string
   accommodationName?: string
   roomType?: string
-  accommodationManagerName?: string
+  landlordName?: string
   address?: string
   moveIn?: string | null
+  /** "Room 304", when the lease names its room. */
+  room?: string
 }
 
 export interface UserDetailInput {
@@ -157,7 +147,7 @@ export interface UserDetailInput {
    * are typed.
    */
   selectedUser: any | null
-  /** student_profiles or accommodation_manager_profiles, depending on role. */
+  /** student_profiles or landlord_profiles, depending on role. */
   userDetail: any | null
   housing: PreviewHousing | null
   boardingHistory: PreviewBoardingRow[]
@@ -174,7 +164,7 @@ export interface UserDetailInput {
     verified_at?: string | null
     expires_at?: string | null
   }[]
-  /** Rows from `accommodation_documents` for every accommodation this manager runs. */
+  /** Rows from `accommodation_documents` for every accommodation this landlord/landlady runs. */
   accommodationDocs?: {
     id: string
     accommodation_id: string
@@ -185,6 +175,12 @@ export interface UserDetailInput {
   }[]
   leases?: any[]
   payments?: any[]
+  /** Mean response rate over every landlord/landlady in the Users list. */
+  campusResponseRate?: number | null
+  /** Reason, end date and restrictions from `account_standing`. */
+  standing?: AccountStanding
+  /** OSAS decisions about the account, from `audit_logs`. */
+  accountEvents?: AccountEvent[]
 }
 
 export function buildUserPreview(input: UserDetailInput): DrawerPreview {
@@ -192,18 +188,18 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
   if (!u) return { title: 'User Preview', name: '', avatar: '', stats: [], detailGroups: [] }
 
   const isStudent = (u.role || '').toLowerCase() === 'student'
-  const isAccommodationManager = (u.role || '').toLowerCase() === 'accommodation_manager'
+  const isLandlord = (u.role || '').toLowerCase() === 'landlord'
   const respTime = fmtMinutes(detail?.avg_response_minutes)
 
   const roleChip: PreviewChip = isStudent
     ? { text: 'Student', tone: 'neutral', icon: 'lucide:graduation-cap' }
-    : isAccommodationManager
-      ? { text: 'Accommodation Manager', tone: 'primary', icon: 'lucide:building-2' }
+    : isLandlord
+      ? { text: 'Landlord/Landlady', tone: 'primary', icon: 'lucide:building-2' }
       : { text: cap(u.role), tone: 'neutral' }
 
   const chips: PreviewChip[] = [roleChip, statusChip(u.status, u.statusStyle?.tone ?? 'neutral', u.statusStyle?.icon)]
 
-  const stats = isAccommodationManager
+  const stats = isLandlord
     ? [
         { label: 'Accommodations', value: accommodationRows.length },
         { label: 'Response Rate', value: detail?.response_rate != null ? `${detail.response_rate}%` : '—' },
@@ -233,7 +229,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     icon: 'lucide:user',
     rows: [detailRow('Joined', u.joined)],
   }
-  // Managers have no academic record, so they get two sections rather than an
+  // Landlords and landladies have no academic record, so they get two sections rather than an
   // Academic block full of "Not set".
   const detailGroups = isStudent
     ? [
@@ -281,7 +277,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         accommodationId: hh.accommodationId,
       })
     })
-  } else if (isAccommodationManager && accommodationRows.length) {
+  } else if (isLandlord && accommodationRows.length) {
     // `accommodationRows.length` is checked above, but the compiler cannot see
     // that through the index — and `name` really is nullable in the database.
     const p = accommodationRows[0]!
@@ -293,7 +289,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         { label: 'Type', value: cap(p.room_type) },
         { label: 'Rooms', value: p.total_rooms != null ? String(p.total_rooms) : '—' },
         { label: 'Rating', value: p.rating_avg != null ? `${p.rating_avg.toFixed(1)} ★` : 'No rating' },
-        { label: 'Reviews', value: String(p.reviews_count || 0) },
+        { label: 'Ratings', value: String(p.reviews_count || 0) },
       ],
     }
   }
@@ -373,7 +369,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     if (isNaN(ts)) return
     const author = r.author_name && r.author_name !== 'Anonymous' ? ` from ${escapeHtml(r.author_name)}` : ''
     events.push({
-      text: `Received a <strong>${r.rating}★</strong> review${author}`,
+      text: `Received a <strong>${r.rating}★</strong> rating${author}`,
       time: fmtDate(r.created_at),
       ts,
       icon: 'lucide:star',
@@ -405,16 +401,18 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     }
   }
 
+  events.push(...accountActivity(input.accountEvents ?? []))
+
   events.sort((a, b) => b.ts - a.ts)
 
   const activity = events.map((e) => ({ text: e.text, time: e.time, icon: e.icon, tone: e.tone }))
 
   // Uploads live in `verification_documents`, which is also the only place a
-  // manager's business permit exists. The profile URL columns are kept as a
+  // landlord/landlady's business permit exists. The profile URL columns are kept as a
   // fallback for records written before uploads were tracked there.
   const files: NonNullable<DrawerPreview['files']> = []
   const seen = new Set<string>()
-  const ownGroup = isAccommodationManager ? 'Account documents' : ''
+  const ownGroup = isLandlord ? 'Account documents' : ''
   for (const doc of verificationDocs ?? []) {
     if (!doc.file_url) continue
     const label = DOC_LABELS[doc.doc_type] || humanizeEnum(doc.doc_type)
@@ -442,11 +440,11 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
   if (isStudent) {
     fallback('school_id', 'School ID', detail?.school_id_url)
     fallback('assessment_of_fees', 'Assessment of Fees', detail?.assessment_of_fees_url)
-  } else if (isAccommodationManager) {
+  } else if (isLandlord) {
     fallback('government_id', 'Government ID', detail?.government_id_url)
 
-    // Permits filed against the properties this manager runs. A lapsed permit
-    // on one of their houses belongs on their record — reviewing the manager
+    // Permits filed against the properties this landlord/landlady runs. A lapsed permit
+    // on one of their houses belongs on their record — reviewing the landlord/landlady
     // without it means reviewing half the compliance picture.
     //
     // Only the newest version of each permit type per accommodation: the rows
@@ -489,13 +487,13 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         // exactOptionalPropertyTypes is on: an optional field must be absent,
         // not present-and-undefined.
         ...(h.roomType ? { roomType: h.roomType } : {}),
-        ...(h.accommodationManagerName ? { accommodationManager: h.accommodationManagerName } : {}),
+        ...(h.landlordName ? { landlord: h.landlordName } : {}),
         ...(h.address ? { address: h.address } : {}),
         moveIn: fmtDate(h.moveIn),
       }
       history.push({
         title: h.accommodationName || 'Active Placement',
-        desc: [cap(h.roomType), h.accommodationManagerName, h.address].filter(Boolean).join(' · '),
+        desc: [cap(h.roomType), h.landlordName, h.address].filter(Boolean).join(' · '),
         meta: `Move-in ${fmtDate(h.moveIn)}`,
         tone: 'success',
         icon: 'lucide:house',
@@ -524,7 +522,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
           id: l.id,
           accommodationId: acc?.id ?? '',
           accommodationName: acc?.name || l.accommodationName || '—',
-          accommodationManagerName: l.accommodation_manager?.full_name,
+          landlordName: l.landlord?.full_name,
           roomName: l.room?.room_number ?? l.room?.label,
           roomType: acc?.room_type,
           startDate: l.start_date,
@@ -572,13 +570,61 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     name: u.name,
     // Their own photo when they have one; the generated initials image is the
     // fallback, since this drawer header is always an image slot.
-    avatar: u.avatarUrl || avatarUrl(u.name),
+    avatar: u.avatarUrl,
+    initials: u.initials,
     chips,
     stats,
     detailGroups,
     activity,
   }
   if (card) result.card = card
+  result.kind = 'user'
+  result.userOverview = {
+    userId: u.rawId ?? '',
+    role: isStudent ? 'student' : isLandlord ? 'landlord' : 'other',
+    roleLabel: isStudent ? 'Student' : isLandlord ? landlordTitle(u.sex) : cap(u.role),
+    statusLabel: u.status,
+    status: String(u.status || '').toLowerCase(),
+    email: u.email || '',
+    phone: u.contact && u.contact !== 'No phone provided' ? u.contact : '',
+    joined: u.joined,
+    lastLoginAt: u.lastLoginAt ?? null,
+    academic: isStudent
+      ? {
+          college: detail?.college || '—',
+          program: detail?.program || '—',
+          yearLevel: detail?.year_level != null ? String(detail.year_level) : '—',
+          studentId: detail?.student_id || '—',
+        }
+      : undefined,
+    placement: isStudent
+      ? housing?.placed
+        ? {
+            accommodation: housing.accommodationName || '—',
+            accommodationId: housing.accommodationId,
+            room: housing.room || '—',
+            landlord: housing.landlordName || '—',
+            since: housing.moveIn ?? null,
+          }
+        : null
+      : undefined,
+    portfolio: isLandlord
+      ? accommodationRows.map((a) => ({
+          id: a.id,
+          name: a.name ?? 'Unnamed accommodation',
+          status: a.status ?? '',
+          address: composeAddress(a),
+          beds: (a.rooms ?? []).reduce((n, r) => n + (r.capacity ?? 0), 0),
+          taken: (a.rooms ?? []).reduce((n, r) => n + Math.min(r.current_pax ?? 0, r.capacity ?? 0), 0),
+          rating: a.rating_avg,
+          reviews: a.reviews_count ?? 0,
+        }))
+      : undefined,
+    responseRate: isLandlord ? (detail?.response_rate ?? null) : undefined,
+    avgResponse: isLandlord ? respTime : undefined,
+    campusResponseRate: isLandlord ? (input.campusResponseRate ?? null) : undefined,
+    standing: input.standing ?? NO_STANDING,
+  }
   if (isStudent) {
        result.history = history
        result.historyCards = historyCards

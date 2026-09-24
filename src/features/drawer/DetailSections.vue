@@ -4,11 +4,16 @@
        bare "Details" heading over an undifferentiated two-column list, so a
        student's e-mail, college and join date all read at the same level.
 
-       Rows are a single stack, as they are on mobile. Splitting a section down
-       the middle halved the room available to each value, and a drawer-width
-       column cannot hold "College of Business, Accountancy and Public
-       Administration (CBAPA)" — the Academic block's second column was pushed
-       out of view entirely, hiding Year Level and Student ID. -->
+       Sections are never split down the middle into two columns: that halved the
+       room available to each value, and a drawer-width column cannot hold
+       "College of Business, Accountancy and Public Administration (CBAPA)" — the
+       Academic block's second column was pushed out of view entirely, hiding Year
+       Level and Student ID.
+
+       Within a section each row is adaptive instead (see isStacked): a short
+       value sits beside its label, a long one takes its own line. Stacking every
+       row regardless was the opposite failure — it doubled the height of rows
+       reading "3" or "92%" and pushed the last group out of the pane. -->
   <section class="ds-card">
     <div v-for="group in groups" :key="group.title" class="ds-group">
       <header class="ds-head">
@@ -17,7 +22,7 @@
       </header>
 
       <ul class="ds-col">
-        <li v-for="row in group.rows" :key="row.label" class="ds-row">
+        <li v-for="row in group.rows" :key="row.label" class="ds-row" :class="{ 'ds-row--stacked': isStacked(row) }">
           <span class="ds-label">{{ row.label }}</span>
 
           <a v-if="row.link" :href="row.link" class="ds-value ds-link">{{ row.value }}</a>
@@ -48,6 +53,24 @@ defineProps<{ groups: PreviewDetailGroup[] }>()
 function isEmpty(value: string | undefined): boolean {
   const text = (value ?? '').trim()
   return text === '' || text === '—' || text === '-'
+}
+
+/**
+ * A row lays out label-left / value-right unless its value is too long to sit
+ * beside the label, in which case the value takes its own full-width line.
+ *
+ * This is the rule the older all-stacked layout was reaching for: a value like
+ * "College of Business, Accountancy and Public Administration (CBAPA)" genuinely
+ * needs the width, but "Duplex", "3" and "92%" do not, and giving every one of
+ * them its own line is what pushed later fields out of the pane.
+ *
+ * ponytail: length heuristic, not measurement — it cannot know the real column
+ * width or font metrics. Swap for a ResizeObserver/canvas measure only if a
+ * value near the threshold is seen wrapping badly.
+ */
+function isStacked(row: PreviewDetailGroup['rows'][number]): boolean {
+  if (row.avatar) return false
+  return (row.value ?? '').trim().length > 30
 }
 </script>
 
@@ -89,6 +112,13 @@ function isEmpty(value: string | undefined): boolean {
   border-bottom: 1px solid var(--c-border);
 }
 .ds-row:last-child { border-bottom: 0; }
+/* Long values only: the value drops to its own full-width line under the label. */
+.ds-row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+.ds-row--stacked .ds-value { text-align: left; }
 
 .ds-label {
   flex: 0 0 auto;

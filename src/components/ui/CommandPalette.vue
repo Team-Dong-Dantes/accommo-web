@@ -44,7 +44,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { flattenNav, type FlatNavItem } from '../layout/nav-config';
+import { flattenNav, type FlatNavItem } from '@/components/layout/nav-config';
 
 defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>();

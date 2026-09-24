@@ -10,7 +10,7 @@
         v-model:page="page"
         :loading="loading"
         :total-label="`${tickets.length} total ${tickets.length === 1 ? 'ticket' : 'tickets'}`"
-        :rows="tickets"
+        :rows="paginatedTickets"
         :columns="columns"
         row-key="id"
         :total-items="tickets.length"
@@ -27,7 +27,8 @@
             <div v-else>No support tickets match the current filter.</div>
           </div>
         </template>
-        <template #body="{ props }">
+        <template #body="{ props, rowNumber }">
+            <q-td class="row-num-cell">{{ rowNumber }}</q-td>
             <q-td key="ref" :props="props" class="text-muted text-weight-medium ref-cell" style="font-family: var(--font-mono)">{{ props.row.ref }}</q-td>
             <q-td key="reporter" :props="props">
               <UserInfoCell
@@ -129,6 +130,22 @@ onMounted(async () => {
 })
 
 const page = ref(1)
+
+/**
+ * The table was handed the whole `tickets` list while still rendering a
+ * pagination control, so the control changed `page` and nothing read it — every
+ * ticket rendered into a fixed-height container and the pager did nothing.
+ * Slice like every other table does.
+ */
+const paginatedTickets = computed(() => {
+  const start = (page.value - 1) * 10
+  return tickets.value.slice(start, start + 10)
+})
+
+// Filtering or switching tabs can leave the view past the end of a now-shorter
+// list, which would render an empty page with the pager showing a valid number.
+watch(tickets, () => { page.value = 1 })
+
 const tabs = computed(() => [
   { name: 'all', label: `All (${counts.value.all})` },
   { name: 'open', label: `Open (${counts.value.open})` },

@@ -3,7 +3,7 @@
 // realtime INSERT upsert on that page.
 
 import type { StatusTone } from '@/utils/status.config'
-import { humanizeEnum } from '@/utils/format'
+import { fmtDate, humanizeEnum } from '@/utils/format'
 
 // Kept as a named re-export so the existing callers in this feature don't churn;
 // the implementation moved to utils/format.ts, which is where shared string
@@ -14,11 +14,8 @@ export function label(s: string) {
   return s ? humanizeEnum(s) : ''
 }
 
-export function fmtDate(iso: string) {
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
+// Same reasoning as `label` above: re-exported, implemented in utils/format.ts.
+export { fmtDate }
 
 export function fmtTime(iso: string) {
   const d = new Date(iso)
@@ -76,7 +73,7 @@ function entityDisplayName(entityType: string, row: any): string {
   switch (entityType) {
     case 'users': return pick('full_name', 'email', 'phone')
     case 'student_profiles':
-    case 'accommodation_manager_profiles':
+    case 'landlord_profiles':
     case 'admin_profiles': return pick('business_name', 'full_name', 'user_id')
     case 'accommodations': return pick('name', 'address', 'city')
     case 'rooms': return pick('label', 'room_number', 'room_id')

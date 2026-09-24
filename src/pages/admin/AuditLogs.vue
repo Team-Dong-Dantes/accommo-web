@@ -48,7 +48,8 @@
         </div>
       </template>
 
-      <template #body="{ props }">
+      <template #body="{ props, rowNumber }">
+        <q-td class="row-num-cell">{{ rowNumber }}</q-td>
         <q-td v-for="col in props.cols" :key="col.name" :props="props" style="white-space: normal; vertical-align: middle;">
 
             <!-- Timestamp -->

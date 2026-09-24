@@ -12,7 +12,7 @@
       <span class="col min-width-0 text-left">
         <span class="dd-occupant-name">{{ o.name }}</span>
         <span class="dd-occupant-meta">
-          <template v-if="o.gender">{{ capGender(o.gender) }}</template>
+          <template v-if="o.gender">{{ cap(o.gender) }}</template>
           <template v-if="o.gender && o.since"> · </template>
           <template v-if="o.since">Since {{ fmtMonthYear(o.since) }}</template>
         </span>
@@ -27,7 +27,7 @@
 import TabEmptyState from './TabEmptyState.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import type { DrawerPreview } from './preview'
-import { capGender, fmtMonthYear } from './preview'
+import { cap, fmtMonthYear } from './preview'
 
 defineProps<{ preview: DrawerPreview }>()
 </script>

@@ -3,20 +3,48 @@
     <transition name="dd" :css="true" @after-leave="$emit('closed')">
       <div
         v-if="modelValue"
-        :class="anchored ? ['dd-anchored-wrap', `dd-anchored-${position}`] : ['dd-backdrop', { 'dd-backdrop--static': !closeOnBackdrop }]"
+        :class="anchored ? ['dd-anchored-wrap', `dd-anchored-${position}`] : ['dd-backdrop', { 'dd-backdrop--static': !closeOnBackdrop, 'dd-backdrop--full': size === 'full' }]"
         @click="onBackdropClick"
       >
         <aside
           class="dd-panel"
-          :class="[anchored ? 'dd-panel--anchored' : '', { 'is-expanded': expanded }]"
-          :style="{ width: expanded ? expandedWidth : width, maxWidth: '94vw' }"
+          :class="[anchored ? 'dd-panel--anchored' : '', size === 'full' ? 'dd-panel--full' : '']"
+          :style="panelStyle"
           role="dialog"
           :aria-modal="!anchored"
           @click.stop
         >
+            <!-- An accommodation is its own two-panel record, drawn to the design
+                 mock; it brings its own surfaces, so it sits on the backdrop bare. -->
+            <AccommodationRecord
+              v-if="preview?.kind === 'accommodation'"
+              :preview="preview"
+              :loading="loading"
+              :management-actions="managementActions"
+              @close="close"
+              @manage="onManage"
+            />
+            <!-- People and rooms use the same two-panel record frame. -->
+            <UserRecord
+              v-else-if="preview?.kind === 'user' && preview.userOverview"
+              :preview="preview"
+              :loading="loading"
+              :management-actions="managementActions"
+              @close="close"
+              @manage="onManage"
+              @go-hub="goToHub"
+            />
+            <RoomRecord
+              v-else-if="preview?.kind === 'room' && preview.roomOverview"
+              :preview="preview"
+              :loading="loading"
+              @close="close"
+              @go-hub="goToHub"
+            />
+
             <!-- Data-driven reference layout (our system's data, on-brand) -->
             <q-card
-              v-if="preview || loading"
+              v-else-if="preview || loading"
               class="dd-surface text-body2 dd-preview"
               style="height: 100%; border-radius: var(--radius); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden; font-family: var(--font-body);"
             >
@@ -81,11 +109,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import PreviewSkeleton from '@/features/drawer/PreviewSkeleton.vue'
 import PreviewBody from '@/features/drawer/PreviewBody.vue'
+import AccommodationRecord from '@/features/drawer/accommodation/AccommodationRecord.vue'
+import UserRecord from '@/features/drawer/user/UserRecord.vue'
+import RoomRecord from '@/features/drawer/room/RoomRecord.vue'
 import type {
   DrawerPreview,
   HubKind,
@@ -126,9 +157,12 @@ const props = withDefaults(
     countLabel?: string
     viewDetailsLabel?: string
     width?: string
-    expandedWidth?: string
-    expandable?: boolean
-    expanded?: boolean
+    /**
+     * `panel` is the original right-hand drawer. `full` is the two-pane record
+     * view: a centered dialog wide enough to show the record's fields and its
+     * tabbed content side by side (see PreviewBody.vue).
+     */
+    size?: 'panel' | 'full'
     loading?: boolean
     closeOnBackdrop?: boolean
     anchored?: boolean
@@ -138,9 +172,7 @@ const props = withDefaults(
   }>(),
   {
     width: '620px',
-    expandedWidth: 'min(1240px, 96vw)',
-    expandable: false,
-    expanded: false,
+    size: 'panel',
     loading: false,
     closeOnBackdrop: true,
     anchored: false,
@@ -151,13 +183,24 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'update:expanded', value: boolean): void
   (e: 'view-details'): void
   (e: 'manage', action: string): void
   (e: 'closed'): void
 }>()
 
 const ddTab = ref<string>('history')
+
+/**
+ * The two-pane view needs room for a fixed-width detail column plus a tab panel
+ * beside it; `min(1400px, 96vw)` is the point where both stay comfortable. The
+ * height is capped rather than full-bleed so the dialog still reads as a layer
+ * over the table it was opened from.
+ */
+const panelStyle = computed(() =>
+  props.size === 'full'
+    ? { width: 'min(1400px, 96vw)', height: 'min(88vh, 900px)', maxWidth: '96vw' }
+    : { width: props.width, maxWidth: '94vw' },
+)
 
 function close() {
   emit('update:modelValue', false)
@@ -254,6 +297,12 @@ onUnmounted(() => {
   color: var(--c-text);
   border: 1px solid var(--c-border);
 }
+/* The record drawer runs its cover photo to its own edges, so a border would
+   read as a strip of surface down the left of the picture. The shadow already
+   separates it from the backdrop. */
+.dd-preview {
+  border: none;
+}
 
 /* Skeleton + entrance animations ------------------------------------- */
 .dd-preview :deep(.q-skeleton) {
@@ -296,6 +345,12 @@ onUnmounted(() => {
   background: transparent;
   backdrop-filter: none;
   pointer-events: none;
+}
+/* The two-pane record view is centered rather than flush to the right edge —
+   it is a dialog about one record, not a side panel on the table. */
+.dd-backdrop--full {
+  justify-content: center;
+  align-items: center;
 }
 .dd-panel {
   position: relative;
@@ -369,5 +424,17 @@ onUnmounted(() => {
 .dd-enter-from .dd-panel,
 .dd-leave-to .dd-panel {
   transform: translateX(100%);
+}
+/* A centered dialog sliding in from the right edge reads as the wrong gesture —
+   nothing about the record lives over there. It scales up in place instead. */
+.dd-enter-from .dd-panel--full,
+.dd-leave-to .dd-panel--full {
+  transform: scale(0.96);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dd-enter-active .dd-panel,
+  .dd-leave-active .dd-panel {
+    transition: none;
+  }
 }
 </style>

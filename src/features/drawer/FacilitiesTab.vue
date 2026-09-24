@@ -36,7 +36,7 @@ const props = defineProps<{ preview: DrawerPreview }>()
 const isRoom = computed(() => props.preview.kind === 'room')
 
 /**
- * The description if the manager wrote one, otherwise the floor. A private
+ * The description if the landlord/landlady wrote one, otherwise the floor. A private
  * facility's floor is the room's floor, which the drawer already shows above,
  * so it is left out rather than repeated.
  */

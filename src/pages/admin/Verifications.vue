@@ -35,10 +35,12 @@
                 row-key="id"
                 :loading="loading"
                 :pagination="{ rowsPerPage: 10 }"
+                :start-index="(currentPage - 1) * 10"
               >
-                <template #body="{ props }">
-                  <q-tr :props="props" :class="['smart-row', { 'row-flash': props.row.id === highlightId }]">
-                    <q-td key="entity" :props="props">
+                <template #body="{ props, rowNumber }">
+                  <q-tr :props="props" class="cursor-pointer" :class="['smart-row', { 'row-flash': props.row.id === highlightId }]" @click.stop="selectRequest(props.row)">
+                    <q-td class="row-num-cell">{{ rowNumber }}</q-td>
+                    <q-td key="entity" :props="props" class="col-title">
                       <div class="column q-gutter-y-xs">
                         <UserInfoCell
                           :initials="props.row.initials"
@@ -50,28 +52,26 @@
                         />
                       </div>
                     </q-td>
-                    <q-td key="id" :props="props" class="text-muted" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
-                    <q-td key="type" :props="props">
+                    <q-td key="id" :props="props" class="col-ref text-muted" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
+                    <q-td key="type" :props="props" class="col-type">
                       <div class="text-ink text-weight-medium" style="font-size: 13px">{{ props.row.type }}</div>
                       <div class="row items-center text-muted" style="font-size: 11px; margin-top: 2px">
                         <Icon icon="lucide:file-text" width="12" height="12" class="q-mr-xs" />
                         {{ props.row.files?.length || 0 }} document{{ props.row.files?.length === 1 ? '' : 's' }}
                       </div>
                     </q-td>
-                    <q-td key="status" :props="props">
+                    <q-td key="status" :props="props" class="col-badge">
                       <BadgePill :tone="props.row.statusStyle.tone" :icon="props.row.statusStyle.icon" :label="props.row.status" />
                     </q-td>
-                    <q-td key="submitted" :props="props" class="text-muted" style="font-size: 12px">{{ props.row.submitted }}</q-td>
+                    <q-td key="submitted" :props="props" class="col-date text-muted" style="font-size: 12px">{{ props.row.submitted }}</q-td>
                     <q-td key="action" :props="props" class="text-right action-cell">
                       <template v-if="isLockedByOther(props.row)">
                         <span class="locked-note" :title="reviewerTitle(props.row)">
                           <Icon icon="lucide:lock" width="14" height="14" /> {{ reviewerLabel(props.row) }}
                         </span>
-                        <button type="button" class="take-over" @click="takeOverReview(props.row)">Take over</button>
+                        <button type="button" class="take-over" @click.stop="takeOverReview(props.row)">Take over</button>
                       </template>
-                      <q-btn v-else unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectRequest(props.row)">
-                        Review <Icon icon="lucide:chevron-right" class="q-ml-xs" width="14" height="14" />
-                      </q-btn>
+                      <span v-else class="row-chevron-cell"><Icon icon="lucide:chevron-right" width="18" height="18" class="chevron-icon" /></span>
                     </q-td>
                   </q-tr>
                 </template>
@@ -79,18 +79,20 @@
               <EmptyState v-else variant="rich" icon="lucide:badge-check" :title="emptyTitle" :message="emptyMessage" />
             </q-tab-panel>
 
-            <q-tab-panel name="accommodation_manager" class="q-pa-none">
+            <q-tab-panel name="landlord" class="q-pa-none">
               <DataTable
-                v-if="loading || accommodationManagerFiltered.length"
-                :rows="accommodationManagerPaginated"
+                v-if="loading || landlordFiltered.length"
+                :rows="landlordPaginated"
                 :columns="columns"
                 row-key="id"
                 :loading="loading"
                 :pagination="{ rowsPerPage: 10 }"
+                :start-index="(currentPage - 1) * 10"
               >
-                <template #body="{ props }">
-                  <q-tr :props="props" :class="['smart-row', { 'row-flash': props.row.id === highlightId }]">
-                    <q-td key="entity" :props="props">
+                <template #body="{ props, rowNumber }">
+                  <q-tr :props="props" class="cursor-pointer" :class="['smart-row', { 'row-flash': props.row.id === highlightId }]" @click.stop="selectRequest(props.row)">
+                    <q-td class="row-num-cell">{{ rowNumber }}</q-td>
+                    <q-td key="entity" :props="props" class="col-title">
                       <div class="column q-gutter-y-xs">
                         <UserInfoCell
                           :initials="props.row.initials"
@@ -102,28 +104,26 @@
                         />
                       </div>
                     </q-td>
-                    <q-td key="id" :props="props" class="text-muted" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
-                    <q-td key="type" :props="props">
+                    <q-td key="id" :props="props" class="col-ref text-muted" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
+                    <q-td key="type" :props="props" class="col-type">
                       <div class="text-ink text-weight-medium" style="font-size: 13px">{{ props.row.type }}</div>
                       <div class="row items-center text-muted" style="font-size: 11px; margin-top: 2px">
                         <Icon icon="lucide:file-text" width="12" height="12" class="q-mr-xs" />
                         {{ props.row.files?.length || 0 }} document{{ props.row.files?.length === 1 ? '' : 's' }}
                       </div>
                     </q-td>
-                    <q-td key="status" :props="props">
+                    <q-td key="status" :props="props" class="col-badge">
                       <BadgePill :tone="props.row.statusStyle.tone" :icon="props.row.statusStyle.icon" :label="props.row.status" />
                     </q-td>
-                    <q-td key="submitted" :props="props" class="text-muted" style="font-size: 12px">{{ props.row.submitted }}</q-td>
+                    <q-td key="submitted" :props="props" class="col-date text-muted" style="font-size: 12px">{{ props.row.submitted }}</q-td>
                     <q-td key="action" :props="props" class="text-right action-cell">
                       <template v-if="isLockedByOther(props.row)">
                         <span class="locked-note" :title="reviewerTitle(props.row)">
                           <Icon icon="lucide:lock" width="14" height="14" /> {{ reviewerLabel(props.row) }}
                         </span>
-                        <button type="button" class="take-over" @click="takeOverReview(props.row)">Take over</button>
+                        <button type="button" class="take-over" @click.stop="takeOverReview(props.row)">Take over</button>
                       </template>
-                      <q-btn v-else unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectRequest(props.row)">
-                        Review <Icon icon="lucide:chevron-right" class="q-ml-xs" width="14" height="14" />
-                      </q-btn>
+                      <span v-else class="row-chevron-cell"><Icon icon="lucide:chevron-right" width="18" height="18" class="chevron-icon" /></span>
                     </q-td>
                   </q-tr>
                 </template>
@@ -139,10 +139,12 @@
                 row-key="id"
                 :loading="loading"
                 :pagination="{ rowsPerPage: 10 }"
+                :start-index="(currentPage - 1) * 10"
               >
-                <template #body="{ props }">
-                  <q-tr :props="props" :class="['smart-row', { 'row-flash': props.row.id === highlightId }]">
-                    <q-td key="entity" :props="props">
+                <template #body="{ props, rowNumber }">
+                  <q-tr :props="props" class="cursor-pointer" :class="['smart-row', { 'row-flash': props.row.id === highlightId }]" @click.stop="selectRequest(props.row)">
+                    <q-td class="row-num-cell">{{ rowNumber }}</q-td>
+                    <q-td key="entity" :props="props" class="col-title">
                       <div class="column q-gutter-y-xs">
                         <UserInfoCell
                           :initials="props.row.initials"
@@ -154,28 +156,26 @@
                         />
                       </div>
                     </q-td>
-                    <q-td key="id" :props="props" class="text-muted" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
-                    <q-td key="type" :props="props">
+                    <q-td key="id" :props="props" class="col-ref text-muted" style="font-family: monospace; font-size: 13px">{{ props.row.id }}</q-td>
+                    <q-td key="type" :props="props" class="col-type">
                       <div class="text-ink text-weight-medium" style="font-size: 13px">{{ props.row.type }}</div>
                       <div class="row items-center text-muted" style="font-size: 11px; margin-top: 2px">
                         <Icon icon="lucide:file-text" width="12" height="12" class="q-mr-xs" />
                         {{ props.row.files?.length || 0 }} document{{ props.row.files?.length === 1 ? '' : 's' }}
                       </div>
                     </q-td>
-                    <q-td key="status" :props="props">
+                    <q-td key="status" :props="props" class="col-badge">
                       <BadgePill :tone="props.row.statusStyle.tone" :icon="props.row.statusStyle.icon" :label="props.row.status" />
                     </q-td>
-                    <q-td key="submitted" :props="props" class="text-muted" style="font-size: 12px">{{ props.row.submitted }}</q-td>
+                    <q-td key="submitted" :props="props" class="col-date text-muted" style="font-size: 12px">{{ props.row.submitted }}</q-td>
                     <q-td key="action" :props="props" class="text-right action-cell">
                       <template v-if="isLockedByOther(props.row)">
                         <span class="locked-note" :title="reviewerTitle(props.row)">
                           <Icon icon="lucide:lock" width="14" height="14" /> {{ reviewerLabel(props.row) }}
                         </span>
-                        <button type="button" class="take-over" @click="takeOverReview(props.row)">Take over</button>
+                        <button type="button" class="take-over" @click.stop="takeOverReview(props.row)">Take over</button>
                       </template>
-                      <q-btn v-else unelevated dense color="primary" text-color="white" no-caps class="text-weight-bold review-btn" @click="selectRequest(props.row)">
-                        Review <Icon icon="lucide:chevron-right" class="q-ml-xs" width="14" height="14" />
-                      </q-btn>
+                      <span v-else class="row-chevron-cell"><Icon icon="lucide:chevron-right" width="18" height="18" class="chevron-icon" /></span>
                     </q-td>
                   </q-tr>
                 </template>
@@ -227,13 +227,13 @@ const {
   tabs,
   columns,
   studentRequests,
-  accommodationManagerRequests,
+  landlordRequests,
   accommodationRequests,
   studentFiltered,
-  accommodationManagerFiltered,
+  landlordFiltered,
   accommodationFiltered,
   studentPaginated,
-  accommodationManagerPaginated,
+  landlordPaginated,
   accommodationPaginated,
   totalLabel,
   searchPlaceholder,
@@ -255,7 +255,7 @@ const {
 } = useVerifications()
 
 const activeTotal = computed(() => {
-  if (activeTab.value === 'accommodation_manager') return accommodationManagerFiltered.value.length
+  if (activeTab.value === 'landlord') return landlordFiltered.value.length
   if (activeTab.value === 'accommodation') return accommodationFiltered.value.length
   return studentFiltered.value.length
 })
@@ -272,7 +272,7 @@ function reviewerTitle(row: { id: string }) {
 }
 
 const activePaginated = computed(() => {
-  if (activeTab.value === 'accommodation_manager') return accommodationManagerPaginated.value
+  if (activeTab.value === 'landlord') return landlordPaginated.value
   if (activeTab.value === 'accommodation') return accommodationPaginated.value
   return studentPaginated.value
 })
@@ -296,7 +296,7 @@ async function applyFocus() {
   if (type !== 'verification' || !id) return
   const candidates: [readonly any[], string][] = [
     [studentRequests.value, 'student'],
-    [accommodationManagerRequests.value, 'accommodation_manager'],
+    [landlordRequests.value, 'landlord'],
     [accommodationRequests.value, 'accommodation'],
   ]
   for (const [list, tab] of candidates) {
@@ -314,7 +314,7 @@ async function applyFocus() {
     }
   }
 }
-watch([studentRequests, accommodationManagerRequests, accommodationRequests, () => route.query.focus], applyFocus)
+watch([studentRequests, landlordRequests, accommodationRequests, () => route.query.focus], applyFocus)
 onMounted(applyFocus)
 
 function closeReview() {
@@ -393,19 +393,15 @@ fetch()
   100% { background-color: transparent; }
 }
 
-.review-btn {
-  border-radius: 8px;
-  padding: 4px 16px;
-  font-size: 12px;
-  transition: transform 0.1s ease;
-}
-.review-btn:active {
-  transform: scale(0.96);
-}
-
 /* DataTable cells are flex; text-right alone won't move a flex child,
    so right-align the action cell's content */
 :deep(.custom-data-table tbody td.action-cell) {
   justify-content: flex-end;
 }
+
+/* The row itself opens the review now — this replaces the old "Review →"
+   button; the `.row-chevron-cell`/`.chevron-icon` markup above is the exact
+   pairing DataTable.vue's own `row-chevron` prop renders, so its hover
+   color-shift CSS (`:deep()`, not scoped to DataTable's own template) applies
+   here unchanged, with nothing to duplicate. */
 </style>

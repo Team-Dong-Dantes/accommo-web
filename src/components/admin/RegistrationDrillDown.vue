@@ -34,7 +34,7 @@
 import { ref, watch, computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import { fetchUsersInRange, type RangeUserRow } from '@/api/users'
-import { getInitials as initialsOf, getTimeAgoShort as timeAgo } from '@/utils/format'
+import { cap as capitalize, getInitials, getTimeAgoShort as timeAgo } from '@/utils/format'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -52,15 +52,10 @@ const open = computed({
 const rows = ref<RangeUserRow[]>([])
 const loading = ref(false)
 
-function capitalize(s: string) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
-}
 function roleClass(role: string) {
   const r = role.toLowerCase()
-  return r === 'accommodation_manager' ? 'is-accommodation-manager' : r === 'student' ? 'is-student' : 'is-admin'
+  return r === 'landlord' ? 'is-landlord/landlady' : r === 'student' ? 'is-student' : 'is-admin'
 }
-const getInitials = (name: string) => initialsOf(name)
-
 watch(open, async (v) => {
   if (!v || !props.from || !props.to) return
   loading.value = true
@@ -112,7 +107,7 @@ watch(open, async (v) => {
 .drill-meta { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
 .drill-name { font-size: 13.5px; font-weight: 600; color: var(--c-ink); }
 .drill-role { font-size: 11.5px; font-weight: 600; }
-.drill-role.is-accommodation-manager { color: var(--c-accent); }
+.drill-role.is-landlord { color: var(--c-accent); }
 .drill-role.is-student { color: var(--c-primary); }
 .drill-role.is-admin { color: var(--c-muted); }
 .drill-date { font-size: 12px; color: var(--c-muted); flex: none; }

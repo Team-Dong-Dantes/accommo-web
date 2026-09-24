@@ -94,17 +94,17 @@
           </div>
         </div>
 
-        <!-- ACCOMMODATION MANAGER -->
-        <div class="manager-card row items-center no-wrap">
+        <!-- LANDLORD / LANDLADY -->
+        <div class="landlord-card row items-center no-wrap">
           <q-avatar color="primary" text-color="white" size="44px" class="text-weight-bold">
-            <img v-if="accommodation?.accommodationManagerAvatarUrl" :src="accommodation.accommodationManagerAvatarUrl" :alt="accommodation.accommodationManager" />
-            <template v-else>{{ accommodation?.accommodationManagerInitials }}</template>
+            <img v-if="accommodation?.landlordAvatarUrl" :src="accommodation.landlordAvatarUrl" :alt="accommodation.landlord" />
+            <template v-else>{{ accommodation?.landlordInitials }}</template>
           </q-avatar>
           <div class="col min-width-0 q-mx-md">
-            <div class="text-weight-bold text-ink" style="font-size:14px">{{ accommodation?.accommodationManager }}</div>
+            <div class="text-weight-bold text-ink" style="font-size:14px">{{ accommodation?.landlord }}</div>
             <div class="text-muted ellipsis" style="font-size:12px">{{ accommodation?.contact }}</div>
           </div>
-          <div v-if="accommodation?.responseRate != null" class="manager-response column items-center">
+          <div v-if="accommodation?.responseRate != null" class="landlord-response column items-center">
             <span class="text-weight-bold text-ink" style="font-size:14px">{{ accommodation.responseRate }}%</span>
             <span class="text-muted" style="font-size:9px; letter-spacing:.3px">RESPONSE</span>
           </div>
@@ -502,13 +502,13 @@ const maleRatio = computed(() => {
 .bar-male :deep(.q-linear-progress__model) { background: #42a5f5; }
 
 /* LANDLORD */
-.manager-card {
+.landlord-card {
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   padding: 12px;
 }
-.manager-response {
+.landlord-response {
   background: var(--c-primary-soft);
   border-radius: var(--radius-sm);
   padding: 6px 10px;

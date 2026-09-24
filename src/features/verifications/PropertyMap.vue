@@ -40,6 +40,7 @@ import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { fetchAccommodationPins, type AccommodationPin } from '@/api/accommodations'
 import { capitalize } from '@/utils/format'
+import { CAMPUS, kmBetween } from '@/utils/geo'
 
 const props = defineProps<{
   lat: number | null
@@ -47,6 +48,9 @@ const props = defineProps<{
   name: string
   /** The accommodation being reviewed, so its own pin is not its own neighbour. */
   selfId: string
+  /** Just locating the property (a student's stay), not reviewing it: no
+   *  "under review" label and no nearby-duplicate warning. */
+  plain?: boolean
 }>()
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
@@ -62,8 +66,6 @@ const MAP_STYLES = {
   satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
 } as const
 
-/** ISU Echague, the fallback centre the admin map uses. */
-const CAMPUS: [number, number] = [121.720, 16.710]
 /** Two pins this close are the same building, or one of them is wrong. */
 const NEAR_M = 100
 
@@ -76,19 +78,6 @@ let map: mapboxgl.Map | null = null
 let markers: mapboxgl.Marker[] = []
 
 const hasPin = computed(() => props.lat != null && props.lng != null)
-
-const EARTH_KM = 6371
-const toRad = (deg: number) => (deg * Math.PI) / 180
-
-/** Great-circle distance in kilometres. */
-function kmBetween(aLat: number, aLng: number, bLat: number, bLng: number): number {
-  const dLat = toRad(bLat - aLat)
-  const dLng = toRad(bLng - aLng)
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2
-  return 2 * EARTH_KM * Math.asin(Math.sqrt(h))
-}
 
 /**
  * Properties sitting on top of this one. This is the whole reason the map is
@@ -106,7 +95,7 @@ const nearby = computed(() => {
 const note = computed(() => {
   if (loadError.value) return loadError.value
   if (!hasPin.value) return 'This property has no map pin, so only the properties already on the map are shown.'
-  if (!nearby.value.length) return ''
+  if (props.plain || !nearby.value.length) return ''
   const list = nearby.value.map((p) => `${p.name} (${capitalize(p.status)}, ${p.metres} m)`).join(' · ')
   return `${nearby.value.length} ${nearby.value.length === 1 ? 'property' : 'properties'} within ${NEAR_M} m — ${list}`
 })
@@ -139,7 +128,7 @@ function drawMarkers() {
     markers.push(
       new mapboxgl.Marker({ color: selfColor, scale: 1.25 })
         .setLngLat([props.lng!, props.lat!])
-        .setPopup(new mapboxgl.Popup({ offset: 28 }).setText(`${props.name} · under review`))
+        .setPopup(new mapboxgl.Popup({ offset: 28 }).setText(props.plain ? props.name : `${props.name} · under review`))
         .addTo(map),
     )
   }
@@ -152,7 +141,7 @@ onMounted(async () => {
   map = new mapboxgl.Map({
     container: host.value,
     style: MAP_STYLES[mapStyle.value],
-    center: hasPin.value ? [props.lng!, props.lat!] : CAMPUS,
+    center: hasPin.value ? [props.lng!, props.lat!] : [CAMPUS.lng, CAMPUS.lat],
     zoom: hasPin.value ? 16 : 13,
   })
   map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right')

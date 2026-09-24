@@ -54,7 +54,7 @@
         <q-tab-panels v-model="activeTab" animated style="background: transparent; height: 100%;">
           <!-- Announcements tab -->
           <q-tab-panel name="announcements" class="q-pa-none">
-            <DataTable :rows="paginatedData" :columns="announcementColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+            <DataTable :rows="paginatedData" :columns="announcementColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon icon="lucide:megaphone" width="48" height="48" class="q-mb-md" />
@@ -62,7 +62,8 @@
                   <div>No announcements found.</div>
                 </div>
               </template>
-              <template #body="{ props }">
+              <template #body="{ props, rowNumber }">
+                  <q-td class="row-num-cell">{{ rowNumber }}</q-td>
                   <q-td key="title" :props="props">
                     <div class="column">
                       <div class="text-weight-bold text-ink ellipsis" style="font-size: 14px;">{{ props.row.title }}</div>
@@ -93,7 +94,7 @@
 
           <!-- Policies tab -->
           <q-tab-panel name="policies" class="q-pa-none">
-            <DataTable :rows="paginatedData" :columns="policyColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+            <DataTable :rows="paginatedData" :columns="policyColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon icon="lucide:gavel" width="48" height="48" class="q-mb-md" />
@@ -101,7 +102,8 @@
                   <div>No policies found.</div>
                 </div>
               </template>
-              <template #body="{ props }">
+              <template #body="{ props, rowNumber }">
+                  <q-td class="row-num-cell">{{ rowNumber }}</q-td>
                   <q-td key="title" :props="props">
                     <div class="column">
                       <div class="text-weight-bold text-ink ellipsis" style="font-size: 14px;">{{ props.row.title }}</div>
@@ -332,7 +334,7 @@ const filterConfig = computed(() => {
         options: [
           { label: 'All users', value: 'all' },
           { label: 'Students', value: 'students' },
-          { label: 'Accommodation Managers', value: 'accommodation_managers' },
+          { label: 'Landlords/Landladies', value: 'landlords' },
         ],
       },
     ]
@@ -487,14 +489,14 @@ function statusLabel(status: string) {
 function audienceLabel(audience: string) {
   if (audience === 'all') return 'All users'
   if (audience === 'students') return 'Students'
-  if (audience === 'accommodation_managers') return 'Accommodation Managers'
+  if (audience === 'landlords') return 'Landlords/Landladies'
   return audience
 }
 
 function audienceColor(audience: string): { tone: StatusTone } {
   if (audience === 'all') return { tone: 'neutral' }
   if (audience === 'students') return { tone: 'info' }
-  if (audience === 'accommodation_managers') return { tone: 'primary' }
+  if (audience === 'landlords') return { tone: 'primary' }
   return { tone: 'neutral' }
 }
 

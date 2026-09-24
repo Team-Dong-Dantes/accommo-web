@@ -55,6 +55,14 @@ export default defineConfig((/* ctx */) => {
         'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
         'import.meta.env.VITE_MAPBOX_TOKEN': JSON.stringify(env.VITE_MAPBOX_TOKEN),
       },
+
+      // Vue DevTools (dev-only): in-browser panel, no extension needed.
+      // client+server true → plugin is registered for the SPA dev config.
+      // (These flags select which Vite configs include it, NOT prod bundling —
+      // the plugin itself is a no-op in production builds.)
+      vitePlugins: [
+        [ 'vite-plugin-vue-devtools', {}, { client: true, server: true } ],
+      ],
     },
 
     devServer: {

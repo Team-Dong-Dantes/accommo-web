@@ -37,18 +37,18 @@ const props = withDefaults(
 )
 
 const total = computed(() =>
-  props.buckets.reduce((sum, b) => sum + b.students + b.managers, 0),
+  props.buckets.reduce((sum, b) => sum + b.students + b.landlords, 0),
 )
 const overdueTotal = computed(() =>
-  props.buckets.filter((b) => b.overdue).reduce((sum, b) => sum + b.students + b.managers, 0),
+  props.buckets.filter((b) => b.overdue).reduce((sum, b) => sum + b.students + b.landlords, 0),
 )
 
 const verdict = computed(() => {
   if (total.value === 0) return 'The verification queue is empty.'
   const share = Math.round((overdueTotal.value / total.value) * 100)
   const oldest = props.buckets.at(-1)
-  if (oldest && oldest.students + oldest.managers > 0) {
-    return `${share}% of the queue has been waiting past target, and ${oldest.students + oldest.managers} for more than a fortnight. The backlog is old, not just deep.`
+  if (oldest && oldest.students + oldest.landlords > 0) {
+    return `${share}% of the queue has been waiting past target, and ${oldest.students + oldest.landlords} for more than a fortnight. The backlog is old, not just deep.`
   }
   if (share === 0) return 'Every account in the queue is still inside the review target.'
   return `${share}% of the queue has been waiting past the review target.`
@@ -56,7 +56,7 @@ const verdict = computed(() => {
 
 const series = computed(() => [
   { name: 'Students', data: props.buckets.map((b) => b.students) },
-  { name: 'Managers', data: props.buckets.map((b) => b.managers) },
+  { name: 'Landlords/Landladies', data: props.buckets.map((b) => b.landlords) },
 ])
 
 const options = computed(() => ({

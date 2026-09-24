@@ -4,71 +4,118 @@
     <div class="row justify-between items-end non-shrink">
       <TabNav v-model="activeTab" :tabs="tabs" />
 
-      <ExportButton class="q-mb-md" @click="handleExport" />
+      <q-btn unelevated color="teal-7" no-caps class="text-weight-bold rounded-button q-mb-md" @click="reportOpen = true">
+        <Icon icon="lucide:file-chart-column" class="on-left" width="18" height="18" />Report
+      </q-btn>
     </div>
 
     <div class="users-body">
     <TableCard
       v-model:search="search"
-      :search-placeholder="'Search by name, email, or student ID…'"
+      :search-placeholder="activeTab === 'students' ? 'Search by name, e-mail, or student ID…' : 'Search by name or e-mail…'"
       v-model:active-filters="activeFilters"
-        v-model:page="currentPage"
-        :filters="filterConfig"
-        :loading="loading"
-        :total-label="`${filteredRows.length} total ${filteredRows.length === 1 ? 'user' : 'users'}`"
-        :rows="paginatedRows"
-        :columns="columns"
-        row-key="rawId"
-        :total-items="filteredRows.length"
-        item-name="users"
-        @clear-filters="clearFilters"
-        @refresh="fetchUsers"
-      >
-      <template #empty>
-        <div class="full-width row flex-center text-muted q-pa-xl column">
-          <Icon :icon="fetchError ? 'lucide:circle-alert' : 'lucide:user-x'" width="48" height="48" class="q-mb-md" />
-          <div class="text-h6 text-weight-bold">{{ fetchError ? 'Could not load users' : 'No users found' }}</div>
-          <div v-if="fetchError" class="text-caption q-mt-xs" style="color: var(--c-danger)">{{ fetchError }}</div>
-          <div v-else>There are currently no registered users matching your criteria.</div>
-        </div>
-      </template>
+      v-model:page="currentPage"
+      :filters="filterConfig"
+      :loading="loading"
+      :total-label="totalLabel"
+      :total-items="filteredRows.length"
+      :item-name="activeTab === 'students' ? 'students' : 'landlords/landladies'"
+      @clear-filters="clearFilters"
+      @refresh="load"
+    >
+      <template #panels>
+        <q-tab-panels v-model="activeTab" animated style="background: transparent; height: 100%;">
+          <!-- Students -->
+          <q-tab-panel name="students" class="q-pa-none">
+            <DataTable :rows="paginatedRows" :columns="studentColumns" row-key="rawId" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron>
+              <template #no-data><div class="full-width row flex-center text-muted q-pa-xl column">
+                  <Icon :icon="loadError ? 'lucide:circle-alert' : 'lucide:user-x'" width="48" height="48" class="q-mb-md" />
+                  <div class="text-h6 text-weight-bold">{{ loadError ? 'Could not load accounts' : 'No students match' }}</div>
+                  <div v-if="loadError" class="text-caption q-mt-xs" style="color: var(--c-danger)">{{ loadError }}</div>
+                </div></template>
+              <template #body="{ props, rowNumber }">
+                <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openUser(props.row)">
+                  <q-td class="row-num-cell">{{ rowNumber }}</q-td>
+                  <q-td key="user" :props="props">
+                    <UserInfoCell :initials="props.row.initials" :name="props.row.name" :email="props.row.email" :avatar-color="props.row.avatarColor" :avatar-url="props.row.avatarUrl" />
+                  </q-td>
+                  <q-td key="studentId" :props="props" class="text-ink us-mono">{{ props.row.studentId || '—' }}</q-td>
+                  <q-td key="academic" :props="props">
+                    <div class="us-stack">
+                    <div class="text-ink us-clip" :title="props.row.college">{{ collegeShort(props.row.college) || '—' }}</div>
+                    <div class="text-muted us-sub">{{ [props.row.program, props.row.yearLevel && `Year ${props.row.yearLevel}`].filter(Boolean).join(' · ') }}</div>
+                    </div>
+                  </q-td>
+                  <q-td key="stay" :props="props">
+                    <div v-if="props.row.stay" class="us-stack">
+                      <div class="text-ink us-clip">{{ props.row.stay.accommodation }}</div>
+                      <div class="text-muted us-sub">{{ props.row.stay.room }}</div>
+                    </div>
+                    <span v-else class="text-muted us-none">Not placed</span>
+                  </q-td>
+                  <q-td key="status" :props="props">
+                    <BadgePill :tone="props.row.statusStyle.tone" :icon="props.row.statusStyle.icon" :label="props.row.status" />
+                  </q-td>
+                  <q-td key="lastActive" :props="props" class="text-muted">{{ props.row.lastActive }}</q-td>
+                </q-tr>
+              </template>
+            </DataTable>
+          </q-tab-panel>
 
-      <template #body="{ props }">
-        <q-tr :props="props" :key="props.row.rawId" class="cursor-pointer smart-row" @click.stop="openUser(props.row)">
-            <q-td key="user" :props="props">
-              <UserInfoCell
-                :initials="props.row.initials"
-                :name="props.row.name"
-                :email="props.row.email"
-                :avatar-color="props.row.avatarColor"
-                :avatar-url="props.row.avatarUrl"
-              />
-            </q-td>
-          <q-td key="id" :props="props" class="text-muted text-weight-medium" style="font-family: var(--font-mono)">{{ props.row.id }}</q-td>
-          <q-td key="contact" :props="props" class="text-ink">{{ props.row.contact }}</q-td>
-          <q-td key="role" :props="props">
-            <BadgePill :tone="props.row.roleStyle.tone" :icon="props.row.roleStyle.icon" :label="cap(props.row.role)" />
-          </q-td>
-          <q-td key="status" :props="props">
-            <BadgePill :tone="props.row.statusStyle.tone" :icon="props.row.statusStyle.icon" :label="props.row.status" />
-          </q-td>
-          <q-td key="joined" :props="props" class="text-muted">{{ props.row.joined }}</q-td>
-        </q-tr>
+          <!-- Landlords / landladies -->
+          <q-tab-panel name="landlords" class="q-pa-none">
+            <DataTable :rows="paginatedRows" :columns="landlordColumns" row-key="rawId" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron>
+              <template #no-data><div class="full-width row flex-center text-muted q-pa-xl column">
+                  <Icon :icon="loadError ? 'lucide:circle-alert' : 'lucide:user-x'" width="48" height="48" class="q-mb-md" />
+                  <div class="text-h6 text-weight-bold">{{ loadError ? 'Could not load accounts' : 'No landlords/landladies match' }}</div>
+                  <div v-if="loadError" class="text-caption q-mt-xs" style="color: var(--c-danger)">{{ loadError }}</div>
+                </div></template>
+              <template #body="{ props, rowNumber }">
+                <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openUser(props.row)">
+                  <q-td class="row-num-cell">{{ rowNumber }}</q-td>
+                  <q-td key="user" :props="props">
+                    <UserInfoCell :initials="props.row.initials" :name="props.row.name" :email="props.row.email" :avatar-color="props.row.avatarColor" :avatar-url="props.row.avatarUrl" />
+                  </q-td>
+                  <q-td key="title" :props="props" class="text-ink">{{ props.row.roleTitle }}</q-td>
+                  <q-td key="accommodations" :props="props">
+                    <div v-if="props.row.portfolio.count" class="us-stack">
+                      <div class="text-ink">{{ props.row.portfolio.count }}</div>
+                      <div class="text-muted us-sub">{{ props.row.portfolio.accredited }} accredited</div>
+                    </div>
+                    <span v-else class="text-muted us-none">None yet</span>
+                  </q-td>
+                  <q-td key="beds" :props="props" class="text-ink us-num">
+                    {{ props.row.portfolio.beds ? `${props.row.portfolio.taken} / ${props.row.portfolio.beds}` : '—' }}
+                  </q-td>
+                  <q-td key="response" :props="props" class="us-num" :class="props.row.responseState === 'below' ? 'us-warn' : 'text-ink'">
+                    {{ props.row.responseRate != null ? `${props.row.responseRate}%` : '—' }}
+                  </q-td>
+                  <q-td key="status" :props="props">
+                    <BadgePill :tone="props.row.statusStyle.tone" :icon="props.row.statusStyle.icon" :label="props.row.status" />
+                  </q-td>
+                  <q-td key="lastActive" :props="props" class="text-muted">{{ props.row.lastActive }}</q-td>
+                </q-tr>
+              </template>
+            </DataTable>
+          </q-tab-panel>
+        </q-tab-panels>
       </template>
     </TableCard>
 
     <DetailDrawer
       v-model="drawerOpen"
-      expandable
-      v-model:expanded="drawerExpanded"
-      anchored
-      position="right"
+      size="full"
       close-on-backdrop
       :preview="userPreview"
       :loading="detailLoading"
       :management-actions="userManagementActions"
       @manage="onManageUser"
     />
+
+    <AccountActionDialog :spec="actionSpec" @close="closeAction" />
+    <EditProfileDialog :user-id="editingUserId" :name="selectedUser?.name ?? ''" @close="editingUserId = null" @saved="onProfileSaved" />
+
+    <ReportDialog v-model="reportOpen" :reports="['boarders', 'landlords']" :initial="activeTab === 'landlords' ? 'landlords' : 'boarders'" />
 
     </div><!-- /users-body -->
 
@@ -82,32 +129,35 @@ import { supabase } from '@/utils/supabase'
 
 import TabNav from '@/components/ui/TabNav.vue'
 import TableCard from '@/components/table/TableCard.vue'
-import ExportButton from '@/components/ui/ExportButton.vue'
+import DataTable from '@/components/table/DataTable.vue'
+import { matches, useUserDirectory, type DirectoryRow } from '@/features/users/useUserDirectory'
+import ReportDialog from '@/features/reports/ReportDialog.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
-import { getStatus, getTone, type StatusTone } from '@/utils/status.config'
+import { getStatus, getTone } from '@/utils/status.config'
+import { counted } from '@/utils/filterOptions'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
 import { buildUserPreview, cap, composeAddress, periodLabel } from '@/features/users/userPreview'
 import { fetchStudentLeaseHistory, fetchPaymentsForLeases } from '@/api/leases'
 import { fetchAccommodationDocs, fetchVerificationDocs, type AccommodationDocRow, type VerificationDocRow } from '@/api/users'
-import { downloadCsv } from '@/utils/csv'
-import { useNotify } from '@/utils/notify'
 import type { DrawerPreview } from '@/components/ui/DetailDrawer.vue'
-import type { Database } from '@/types/database.gen'
+import { useAuthStore } from '@/stores/auth'
+import { fetchAccountEvents, fetchAccountStanding, fetchClosedAt, fetchSignInMethods, NO_STANDING, type AccountEvent, type AccountStanding, type AccountStatus, type EditableProfile, type SignInMethods } from '@/api/accounts'
+import EditProfileDialog from '@/features/users/EditProfileDialog.vue'
+import { useAccountActions } from '@/features/users/accountActions'
+import AccountActionDialog from '@/features/users/AccountActionDialog.vue'
 
-const notify = useNotify()
 
-const loading = ref(true)
-const fetchError = ref('')
-const rawUsers = ref<any[]>([])
+// The list: students and landlords/landladies, in their own tabs.
+const { rows: allRows, students, landlords, campusResponseRate, loading, error: loadError, load } = useUserDirectory()
 const search = ref('')
 const currentPage = ref(1)
-const activeTab = ref('users')
-const activeFilters = ref({ role: [] as string[], status: [] as string[] })
+const activeTab = ref<'students' | 'landlords'>('students')
+const EMPTY_FILTERS = (): Record<string, string[]> => ({})
+const activeFilters = ref<Record<string, string[]>>(EMPTY_FILTERS())
 const route = useRoute()
 
 const drawerOpen = ref(false)
-const drawerExpanded = ref(false)
 const selectedUser = ref<any | null>(null)
 const userDetail = ref<any | null>(null)
 const verificationDocs = ref<VerificationDocRow[]>([])
@@ -115,148 +165,108 @@ const accommodationDocs = ref<AccommodationDocRow[]>([])
 const userReviews = ref<any[]>([])
 const detailLoading = ref(false)
 
-const sectionTab = ref<string>('overview')
 const housing = ref<any | null>(null)
 const boardingHistory = ref<any[]>([])
 const accommodationRows = ref<any[]>([])
 const leases = ref<any[]>([])
 const payments = ref<any[]>([])
 
-const tabs = [
-  { name: 'users', label: 'Users' },
-]
+const tabs = computed(() => [
+  { name: 'students', label: `Students (${students.value.length})` },
+  { name: 'landlords', label: `Landlords/Landladies (${landlords.value.length})` },
+])
+const tabRows = computed(() => (activeTab.value === 'students' ? students.value : landlords.value))
 
-// Option values are the raw `users.role` values, because filteredRows compares
-// them against the row's own `role`. They read 'Accommodation Manager' here for
-// a while, which never matched 'accommodation_manager' — that filter returned
-// nothing at all. The labels are what the dropdown shows.
-const filterConfig = [
-  { label: 'Role', key: 'role', options: [ { label: 'Student', value: 'student' }, { label: 'Accommodation Manager', value: 'accommodation_manager' } ] },
-  { label: 'Status', key: 'status', options: [ { label: 'Verified', value: 'Verified' }, { label: 'Pending', value: 'Pending' }, { label: 'Reviewing', value: 'Reviewing' }, { label: 'Rejected', value: 'Rejected' }, { label: 'Suspended', value: 'Suspended' }, { label: 'Unverified', value: 'Unverified' } ] }
-]
+const STATUS_ORDER = ['Pending', 'Reviewing', 'Verified', 'Rejected', 'Suspended', 'Unverified']
+const LAST_ACTIVE: Record<string, string> = { week: 'This week', month: 'This month', stale: 'Over a month ago', never: 'Never signed in' }
+const EMAIL: Record<string, string> = { unconfirmed: 'Not confirmed', confirmed: 'Confirmed' }
 
-const columns = [
-  { name: 'user', required: true, label: 'USER', align: 'left', field: 'name' },
-  { name: 'id', label: 'USER ID', align: 'left', field: 'id' },
-  { name: 'contact', label: 'CONTACT', align: 'left', field: 'contact' },
-  { name: 'role', label: 'ROLE', align: 'left', field: 'role' },
+// Option values are row fields' values; the list keeps a row when its field
+// equals any chosen value (see `matches`).
+const filterConfig = computed(() => {
+  if (activeTab.value === 'students') {
+    const rows = students.value
+    return [
+      { label: 'Status', key: 'status', options: counted(rows, 'status', undefined, STATUS_ORDER) },
+      { label: 'Current stay', key: 'stayState', options: counted(rows, 'stayState', (v) => (v === 'placed' ? 'Placed' : 'Not placed'), ['not_placed', 'placed']) },
+      { label: 'Accommodation', key: 'stayAccommodation', options: counted(rows, 'stayAccommodation') },
+      { label: 'College', key: 'college', options: counted(rows, 'college', collegeShort) },
+      { label: 'Year level', key: 'yearLevel', options: counted(rows, 'yearLevel', (v) => `Year ${v}`) },
+      { label: 'Last active', key: 'activeState', options: counted(rows, 'activeState', (v) => LAST_ACTIVE[v] ?? v, Object.keys(LAST_ACTIVE)) },
+      { label: 'E-mail', key: 'emailState', options: counted(rows, 'emailState', (v) => EMAIL[v] ?? v, Object.keys(EMAIL)) },
+    ]
+  }
+  const rows = landlords.value
+  const campus = campusResponseRate.value
+  const ACCREDIT: Record<string, string> = { accredited: 'Has accredited', unaccredited: 'None accredited yet', none: 'No accommodation' }
+  const RESPONSE: Record<string, string> = {
+    below: `Below average${campus != null ? ` (${campus}%)` : ''}`,
+    ok: 'At or above average',
+    none: 'No rate yet',
+  }
+  return [
+    { label: 'Status', key: 'status', options: counted(rows, 'status', undefined, STATUS_ORDER) },
+    { label: 'Title', key: 'roleTitle', options: counted(rows, 'roleTitle') },
+    { label: 'Accreditation', key: 'accreditState', options: counted(rows, 'accreditState', (v) => ACCREDIT[v] ?? v, Object.keys(ACCREDIT)) },
+    { label: 'Response rate', key: 'responseState', options: counted(rows, 'responseState', (v) => RESPONSE[v] ?? v, Object.keys(RESPONSE)) },
+    { label: 'Last active', key: 'activeState', options: counted(rows, 'activeState', (v) => LAST_ACTIVE[v] ?? v, Object.keys(LAST_ACTIVE)) },
+    { label: 'E-mail', key: 'emailState', options: counted(rows, 'emailState', (v) => EMAIL[v] ?? v, Object.keys(EMAIL)) },
+  ]
+})
+
+const studentColumns = [
+  { name: 'user', required: true, label: 'STUDENT', align: 'left', field: 'name' },
+  { name: 'studentId', label: 'STUDENT ID', align: 'left', field: 'studentId' },
+  { name: 'academic', label: 'COLLEGE · PROGRAM', align: 'left', field: 'college' },
+  { name: 'stay', label: 'CURRENT STAY', align: 'left', field: (r: DirectoryRow) => r.stay?.accommodation ?? '' },
   { name: 'status', label: 'STATUS', align: 'left', field: 'status' },
-  { name: 'joined', label: 'JOINED', align: 'left', field: 'joined' },
+  { name: 'lastActive', label: 'LAST ACTIVE', align: 'left', field: 'lastLoginAt' },
 ]
+const landlordColumns = [
+  { name: 'user', required: true, label: 'NAME', align: 'left', field: 'name' },
+  { name: 'title', label: 'TITLE', align: 'left', field: 'roleTitle' },
+  { name: 'accommodations', label: 'ACCOMMODATIONS', align: 'left', field: (r: DirectoryRow) => r.portfolio?.count ?? 0 },
+  { name: 'beds', label: 'BEDS TAKEN', align: 'right', field: (r: DirectoryRow) => r.portfolio?.taken ?? 0 },
+  { name: 'response', label: 'RESPONSE', align: 'right', field: 'responseRate' },
+  { name: 'status', label: 'STATUS', align: 'left', field: 'status' },
+  { name: 'lastActive', label: 'LAST ACTIVE', align: 'left', field: 'lastLoginAt' },
+]
+
+/** "College of Computing Studies, … (CCSICT)" → "CCSICT"; the full name is the cell's tooltip. */
+function collegeShort(college: string): string {
+  return college.match(/\(([^)]+)\)\s*$/)?.[1] ?? college
+}
 
 function clearFilters() {
-  activeFilters.value = { role: [], status: [] }
+  activeFilters.value = EMPTY_FILTERS()
 }
 
-/** ISO timestamp -> YYYY-MM-DD, so a spreadsheet sorts the column. */
-function csvDate(v: string | null | undefined): string {
-  return v ? String(v).slice(0, 10) : ''
-}
+const totalLabel = computed(() => {
+  const n = filteredRows.value.length
+  return activeTab.value === 'students'
+    ? `${n} student${n === 1 ? '' : 's'}`
+    : `${n} landlord${n === 1 ? '' : 's'}/landlad${n === 1 ? 'y' : 'ies'}`
+})
 
-/** Emergency contact is a jsonb blob of { name, relationship, phone }. */
-function ec(raw: any, key: 'name' | 'relationship' | 'phone'): string {
-  return raw && typeof raw === 'object' ? (raw[key] ?? '') : ''
-}
+// A new tab starts unfiltered on its first page.
+watch(activeTab, () => { clearFilters(); search.value = ''; currentPage.value = 1 })
 
-/**
- * One wide sheet covering every field collected at registration, for both
- * roles — the role-specific columns sit empty for the other role. The old
- * 7-column version exported a truncated `USR-XXXX` display token as "User ID",
- * which no other system can be joined against, and dropped the student number
- * even though the page had already fetched it.
- *
- * Deliberately excluded: `qr_code_token` and its rotation timestamps (a live
- * credential), `notification_prefs` and `avatar_color` (noise).
- */
-function handleExport() {
-  downloadCsv(
-    'users_export',
-    ['Name', 'User ID', 'Reference', 'Email', 'Contact', 'Sex', 'Date of Birth', 'Role', 'Status',
-      'Joined', 'Registered', 'Email Verified', 'Last Login', 'Last Updated',
-      'Terms Accepted', 'Privacy Accepted', 'Onboarding Complete', 'Main Admin', 'Under Review Since',
-      'Student Number', 'College', 'Program', 'Year Level', 'OSAS Verified', 'Emergency Contact', 'Emergency Relationship', 'Emergency Phone',
-      'School ID Document', 'Assessment of Fees Document', 'Extracted Name', 'Extracted School ID',
-      'Government ID Document', 'Extracted Government ID', 'Response Rate (%)', 'Avg Response (min)'],
-    filteredRows.value.map((r) => {
-      const p = r.profile ?? {}
-      return [
-        r.name, r.rawId, r.id, r.email, r.contact, r.sex ?? '', csvDate(r.dateOfBirth),
-        cap(r.role), r.status,
-        r.joined, csvDate(r.registeredAt), csvDate(r.emailVerifiedAt), csvDate(r.lastLoginAt),
-        csvDate(r.updatedAt), csvDate(r.termsAcceptedAt), csvDate(r.privacyAcceptedAt),
-        r.onboardingComplete ? 'Yes' : 'No', r.isSuperadmin ? 'Yes' : 'No', csvDate(r.reviewingAt),
-        p.student_id ?? '', p.college ?? '', p.program ?? '', p.year_level ?? '',
-        csvDate(p.osas_verified_at), ec(p.emergency_contact_json, 'name'),
-        ec(p.emergency_contact_json, 'relationship'), ec(p.emergency_contact_json, 'phone'),
-        p.school_id_url ?? '', p.assessment_of_fees_url ?? '',
-        p.extracted_name ?? '', p.extracted_school_id ?? '',
-        p.government_id_url ?? '', p.extracted_gov_id ?? '',
-        p.response_rate ?? '', p.avg_response_minutes ?? '',
-      ]
-    }),
-  )
-}
-
-async function fetchUsers() {
-  loading.value = true
-  fetchError.value = ''
-
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .select(
-        `id, full_name, email, phone, sex, role, status, created_at, registered_at, updated_at,
-         date_of_birth, avatar_url, email_verified_at, last_login_at, terms_accepted_at,
-         privacy_accepted_at, onboarding_complete, is_superadmin, reviewing_at`
-      )
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      fetchError.value = error.message
-      console.error('Supabase Query Error:', error.message)
-    } else if (data) {
-      const ids = data.map((u: any) => u.id)
-      // Both role profiles are loaded up front, not just the student number:
-      // the export needs every registration field for either role, and the
-      // table already paid for one `.in()` round trip here anyway.
-      // `qr_code_token` is deliberately not selected — it is a live credential,
-      // not a record field, and must not reach a CSV.
-      const profileByUser: Record<string, any> = {}
-      if (ids.length) {
-        const [studentRes, managerRes] = await Promise.all([
-          supabase
-            .from('student_profiles')
-            .select('user_id, student_id, program, year_level, college, osas_verified_at, emergency_contact_json, school_id_url, assessment_of_fees_url, extracted_name, extracted_school_id')
-            .in('user_id', ids),
-          supabase
-            .from('accommodation_manager_profiles')
-            .select('user_id, government_id_url, response_rate, avg_response_minutes, extracted_name, extracted_gov_id')
-            .in('user_id', ids),
-        ])
-        for (const p of [...(studentRes.data ?? []), ...(managerRes.data ?? [])] as any[]) {
-          if (p.user_id) profileByUser[p.user_id] = p
-        }
-      }
-      rawUsers.value = data.map((u: any) => mapUserData(u, profileByUser[u.id] ?? {}))
-    }
-  } catch (err) {
-    fetchError.value = err instanceof Error ? err.message : String(err)
-    console.error('Unexpected error fetching users:', err)
-  } finally {
-    loading.value = false
-  }
-}
+// Report: Boarders or Landlords/Landladies, opening on the one this tab lists.
+const reportOpen = ref(false)
 
 onMounted(async () => {
-  await fetchUsers()
+  await load()
   openUserFromRoute()
 })
 
 function openUserFromRoute() {
   const userId = route.query.user
   if (typeof userId !== 'string') return
-  const row = rawUsers.value.find((user) => user.rawId === userId)
-  if (row && selectedUser.value?.rawId !== userId) void openUser(row)
+  const row = allRows.value.find((user) => user.rawId === userId)
+  if (row && selectedUser.value?.rawId !== userId) {
+    activeTab.value = String(row.role).toLowerCase() === 'landlord' ? 'landlords' : 'students'
+    void openUser(row)
+  }
 }
 
 watch(() => route.query.user, openUserFromRoute)
@@ -272,10 +282,12 @@ async function openUser(row: any) {
   accommodationDocs.value = []
   leases.value = []
   payments.value = []
-  sectionTab.value = 'overview'
-  drawerExpanded.value = false
+  standing.value = NO_STANDING
+  signIn.value = null
+  closed.value = false
+  accountEvents.value = []
   drawerOpen.value = true
-  await fetchDetail(row.rawId, row.role)
+  await Promise.all([fetchDetail(row.rawId, row.role), loadAccountState(row.rawId)])
 }
 
 async function fetchDetail(userId: string, role: string) {
@@ -295,7 +307,7 @@ async function fetchDetail(userId: string, role: string) {
       // Active placement
       const { data: lease } = await supabase
         .from('leases')
-        .select('start_date, status, accommodation_manager:accommodation_manager_id(full_name), room:room_id(accommodation:accommodation_id(id, name, room_type, address, barangay, city))')
+        .select('start_date, status, landlord:landlord_id(full_name), room:room_id(room_number, label, accommodation:accommodation_id(id, name, room_type, address, barangay, city))')
         .eq('student_id', userId)
         .eq('status', 'active')
         .maybeSingle()
@@ -305,9 +317,10 @@ async function fetchDetail(userId: string, role: string) {
             accommodationId: lease.room?.accommodation?.id,
             accommodationName: lease.room?.accommodation?.name || '—',
             roomType: cap(lease.room?.accommodation?.room_type),
-            accommodationManagerName: lease.accommodation_manager?.full_name || '—',
+            landlordName: lease.landlord?.full_name || '—',
             address: composeAddress(lease.room?.accommodation),
             moveIn: lease.start_date,
+            room: lease.room?.room_number ? `Room ${lease.room.room_number}` : lease.room?.label || undefined,
           }
         : { placed: false }
 
@@ -333,9 +346,9 @@ async function fetchDetail(userId: string, role: string) {
       if (leaseIds.length) {
         payments.value = await fetchPaymentsForLeases(leaseIds)
       }
-    } else if (normalized === 'accommodation_manager') {
+    } else if (normalized === 'landlord') {
       const { data } = await supabase
-        .from('accommodation_manager_profiles')
+        .from('landlord_profiles')
         .select('response_rate, avg_response_minutes, government_id_url')
         .eq('user_id', userId)
         .maybeSingle()
@@ -344,19 +357,19 @@ async function fetchDetail(userId: string, role: string) {
       // Listed accommodations
       const { data: props } = await supabase
         .from('accommodations')
-        .select('id, name, status, room_type, total_rooms, address, barangay, city, rating_avg, reviews_count')
-        .eq('accommodation_manager_id', userId)
+        .select('id, name, status, room_type, total_rooms, address, barangay, city, rating_avg, reviews_count, rooms(capacity, current_pax)')
+        .eq('landlord_id', userId)
         .order('name', { ascending: true })
       accommodationRows.value = props || []
     }
 
-    // Reviews — accommodation manager = reviews received; student = tenant
+    // Reviews — landlord/landlady = reviews received; student = tenant
     // reviews received. Read through `review_admin_feed`: the review tables are
     // anonymous to the people involved (SELECT on them is revoked from
     // `authenticated`), and this view is the one place identities survive. It
     // gates itself on is_admin(), so a non-admin session gets nothing back.
-    if (normalized === 'accommodation_manager' || normalized === 'student') {
-      const kind = normalized === 'accommodation_manager' ? 'manager' : 'tenant'
+    if (normalized === 'landlord' || normalized === 'student') {
+      const kind = normalized === 'landlord' ? 'manager' : 'tenant'
       const res = (await supabase
         .from('review_admin_feed')
         .select('rating, comment, created_at, author_id')
@@ -386,10 +399,10 @@ async function fetchDetail(userId: string, role: string) {
       verificationDocs.value = []
     }
 
-    // A manager's record accounts for their properties' permits too, so the
+    // A landlord/landlady's record accounts for their properties' permits too, so the
     // Documents tab is the whole compliance picture rather than only the two
     // files they uploaded against their own account.
-    if (normalized === 'accommodation_manager') {
+    if (normalized === 'landlord') {
       try {
         accommodationDocs.value = await fetchAccommodationDocs(
           accommodationRows.value.map((p: any) => p.id).filter(Boolean),
@@ -408,86 +421,15 @@ async function fetchDetail(userId: string, role: string) {
   }
 }
 
-function mapUserData(user: any, profile: any = {}) {
-  const displayName = user.full_name || 'Unknown User'
-  const contact = user.phone || 'No phone provided'
-
-  let joinedDate = 'Unknown'
-  if (user.created_at) {
-    const dateObj = new Date(user.created_at)
-    if (!isNaN(dateObj.getTime())) {
-      joinedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    }
-  }
-
-  const nameParts = displayName.split(' ')
-  const initials = nameParts.length > 1
-    ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
-    : `${nameParts[0][0]}`.toUpperCase()
-
-  const isStudent = (user.role || '').toLowerCase() === 'student'
-  const roleStyle = {
-    tone: (isStudent ? 'neutral' : 'primary') as StatusTone,
-    icon: isStudent ? 'lucide:graduation-cap' : 'lucide:building-2'
-  }
-  const avatarColor = isStudent ? 'indigo-5' : 'teal-7'
-
-  const status = (user.status || 'unverified').toLowerCase()
-  const statusLabel = status.charAt(0).toUpperCase() + status.slice(1)
-  const statusStyle = {
-    tone: getTone(status),
-    icon: getStatus(status).icon || 'lucide:circle-help'
-  }
-
-  return {
-    id: user.id.length > 10 ? `USR-${user.id.substring(0, 4).toUpperCase()}` : user.id,
-    rawId: user.id,
-    name: displayName,
-    email: user.email,
-    contact,
-    role: user.role || 'Unknown',
-    roleStyle,
-    status: statusLabel,
-    statusStyle,
-    joined: joinedDate,
-    dateOfBirth: user.date_of_birth ?? null,
-    sex: user.sex ?? null,
-    registeredAt: user.registered_at ?? null,
-    updatedAt: user.updated_at ?? null,
-    emailVerifiedAt: user.email_verified_at ?? null,
-    lastLoginAt: user.last_login_at ?? null,
-    termsAcceptedAt: user.terms_accepted_at ?? null,
-    privacyAcceptedAt: user.privacy_accepted_at ?? null,
-    onboardingComplete: user.onboarding_complete ?? false,
-    isSuperadmin: user.is_superadmin ?? false,
-    reviewingAt: user.reviewing_at ?? null,
-    initials,
-    avatarColor,
-    avatarUrl: user.avatar_url || '',
-    studentId: profile.student_id || '',
-    profile,
-  }
-}
-
 const filteredRows = computed(() => {
-  let result = rawUsers.value
-
-  filterConfig.forEach(group => {
-    const activeVals = activeFilters.value[group.key as keyof typeof activeFilters.value]
-    if (activeVals && activeVals.length > 0) {
-      result = result.filter(r =>
-        activeVals.some(v => String(v).toLowerCase() === String(r[group.key as keyof typeof r] ?? '').toLowerCase())
-      )
-    }
-  })
-
+  let result = tabRows.value
+  for (const [key, values] of Object.entries(activeFilters.value)) {
+    if (values.length) result = result.filter((r) => matches(r, key, values))
+  }
   if (search.value) {
     const needle = search.value.toLowerCase()
-    result = result.filter(row =>
-      [row.name, row.email, row.studentId].some(val => String(val).toLowerCase().includes(needle))
-    )
+    result = result.filter((row) => [row.name, row.email, row.studentId].some((val) => String(val ?? '').toLowerCase().includes(needle)))
   }
-
   return result
 })
 
@@ -511,78 +453,89 @@ const userPreview = computed<DrawerPreview>(() =>
     accommodationDocs: accommodationDocs.value,
     leases: leases.value,
     payments: payments.value,
+    standing: standing.value,
+    accountEvents: accountEvents.value,
+    campusResponseRate: campusResponseRate.value,
   })
 )
 
-type ManagementAction = { label: string; action: string; danger?: boolean }
+// OSAS's controls over the account: the menu, the confirmation dialog and what
+// each action does live in features/users/accountActions.ts. This page only
+// keeps the table row and the drawer in step when one of them lands.
+const standing = ref<AccountStanding>(NO_STANDING)
+const signIn = ref<SignInMethods | null>(null)
+const closed = ref(false)
+const auth = useAuthStore()
+const actorId = computed(() => auth.user?.id ?? '')
+const isSuperadmin = computed(() => auth.isSuperadmin)
+const editingUserId = ref<string | null>(null)
+const accountEvents = ref<AccountEvent[]>([])
 
-const userManagementActions = computed<ManagementAction[]>(() => {
-  const u = selectedUser.value
-  if (!u) return []
-  const status = (u.status || '').toLowerCase()
-  const actions: ManagementAction[] = []
-
-  if (status === 'suspended') {
-    actions.push({ label: 'Reactivate Account', action: 'reactivate' })
-  } else {
-    actions.push({ label: 'Suspend Account', action: 'suspend', danger: true })
+async function loadAccountState(userId: string) {
+  try {
+    const [s, events, methods, closedAt] = await Promise.all([
+      fetchAccountStanding(userId),
+      fetchAccountEvents(userId),
+      // Admin accounts are refused here; their menu has nothing to offer anyway.
+      fetchSignInMethods(userId).catch(() => null),
+      fetchClosedAt(userId),
+    ])
+    if (selectedUser.value?.rawId !== userId) return
+    standing.value = s
+    accountEvents.value = events
+    signIn.value = methods
+    closed.value = !!closedAt
+  } catch {
+    // The record still reads without them: no reason line, no OSAS decisions in Activity.
   }
-
-  // No Ban/Unban: `banned` is not a value of the user_status enum. Suspension
-  // is the ban — tg_auth_status_gate stamps auth.users.banned_until when a row
-  // goes to 'suspended', which is what actually locks the account out.
-
-  if (['pending', 'reviewing', 'unverified'].includes(status)) {
-    actions.push({ label: 'Mark as Verified', action: 'verify' })
-  }
-
-  return actions
-})
-
-// `user_status` is a lowercase Postgres enum. These were title-cased, so every
-// write was rejected with `22P02 invalid input value for enum user_status` —
-// and because the failure only reached console.error while the badge was
-// flipped optimistically, the console reported a suspension that never happened.
-// Typed against the generated enum now, so a bad value is a build error.
-const STATUS_FOR_ACTION: Record<string, Database['public']['Enums']['user_status']> = {
-  suspend: 'suspended',
-  reactivate: 'verified',
-  verify: 'verified',
 }
 
-async function onManageUser(action: string) {
+async function onAccountChanged(next: AccountStatus) {
   const u = selectedUser.value
-  if (!u || !u.rawId) return
-
-  const newStatus = STATUS_FOR_ACTION[action]
-  if (!newStatus) return
-
-  const { error } = await supabase
-    .from('users')
-    .update({ status: newStatus })
-    .eq('id', u.rawId)
-
-  if (error) {
-    notify.error('Could not update account status', error.message)
-    return
-  }
-
-  // Only now is the row actually in this state, so only now does the UI say so.
-  const style = {
-    tone: getTone(newStatus),
-    icon: getStatus(newStatus).icon || 'lucide:circle-help',
-  }
-  const label = newStatus.charAt(0).toUpperCase() + newStatus.slice(1)
+  if (!u) return
+  const style = { tone: getTone(next), icon: getStatus(next).icon || 'lucide:circle-help' }
+  const label = next.charAt(0).toUpperCase() + next.slice(1)
   u.status = label
   u.statusStyle = style
-
-  const row = rawUsers.value.find(r => r.rawId === u.rawId)
+  const row = allRows.value.find((r) => r.rawId === u.rawId)
   if (row) {
     row.status = label
     row.statusStyle = style
   }
+  await loadAccountState(u.rawId)
+}
 
-  notify.success(`Account ${label.toLowerCase()}`, u.name)
+const {
+  actions: userManagementActions,
+  spec: actionSpec,
+  open: onManageUser,
+  close: closeAction,
+} = useAccountActions(
+  selectedUser,
+  { standing, signIn, closed, actorId, isSuperadmin },
+  {
+    onChanged: onAccountChanged,
+    onEditProfile: () => { editingUserId.value = selectedUser.value?.rawId ?? null },
+    // A role change moves them to the other tab; a closure renames them. Re-read the table.
+    onReload: async () => {
+      drawerOpen.value = false
+      await load()
+    },
+  },
+)
+
+/** Put the corrections on the table row and the record, then re-read the rest. */
+async function onProfileSaved(p: EditableProfile) {
+  const u = selectedUser.value
+  if (!u) return
+  const initials = p.fullName.trim().split(/s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+  for (const target of [u, allRows.value.find((r) => r.rawId === u.rawId)]) {
+    if (!target) continue
+    target.name = p.fullName.trim()
+    target.initials = initials
+    target.contact = p.phone.trim() || 'No phone provided'
+  }
+  await Promise.all([fetchDetail(u.rawId, u.role), loadAccountState(u.rawId)])
 }
 
 </script>
@@ -603,55 +556,14 @@ async function onManageUser(action: string) {
   flex-direction: column;
 }
 
-/* Pills (used inside InfoRow value slots) */
-.usr-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-}
-.usr-pill--ok {
-  background: var(--c-success-soft);
-  color: var(--c-success);
-}
-.usr-pill--muted {
-  background: var(--c-surface-2);
-  color: var(--c-muted);
-  border: 1px solid var(--c-border);
-}
-
-/* Link button (used inside InfoRow value slots) */
-.usr-link {
-  border: none;
-  background: transparent;
-  color: var(--c-primary);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0;
-}
-.usr-link:hover {
-  text-decoration: underline;
-}
-
-/* Section transition */
-.usr-fade-enter-active,
-.usr-fade-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-.usr-fade-enter-from {
-  opacity: 0;
-  transform: translateY(6px);
-}
-.usr-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-
-/* Skeleton blocks (loading states) */
-.usr-skel-block {
-  padding: 8px 0;
-}
+/* Table cells */
+/* DataTable cells lay out as a flex row; a two-line cell stacks inside one block. */
+.us-stack { min-width: 0; }
+.us-mono { font-family: var(--font-mono); }
+.us-sub { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.us-clip { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The italic's last glyph leans past the box; the cell would clip it. */
+.us-none { font-style: italic; padding-right: 2px; }
+.us-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.us-warn { color: var(--c-warning); font-weight: 600; }
 </style>

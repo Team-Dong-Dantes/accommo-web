@@ -37,7 +37,7 @@
               <q-item-section>
                 <div class="row-meta"><span>{{ notification.typeLabel }}</span><time :datetime="notification.createdAt">{{ notification.time }}</time></div>
                 <q-item-label class="row-title">{{ notification.title }}</q-item-label>
-                <q-item-label caption class="row-body">{{ notification.body }}</q-item-label>
+                <q-item-label caption class="row-body">{{ notification.body || 'No additional details were provided.' }}</q-item-label>
               </q-item-section>
               <q-item-section side class="row-action"><span>Open</span><Icon icon="lucide:arrow-right" width="17" height="17" aria-hidden="true" /></q-item-section>
             </q-item>
@@ -55,7 +55,7 @@
               <q-item-section>
                 <div class="row-meta"><span>{{ notification.typeLabel }}</span><time :datetime="notification.createdAt">{{ notification.time }}</time></div>
                 <q-item-label class="row-title">{{ notification.title }}</q-item-label>
-                <q-item-label caption class="row-body">{{ notification.body }}</q-item-label>
+                <q-item-label caption class="row-body">{{ notification.body || 'No additional details were provided.' }}</q-item-label>
               </q-item-section>
               <q-item-section side class="row-action"><span>Open</span><Icon icon="lucide:arrow-right" width="17" height="17" aria-hidden="true" /></q-item-section>
             </q-item>
@@ -74,118 +74,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
-import { supabase } from '@/utils/supabase'
-import { getTimeAgo } from '@/utils/format'
-import { notificationStyle } from '@/utils/notificationStyle'
-import { notificationTarget } from '@/utils/notificationTarget'
+import { useNotifications } from '@/composables/useNotifications'
 
-interface NotificationItem {
-  id: string
-  title: string
-  body: string
-  time: string
-  createdAt: string
-  icon: string
-  color: string
-  typeLabel: string
-  unread: boolean
-  linkUrl: string
-}
-
-const router = useRouter()
-const loading = ref(true)
-const markingAll = ref(false)
-const error = ref('')
-const notifications = ref<NotificationItem[]>([])
-const unreadNotifications = computed(() => notifications.value.filter((notification) => notification.unread))
-const readNotifications = computed(() => notifications.value.filter((notification) => !notification.unread))
-const unreadCount = computed(() => unreadNotifications.value.length)
-
-function typeLabel(type: string) {
-  return type ? type.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'System'
-}
-
-function mapRow(row: any): NotificationItem {
-  const style = notificationStyle(row.type)
-  return {
-    id: row.id,
-    title: row.title || 'Notification',
-    body: row.body || 'No additional details were provided.',
-    time: getTimeAgo(row.created_at),
-    createdAt: row.created_at || '',
-    icon: style.icon,
-    color: style.color,
-    typeLabel: typeLabel(row.type),
-    unread: !row.read_at,
-    linkUrl: row.link_url || '',
-  }
-}
-
-async function load() {
-  loading.value = true
-  error.value = ''
-  try {
-    const user = (await supabase.auth.getUser()).data.user
-    if (!user) return
-    const { data, error: queryError } = await supabase
-      .from('notifications')
-      .select('id, title, body, type, link_url, read_at, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(100)
-    if (queryError) throw queryError
-    notifications.value = (data ?? []).map(mapRow)
-  } catch (caught: any) {
-    error.value = caught?.message || 'Check your connection, then try again.'
-  } finally {
-    loading.value = false
-  }
-}
-
-async function open(notification: NotificationItem) {
-  if (notification.unread) {
-    notification.unread = false
-    try {
-      await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', notification.id)
-    } catch (caught: any) {
-      console.warn('Could not mark notification read:', caught?.message)
-    }
-  }
-  await router.push(notificationTarget(notification.linkUrl))
-}
-
-async function markAllRead() {
-  const user = (await supabase.auth.getUser()).data.user
-  if (!user || markingAll.value) return
-  markingAll.value = true
-  notifications.value.forEach((notification) => (notification.unread = false))
-  try {
-    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', user.id).is('read_at', null)
-  } catch (caught: any) {
-    console.warn('Could not mark all read:', caught?.message)
-  } finally {
-    markingAll.value = false
-  }
-}
-
-let channel: any = null
-onMounted(async () => {
-  await load()
-  const user = (await supabase.auth.getUser()).data.user
-  if (!user) return
-  channel = supabase
-    .channel('notif-page')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
-      (payload: any) => { notifications.value = [mapRow(payload.new), ...notifications.value] },
-    )
-    .subscribe()
-})
-onUnmounted(() => { if (channel) supabase.removeChannel(channel) })
+const {
+  notifications,
+  unreadNotifications,
+  readNotifications,
+  unreadCount,
+  loading,
+  error,
+  marking: markingAll,
+  load,
+  open,
+  markAllRead,
+} = useNotifications({ limit: 100, channel: 'notif-page' })
 </script>
 
 <style scoped>

@@ -134,9 +134,9 @@ export async function fetchReviewProfile(userId: string, role: string): Promise<
       .eq('user_id', userId)
       .maybeSingle()
     Object.assign(profile, data ?? {})
-  } else if (role === 'accommodation_manager') {
+  } else if (role === 'landlord') {
     const { data } = await supabase
-      .from('accommodation_manager_profiles')
+      .from('landlord_profiles')
       .select('response_rate')
       .eq('user_id', userId)
       .maybeSingle()
@@ -159,8 +159,8 @@ export interface VerificationDocRow {
 /**
  * Everything one user has uploaded. The drawer's Documents tab used to read two
  * URL columns off `student_profiles` and one off
- * `accommodation_manager_profiles`, but uploads land in
- * `verification_documents` — so a manager's business permit had nowhere to show
+ * `landlord_profiles`, but uploads land in
+ * `verification_documents` — so a landlord/landlady's business permit had nowhere to show
  * at all, and the tab read "No documents" for people who had uploaded some.
  */
 export async function fetchVerificationDocs(userId: string): Promise<VerificationDocRow[]> {
@@ -188,11 +188,11 @@ export interface AccommodationDocRow {
 /**
  * Permits for a set of accommodations, newest version first.
  *
- * A manager's record has to account for the properties they run, not just the
+ * A landlord/landlady's record has to account for the properties they run, not just the
  * documents filed against their own account — a business permit that lapsed on
- * one of their houses is a fact about that manager. `useAccommodations` already
+ * one of their houses is a fact about that landlord/landlady. `useAccommodations` already
  * loads these for the Property Hub, but the user drawer only needs the permits
- * of one manager's accommodations, so it asks for exactly those.
+ * of one landlord/landlady's accommodations, so it asks for exactly those.
  */
 export async function fetchAccommodationDocs(accommodationIds: string[]): Promise<AccommodationDocRow[]> {
   if (!accommodationIds.length) return []
@@ -218,4 +218,76 @@ export async function fetchVerificationDocIndex(): Promise<Map<string, string[]>
     map.set(r.user_id, [...(map.get(r.user_id) ?? []), r.doc_type])
   }
   return map
+}
+
+/** The fields a person's summary shows inside another record's drawer. */
+export interface PersonSummary {
+  id: string
+  fullName: string
+  initials: string
+  avatarUrl: string | null
+  sex: string | null
+  dateOfBirth: string | null
+  phone: string | null
+  email: string | null
+  status: string | null
+  registeredAt: string | null
+  student: {
+    studentId: string | null
+    college: string | null
+    program: string | null
+    yearLevel: string | null
+    emergencyContact: { name?: string; relationship?: string; phone?: string } | null
+  } | null
+  landlord: { responseRate: number | null } | null
+}
+
+/**
+ * One person as seen from an accommodation's record — a boarder or its
+ * landlord/landlady. The full record, with documents and history, stays on the
+ * Users page; this is the registration fields only.
+ */
+export async function fetchPersonSummary(userId: string, role: 'student' | 'landlord'): Promise<PersonSummary | null> {
+  const [userRes, profileRes] = await Promise.all([
+    supabase
+      .from('users')
+      .select('id, full_name, initials, avatar_url, sex, date_of_birth, phone, email, status, registered_at')
+      .eq('id', userId)
+      .maybeSingle(),
+    role === 'student'
+      ? supabase
+          .from('student_profiles')
+          .select('student_id, college, program, year_level, emergency_contact_json')
+          .eq('user_id', userId)
+          .maybeSingle()
+      : supabase.from('landlord_profiles').select('response_rate').eq('user_id', userId).maybeSingle(),
+  ])
+  if (userRes.error) throw userRes.error
+  const u = userRes.data as any
+  if (!u) return null
+  const p = (profileRes.data ?? null) as any
+  return {
+    id: u.id,
+    fullName: u.full_name ?? '',
+    initials: u.initials ?? '',
+    avatarUrl: u.avatar_url ?? null,
+    sex: u.sex ?? null,
+    dateOfBirth: u.date_of_birth ?? null,
+    phone: u.phone ?? null,
+    email: u.email ?? null,
+    status: u.status ?? null,
+    registeredAt: u.registered_at ?? null,
+    student:
+      role === 'student'
+        ? {
+            studentId: p?.student_id ?? null,
+            college: p?.college ?? null,
+            program: p?.program ?? null,
+            yearLevel: p?.year_level ?? null,
+            emergencyContact:
+              p?.emergency_contact_json && typeof p.emergency_contact_json === 'object' ? p.emergency_contact_json : null,
+          }
+        : null,
+    landlord: role === 'landlord' ? { responseRate: p?.response_rate ?? null } : null,
+  }
 }

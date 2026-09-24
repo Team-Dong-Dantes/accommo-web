@@ -107,11 +107,15 @@ const props = withDefaults(
   { filterAccommodationId: null },
 )
 
-const payments = computed(() => props.preview.payments ?? [])
-const leases = computed(() => props.preview.leases ?? [])
+// Narrowed to one stay when opened from that stay in Boarding History.
+const byStay = <T extends { accommodationId: string }>(rows: T[]) =>
+  props.filterAccommodationId ? rows.filter((r) => r.accommodationId === props.filterAccommodationId) : rows
+const payments = computed(() => byStay(props.preview.payments ?? []))
+const leases = computed(() => byStay(props.preview.leases ?? []))
 
+// One stay's summary shows even after it has ended.
 const activeLease = computed<PreviewLease | undefined>(
-  () => leases.value.find((l) => l.status === 'active'),
+  () => leases.value.find((l) => l.status === 'active') ?? (props.filterAccommodationId ? leases.value[0] : undefined),
 )
 
 const sortedPayments = computed<PreviewPayment[]>(() => {

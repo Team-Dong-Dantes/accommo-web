@@ -27,11 +27,11 @@ export interface Ticket {
   reporterName: string
   reporterEmail: string
   reporterPhone: string
-  reporterRole: 'student' | 'accommodation_manager' | 'user'
+  reporterRole: 'student' | 'landlord' | 'user'
   accommodationName: string | null
   accommodationId: string | null
   room: string
-  accommodationManagerName: string | null
+  landlordName: string | null
   initials: string
   avatarColor: string
   /** The reporter's profile photo, when they have one. */
@@ -53,15 +53,15 @@ function avatarColorFor(id: string) {
 }
 
 const ENRICHED_SELECT = `
-  id, subject, description, category, priority, status, assignee_id, reporter_name, reported_at, updated_at, resolved_at, photo_urls, lease_id, student_id, accommodation_id, accommodation_manager_id,
+  id, subject, description, category, priority, status, assignee_id, reporter_name, reported_at, updated_at, resolved_at, photo_urls, lease_id, student_id, accommodation_id, landlord_id,
   lease:lease_id (
     id,
     student:student_id ( id, full_name, email, phone, avatar_url, student_profiles ( program, college ) ),
-    room:room_id ( id, label, accommodation:accommodation_id ( id, name, accommodation_manager:accommodation_manager_id ( full_name ) ) )
+    room:room_id ( id, label, accommodation:accommodation_id ( id, name, landlord:landlord_id ( full_name ) ) )
   ),
   reporter:student_id ( id, full_name, email, phone, role, avatar_url ),
-  manager:accommodation_manager_id ( id, full_name, email, phone, role, avatar_url ),
-  accommodation:accommodation_id ( id, name, accommodation_manager:accommodation_manager_id ( full_name ) ),
+  landlord:landlord_id ( id, full_name, email, phone, role, avatar_url ),
+  accommodation:accommodation_id ( id, name, landlord:landlord_id ( full_name ) ),
   assignee:assignee_id ( id, full_name ),
   ticket_messages (
     id, body, author_role, is_internal, attachment_urls, created_at,
@@ -82,15 +82,15 @@ function mapTicket(r: any, seenRequesterMessageIds: Set<string> = new Set()): Ti
   const leaseAccommodation = safeGet(room.accommodation) || {}
   const directAccommodation = safeGet(r.accommodation) || {}
   const accommodation = directAccommodation.id ? directAccommodation : leaseAccommodation
-  const accommodationManager = safeGet(accommodation.accommodation_manager) || {}
-  // Manager-filed tickets carry no student_id, so the manager is the reporter.
-  const reporter = safeGet(r.reporter) || safeGet(r.manager) || {}
+  const landlord = safeGet(accommodation.landlord) || {}
+  // Landlord-filed tickets carry no student_id, so the landlord/landlady is the reporter.
+  const reporter = safeGet(r.reporter) || safeGet(r.landlord) || {}
   const assignee = safeGet(r.assignee) || {}
 
   const hasLease = !!lease.id
   const reporterName = r.reporter_name || reporter.full_name || student.full_name || 'Unknown user'
-  const reporterRole: 'student' | 'accommodation_manager' | 'user' =
-    (reporter.role as 'student' | 'accommodation_manager' | 'user') || (hasLease ? 'student' : 'user')
+  const reporterRole: 'student' | 'landlord' | 'user' =
+    (reporter.role as 'student' | 'landlord' | 'user') || (hasLease ? 'student' : 'user')
 
   const rawMessages: any[] = r.ticket_messages || []
   const messages: TicketMessage[] = rawMessages
@@ -139,7 +139,7 @@ function mapTicket(r: any, seenRequesterMessageIds: Set<string> = new Set()): Ti
     accommodationName: accommodation.name || null,
     accommodationId: accommodation.id || r.accommodation_id || null,
     room: hasLease ? (room.label || '—') : '—',
-    accommodationManagerName: accommodationManager.full_name || null,
+    landlordName: landlord.full_name || null,
     initials: getInitials(reporterName ?? ''),
     avatarColor: avatarColorFor(r.id),
     avatarUrl: reporter.avatar_url || student.avatar_url || '',
@@ -254,8 +254,8 @@ export function useTickets() {
       }
       await fetch()
       return true
-    } catch (e: any) {
-      notify.error('Failed to send', e?.message)
+    } catch (e) {
+      notify.error('Failed to send', e instanceof Error ? e.message : '')
       return false
     }
   }

@@ -28,7 +28,7 @@ export interface StatusDef {
 export const STATUS_MAP: Record<string, StatusDef> = {
   // Roles
   admin: { tone: 'primary', icon: 'lucide:shield-user' },
-  accommodation_manager: { tone: 'primary', icon: 'lucide:building-2' },
+  landlord: { tone: 'primary', icon: 'lucide:building-2' },
   student: { tone: 'neutral', icon: 'lucide:graduation-cap' },
   agent: { tone: 'info', icon: 'lucide:headset' },
 
@@ -41,9 +41,9 @@ export const STATUS_MAP: Record<string, StatusDef> = {
   unknown: { tone: 'neutral', icon: 'lucide:user-search' },
 
   pending: { tone: 'warning', icon: 'lucide:clock' },
-  // A refusal the manager can fix, so it is a warning rather than a failure.
+  // A refusal the landlord/landlady can fix, so it is a warning rather than a failure.
   needs_revision: { tone: 'warning', icon: 'lucide:file-pen' },
-  // The manager took their own property off the market; nothing is wrong with it.
+  // The landlord/landlady took their own property off the market; nothing is wrong with it.
   delisted: { tone: 'neutral', icon: 'lucide:eye-off' },
   reviewing: { tone: 'info', icon: 'lucide:eye' },
   scheduled: { tone: 'info', icon: 'lucide:calendar-clock' },
@@ -66,8 +66,20 @@ export const STATUS_MAP: Record<string, StatusDef> = {
 
   all: { tone: 'neutral', icon: 'lucide:users' },
   students: { tone: 'info', icon: 'lucide:graduation-cap' },
-  accommodation_managers: { tone: 'primary', icon: 'lucide:building-2' },
-  public: { tone: 'neutral', icon: 'lucide:globe' }
+  landlords: { tone: 'primary', icon: 'lucide:building-2' },
+  public: { tone: 'neutral', icon: 'lucide:globe' },
+
+  // Room occupancy — the full `room_status` enum. The Property Hub and the Room
+  // Hub each carried their own `roomTone()` before this, and they disagreed:
+  // only one of them knew about `maintenance`, so a room under maintenance was
+  // red on one screen and grey on the other.
+  available: { tone: 'success', icon: 'lucide:door-open' },
+  occupied: { tone: 'warning', icon: 'lucide:bed-double' },
+  maintenance: { tone: 'danger', icon: 'lucide:wrench' },
+
+  // Lease state shown on the Room Hub's occupant chips, which are filtered to
+  // active + leave_requested. `active` is already mapped above.
+  leave_requested: { tone: 'warning', icon: 'lucide:door-open' }
 }
 
 export function getStatus(key?: string | null): StatusDef {

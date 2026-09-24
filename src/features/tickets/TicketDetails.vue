@@ -17,7 +17,7 @@
             <div class="rc-rule"></div>
             <button class="rc-row rc-link" @click="$emit('open-drill', 'user')"><span>Reported by</span><span class="rc-val">{{ ticket.reporterName }} <Icon icon="lucide:external-link" width="13" height="13" /></span></button>
             <button v-if="ticket.accommodationName" class="rc-row rc-link" @click="$emit('open-drill', 'accommodation')"><span>Accommodation</span><span class="rc-val">{{ ticket.accommodationName }} <Icon icon="lucide:external-link" width="13" height="13" /></span></button>
-            <button v-if="ticket.accommodationManagerName && ticket.accommodationManagerName !== ticket.reporterName" class="rc-row rc-link" @click="$emit('open-drill', 'accommodation_manager')"><span>Accommodation manager</span><span class="rc-val">{{ ticket.accommodationManagerName }} <Icon icon="lucide:external-link" width="13" height="13" /></span></button>
+            <button v-if="ticket.landlordName && ticket.landlordName !== ticket.reporterName" class="rc-row rc-link" @click="$emit('open-drill', 'landlord')"><span>Landlord/Landlady</span><span class="rc-val">{{ ticket.landlordName }} <Icon icon="lucide:external-link" width="13" height="13" /></span></button>
             <button v-if="ticket.accommodationName && ticket.room !== '—'" class="rc-row rc-link" @click="$emit('open-drill', 'room')"><span>Room</span><span class="rc-val">{{ ticket.room }} <Icon icon="lucide:external-link" width="13" height="13" /></span></button>
             <div class="rc-row" v-if="ticket.reporterEmail"><span>Email</span><span>{{ ticket.reporterEmail }}</span></div>
             <div class="rc-row" v-if="ticket.reporterPhone"><span>Phone</span><span>{{ ticket.reporterPhone }}</span></div>
@@ -101,8 +101,8 @@ const drillMeta = computed(() => {
   if (k === 'accommodation') {
     return { title: t.accommodationName || 'Accommodation', sub: 'Accommodation', initials: (t.accommodationName || 'A').slice(0, 2).toUpperCase(), color: 'var(--c-info)' }
   }
-  if (k === 'accommodation_manager') {
-    return { title: t.accommodationManagerName || 'Accommodation Manager', sub: 'Accommodation Manager', initials: (t.accommodationManagerName || 'A').split(' ').map((p: string) => p[0]).slice(0, 2).join('').toUpperCase(), color: 'var(--c-warning)' }
+  if (k === 'landlord') {
+    return { title: t.landlordName || 'Landlord/Landlady', sub: 'Landlord/Landlady', initials: (t.landlordName || 'A').split(' ').map((p: string) => p[0]).slice(0, 2).join('').toUpperCase(), color: 'var(--c-warning)' }
   }
   return { title: t.room, sub: 'Room', initials: (t.room || 'R').slice(0, 2).toUpperCase(), color: 'var(--c-success)' }
 })
@@ -111,7 +111,7 @@ const drillKindLabel = computed(() => {
   const k = props.drill?.kind
   if (k === 'user') return 'profile'
   if (k === 'accommodation') return 'accommodation'
-  if (k === 'accommodation_manager') return 'accommodation manager profile'
+  if (k === 'landlord') return 'landlord/landlady profile'
   if (k === 'room') return 'room'
   return 'record'
 })
@@ -130,20 +130,20 @@ const drillFields = computed(() => {
   if (props.drill.kind === 'accommodation') {
     return [
       { label: 'Accommodation', value: t.accommodationName ?? '' },
-      { label: 'Accommodation manager', value: t.accommodationManagerName ?? '' },
+      { label: 'Landlord/Landlady', value: t.landlordName ?? '' },
       { label: 'Room', value: t.room },
     ]
   }
-  if (props.drill.kind === 'accommodation_manager') {
+  if (props.drill.kind === 'landlord') {
     return [
-      { label: 'Accommodation manager', value: t.accommodationManagerName ?? '' },
+      { label: 'Landlord/Landlady', value: t.landlordName ?? '' },
       { label: 'Accommodation', value: t.accommodationName ?? '' },
     ]
   }
   return [
     { label: 'Room', value: t.room },
     { label: 'Accommodation', value: t.accommodationName ?? '' },
-    { label: 'Accommodation manager', value: t.accommodationManagerName ?? '' },
+    { label: 'Landlord/Landlady', value: t.landlordName ?? '' },
   ]
 })
 </script>

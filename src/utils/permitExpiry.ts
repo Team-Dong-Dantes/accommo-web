@@ -34,6 +34,37 @@ export function permitStateOf(expiresAt: string | null | undefined): PermitState
   return 'valid'
 }
 
+/**
+ * The permits a boarding house must keep on file to stay accredited, as the
+ * keywords their document types are matched against. The Compliance tab gives
+ * each its own column; the renewal report checks each one.
+ */
+export const REQUIRED_PERMITS: { key: string; label: string }[] = [
+  { key: 'fire', label: 'Fire Safety' },
+  { key: 'business', label: 'Business' },
+  { key: 'sanitary', label: 'Sanitary' },
+  { key: 'building', label: 'Building' },
+]
+
+/**
+ * The accommodation's document for one required permit keyword. Matching is
+ * case-insensitive and bidirectional so labels like "fire certificate" or
+ * "business permit" both count against fire / business.
+ */
+export function findPermit<T extends { type?: string | null }>(permits: T[] | null | undefined, key: string): T | undefined {
+  const kw = key.toLowerCase()
+  return (permits ?? []).find((pm) => {
+    const t = String(pm.type || '').toLowerCase()
+    return t.includes(kw) || kw.includes(t)
+  })
+}
+
+/** Compliance state of one required permit: missing, or its expiry's state. */
+export function requiredPermitState(permits: { type?: string | null; expiresAt?: string | null }[] | null | undefined, key: string): PermitState {
+  const pm = findPermit(permits, key)
+  return pm ? permitStateOf(pm.expiresAt) : 'missing'
+}
+
 /** Label, tone and icon per state, so every surface renders one the same way. */
 export const PERMIT_STATE: Record<PermitState, { tone: StatusTone; icon: string; label: string }> = {
   missing: { tone: 'neutral', icon: 'lucide:circle-x', label: 'Not Submitted' },

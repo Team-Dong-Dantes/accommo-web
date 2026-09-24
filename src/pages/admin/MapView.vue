@@ -90,6 +90,7 @@ import AccommodationList from '@/components/properties/PropertyList.vue'
 import AccommodationDetail from '@/components/properties/PropertyDetail.vue'
 import FilterDropdown from '@/components/ui/FilterDropdown.vue'
 import { humanizeEnum } from '@/utils/format'
+import { CAMPUS } from '@/utils/geo'
 import { useAccommodations } from '@/composables/useAccommodations'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
@@ -150,7 +151,7 @@ const filteredForList = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (q) {
     list = list.filter((p) =>
-      [p.name, p.accommodationManager, p.type]
+      [p.name, p.landlord, p.type]
         .filter(Boolean)
         .some((f) => String(f).toLowerCase().includes(q))
     )
@@ -191,8 +192,7 @@ function onSelectAccommodation(accommodation: any) {
 
 function flyToAccommodation(accommodation: any) {
   if (!map) return
-  const lat = accommodation.lat ?? accommodation._fallbackLat
-  const lng = accommodation.lng ?? accommodation._fallbackLng
+  const { lat, lng } = accommodation
   if (lat != null && lng != null) {
     map.flyTo({ center: [lng, lat], zoom: 16, essential: true })
   }
@@ -203,21 +203,28 @@ function setStyle(style: 'plain' | 'satellite') {
   map?.setStyle(MAP_STYLES[style])
 }
 
+/**
+ * Draw a marker per accommodation that has a recorded location.
+ *
+ * An accommodation without coordinates is left off the map. This used to place
+ * it on a circle around a hardcoded centre and cache the made-up position on
+ * the row as `_fallbackLat`/`_fallbackLng` — so an admin saw a pin at a
+ * location nobody had entered, indistinguishable from a real one. Mobile
+ * requires a pin before an accommodation can be created, so in practice there
+ * is nothing to draw here; an unplaced row means bad data, and the honest
+ * rendering of an unknown location is no pin at all.
+ */
 function addMarkers() {
   if (!map) return
   markers.forEach(m => m.remove())
   markers = []
-  const centerLat = 16.710
-  const centerLng = 121.720
 
-  accommodations.value.forEach((accommodation, i) => {
-    const hasCoords = accommodation.lat != null && accommodation.lng != null
-    const angle = (i / Math.max(1, accommodations.value.length)) * Math.PI * 2
-    const radius = 0.008 + (i % 3) * 0.004
-    const lat = hasCoords ? accommodation.lat! : centerLat + Math.sin(angle) * radius
-    const lng = hasCoords ? accommodation.lng! : centerLng + Math.cos(angle) * radius * 1.3
-    ;(accommodation as any)._fallbackLat = lat
-    ;(accommodation as any)._fallbackLng = lng
+  const bounds = new mapboxgl.LngLatBounds()
+  let plotted = 0
+
+  accommodations.value.forEach((accommodation) => {
+    const { lat, lng } = accommodation
+    if (lat == null || lng == null) return
 
     const marker = new mapboxgl.Marker()
       .setLngLat([lng, lat])
@@ -235,7 +242,14 @@ function addMarkers() {
     }
 
     markers.push(marker)
+    bounds.extend([lng, lat])
+    plotted++
   })
+
+  // Open on the accommodations themselves rather than a fixed centre and zoom.
+  // They span two cities — the Echague cluster sits within a few km of campus,
+  // but the Santiago ones are 10-15 km out, so no single fixed view holds them.
+  if (plotted > 0) map.fitBounds(bounds, { padding: 64, maxZoom: 16, duration: 0 })
 }
 
 onMounted(async () => {
@@ -243,10 +257,12 @@ onMounted(async () => {
   await nextTick()
   if (!mapContainer.value) return
 
+  // Campus is only the opening frame for an empty map — addMarkers() fits the
+  // view to the accommodations as soon as there are any.
   map = new mapboxgl.Map({
     container: mapContainer.value,
     style: MAP_STYLES[mapStyle.value],
-    center: [121.720, 16.710],
+    center: [CAMPUS.lng, CAMPUS.lat],
     zoom: 14,
   })
 

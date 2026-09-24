@@ -32,7 +32,7 @@
             <div class="text-weight-bold text-ink ellipsis" style="font-size: 14px; line-height: 1.2;">{{ prop.name }}</div>
             <div class="text-muted q-mt-xs ellipsis" style="font-size: 11px;">
               <span class="text-weight-bold text-muted">{{ prop.type }}</span>
-              <template v-if="prop.accommodationManager"> · {{ prop.accommodationManager }}</template>
+              <template v-if="prop.landlord"> · {{ prop.landlord }}</template>
             </div>
 
             <div class="row items-center q-mt-sm no-wrap" style="gap: 6px;">
@@ -77,7 +77,7 @@ interface AccommodationItem {
   id: string | number
   name: string
   type?: string
-  accommodationManager?: string
+  landlord?: string
   image?: string
   verified?: boolean
   statusLabel: string

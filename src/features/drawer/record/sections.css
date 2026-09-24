@@ -1,0 +1,120 @@
+/* The overview panel's building blocks, shared by the user and room records
+   (same measurements as the accommodation's OverviewCharts): a header band,
+   a standing banner, ruled sections with an uppercase title, bullet bars and a
+   contact footer. Imported scoped by each overview. */
+
+/* Header band: fills the panel's spare height so the facts sit low. */
+.rc-band { position: relative; flex: 1 1 auto; min-height: 150px; overflow: hidden; }
+.rc-band-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.rc-fade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ar-surface) 0%, transparent) 0%,
+    color-mix(in srgb, var(--ar-surface) 35%, transparent) 55%,
+    color-mix(in srgb, var(--ar-surface) 96%, transparent) 84%,
+    var(--ar-surface) 100%
+  );
+}
+.rc-dots {
+  position: absolute;
+  top: 12px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ar-surface) 80%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--ar-ink);
+  cursor: pointer;
+}
+.rc-dots:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; }
+.rc-head { position: absolute; left: 20px; right: 20px; bottom: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.rc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ar-surface) 88%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--ar-accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.rc-name { margin: 0; color: var(--ar-ink); font-family: var(--font-display); font-size: 24px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.1; }
+.rc-sub { display: inline-flex; align-items: center; gap: 5px; color: var(--ar-text); font-size: 12.5px; }
+.rc-sub :deep(svg) { flex-shrink: 0; color: var(--ar-muted); }
+
+/* Body: sized to its content and never scrolls. */
+.rc-body { display: flex; flex: 0 1 auto; flex-direction: column; min-height: 0; padding: 2px 20px 0; overflow: hidden; }
+
+.rc-standing { display: flex; flex-shrink: 0; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin-top: 6px; padding: 7px 10px; border-radius: 9px; }
+.rc-standing--ok { background: color-mix(in srgb, var(--c-success) 12%, var(--ar-surface)); color: var(--c-success); }
+.rc-standing--warn { background: color-mix(in srgb, var(--c-warning) 13%, var(--ar-surface)); color: var(--c-warning); }
+.rc-standing--bad { background: color-mix(in srgb, var(--c-danger) 12%, var(--ar-surface)); color: var(--c-danger); }
+.rc-standing-title { font-size: 13px; font-weight: 700; }
+.rc-standing-sub { min-width: 0; color: var(--ar-text); font-size: 11.5px; }
+
+.rc-sec { display: flex; flex-shrink: 0; flex-direction: column; gap: 6px; padding: 9px 0; border-bottom: 1px solid var(--ar-border); }
+.rc-sec:last-child { border-bottom: none; }
+.rc-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rc-title { color: var(--ar-muted); font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+.rc-meta { overflow: hidden; color: var(--ar-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.rc-note { margin: 0; color: var(--ar-text); font-size: 12px; }
+.rc-big { color: var(--ar-ink); font-family: var(--font-display); font-size: 24px; font-weight: 700; line-height: 1; }
+
+/* Label / value pairs in a two-column grid. */
+.rc-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; margin: 0; }
+.rc-facts div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.rc-facts dt { color: var(--ar-muted); font-size: 10.5px; }
+.rc-facts dd { margin: 0; overflow: hidden; color: var(--ar-ink); font-size: 12.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+
+/* A bar with a marker, as in the accommodation's "How it compares". */
+.rc-track { position: relative; height: 8px; border-radius: 4px; background: var(--ar-soft); box-shadow: inset 0 0 0 1px var(--ar-border); }
+.rc-fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--ar-accent); }
+.rc-mark { position: absolute; top: -4px; width: 2px; height: 16px; margin-left: -1px; border-radius: 1px; background: var(--ar-ink); box-shadow: 0 0 0 2px var(--ar-surface); }
+.rc-key { display: inline-block; width: 2px; height: 11px; margin-right: 4px; border-radius: 1px; background: var(--ar-ink); vertical-align: -1px; }
+
+/* Footer: contact links on the soft band, like the accommodation's landlord foot. */
+.rc-foot {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  margin-top: auto;
+  padding: 12px 20px;
+  border-top: 1px solid var(--ar-border);
+  background: var(--ar-soft);
+}
+.rc-link { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--ar-text); font-size: 12px; text-decoration: none; }
+.rc-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-link :deep(svg) { flex-shrink: 0; color: var(--ar-muted); }
+.rc-link:hover { color: var(--ar-accent); text-decoration: underline; }
+.rc-link:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; border-radius: 3px; }
+.rc-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 7px 12px;
+  border: 1px solid var(--ar-accent-line);
+  border-radius: 8px;
+  background: var(--ar-surface);
+  color: var(--ar-accent);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rc-btn:hover { background: var(--ar-accent-soft); }

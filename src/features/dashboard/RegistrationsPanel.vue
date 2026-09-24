@@ -25,9 +25,6 @@
           </button>
           <DateRangeButton v-model="customRange" />
         </div>
-        <button type="button" class="icon-btn" title="Export CSV" aria-label="Export registrations as CSV" @click="exportCsv">
-          <Icon icon="lucide:download" width="17" height="17" />
-        </button>
       </div>
     </header>
 
@@ -52,11 +49,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Icon } from '@iconify/vue'
 import ChartCard from '@/components/charts/ChartCard.vue'
 import DateRangeButton from '@/features/audit/DateRangeButton.vue'
 import { cssVar } from '@/utils/chartTheme'
-import { downloadCsv } from '@/utils/csv'
 import type { DashboardStats } from '@/types/dashboard'
 
 const props = defineProps<{ months: DashboardStats['registrationsByMonth'] }>()
@@ -100,7 +95,7 @@ const projectionWindow = computed(() => Math.min(3, view.value.length))
 const projection = computed(() => {
   const window = projectionWindow.value
   if (window < 2) return null
-  const totals = view.value.slice(-window).map((m) => m.students + m.accommodationManagers)
+  const totals = view.value.slice(-window).map((m) => m.students + m.landlords)
   return Math.round(totals.reduce((sum, value) => sum + value, 0) / window)
 })
 
@@ -116,9 +111,9 @@ const categories = computed(() => [
   ...(projection.value === null ? [] : [nextMonthLabel.value]),
 ])
 
-const SERIES_DEFS: { key: 'students' | 'accommodationManagers' | 'total' | 'projection'; label: string; color: string }[] = [
+const SERIES_DEFS: { key: 'students' | 'landlords' | 'total' | 'projection'; label: string; color: string }[] = [
   { key: 'students', label: 'Students', color: cssVar('--c-primary', '#0F766E') },
-  { key: 'accommodationManagers', label: 'Accommodation Managers', color: cssVar('--c-accent', '#E0654B') },
+  { key: 'landlords', label: 'Landlords/Landladies', color: cssVar('--c-accent', '#E0654B') },
   { key: 'total', label: 'Total', color: cssVar('--c-info', '#0E7490') },
   { key: 'projection', label: 'Projected', color: cssVar('--c-primary-ink', '#0B5750') },
 ]
@@ -130,15 +125,15 @@ const series = computed(() => {
   const tail = projection.value === null ? [] : [null]
   return [
     { name: 'Students', data: [...view.value.map((m) => m.students), ...tail] },
-    { name: 'Accommodation Managers', data: [...view.value.map((m) => m.accommodationManagers), ...tail] },
-    { name: 'Total', data: [...view.value.map((m) => m.students + m.accommodationManagers), ...tail] },
+    { name: 'Landlords/Landladies', data: [...view.value.map((m) => m.landlords), ...tail] },
+    { name: 'Total', data: [...view.value.map((m) => m.students + m.landlords), ...tail] },
     ...(projection.value === null
       ? []
       : [{
           name: 'Projected',
           data: [
             ...Array(Math.max(0, view.value.length - 1)).fill(null),
-            view.value.at(-1)!.students + view.value.at(-1)!.accommodationManagers,
+            view.value.at(-1)!.students + view.value.at(-1)!.landlords,
             projection.value,
           ],
         }]),
@@ -146,7 +141,7 @@ const series = computed(() => {
 })
 
 const peak = computed(() => {
-  const rows = view.value.map((m) => ({ x: m.month, y: m.students + m.accommodationManagers }))
+  const rows = view.value.map((m) => ({ x: m.month, y: m.students + m.landlords }))
   if (!rows.length || rows.every((r) => r.y === 0)) return null
   return rows.reduce((a, b) => (b.y > a.y ? b : a))
 })
@@ -158,10 +153,10 @@ const previousView = computed(() => {
   return props.months.slice(-2 * n, -n)
 })
 const totalThisPeriod = computed(() =>
-  view.value.reduce((sum, m) => sum + m.students + m.accommodationManagers, 0),
+  view.value.reduce((sum, m) => sum + m.students + m.landlords, 0),
 )
 const totalPrevious = computed(() =>
-  previousView.value.reduce((sum, m) => sum + m.students + m.accommodationManagers, 0),
+  previousView.value.reduce((sum, m) => sum + m.students + m.landlords, 0),
 )
 const periodDelta = computed(() =>
   totalPrevious.value
@@ -173,24 +168,8 @@ const periodDeltaText = computed(() =>
 )
 
 const hasData = computed(() =>
-  view.value.length > 0 && view.value.some((m) => m.students + m.accommodationManagers > 0),
+  view.value.length > 0 && view.value.some((m) => m.students + m.landlords > 0),
 )
-
-function exportCsv() {
-  const columns = visibleSeries.value.filter((s) => s.key !== 'projection')
-  downloadCsv(
-    'registrations',
-    ['Month', ...columns.map((s) => s.label)],
-    view.value.map((m, i) => [
-      categories.value[i] ?? '',
-      ...columns.map((s) =>
-        s.key === 'students' ? m.students
-          : s.key === 'accommodationManagers' ? m.accommodationManagers
-            : m.students + m.accommodationManagers,
-      ),
-    ]),
-  )
-}
 
 const options = computed(() => ({
   chart: { height: 240, toolbar: { show: false } },
@@ -273,20 +252,6 @@ const options = computed(() => ({
 .seg-btn:hover { color: var(--c-text); }
 .seg-btn.active { background: var(--c-surface); color: var(--c-primary); box-shadow: var(--shadow-sm); }
 .seg-btn:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 1px; }
-
-.icon-btn {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm, 10px);
-  background: var(--c-surface);
-  color: var(--c-muted);
-  cursor: pointer;
-}
-.icon-btn:hover { color: var(--c-primary); border-color: var(--c-primary); }
-.icon-btn:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 1px; }
 
 .reg-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; }
 .legend-chip {

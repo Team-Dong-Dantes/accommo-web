@@ -1,7 +1,8 @@
 import { ref } from 'vue'
 import { supabase } from '@/utils/supabase'
 import { getStatus, type StatusTone } from '@/utils/status.config'
-import { getInitialsWide as initialsOf, humanizeEnum } from '@/utils/format'
+import { composeAddress, getInitialsWide as initialsOf, humanizeEnum } from '@/utils/format'
+import { resolveAsset } from '@/utils/cloudinaryUrl'
 import { facilityIcon, facilityLabel } from '@/utils/facilities'
 
 // Real accommodation shape pulled from Supabase. Fields the DB doesn't carry
@@ -47,11 +48,17 @@ export interface RealAccommodation {
    */
   submittedAt: string | null
   name: string
+  /** Fallback behind the hub's cover-photo thumbnail, from the house's name. */
+  initials: string
   type: string
-  accommodationManager: string
-  accommodationManagerInitials: string
-  /** The manager's profile photo, when they have one. */
-  accommodationManagerAvatarUrl: string
+  landlord: string
+  /** The landlord/landlady's user id, for opening their record. */
+  landlordId: string
+  /** `users.sex` ('F' | 'M' | null) — feeds `landlordTitle`. */
+  landlordSex: string | null
+  landlordInitials: string
+  /** The landlord/landlady's profile photo, when they have one. */
+  landlordAvatarUrl: string
   contact: string
   /** Derived: only an accredited property is visible to students. */
   verified: boolean
@@ -71,6 +78,8 @@ export interface RealAccommodation {
   maleCount: number
   image: string
   address: string
+  /** For grouping and filtering the OSAS reports by barangay. */
+  barangay: string
   floors: number
   lat: number | null
   lng: number | null
@@ -78,7 +87,7 @@ export interface RealAccommodation {
   accommodationType: string
   roomType: string
   description: string
-  // Manager profile (for Accommodation Hub accreditation/performance tabs)
+  // Landlord/landlady profile (for Accommodation Hub accreditation/performance tabs)
   businessName: string | null
   accreditationStatus: string | null
   accreditedAt: string | null
@@ -88,6 +97,10 @@ export interface RealAccommodation {
   permits: RealPermit[]
   /** Shared facilities (bathrooms, kitchen, study area) on this property. */
   facilities: RealFacility[]
+  /** `male` | `female` | `co_ed`, or null when the landlord/landlady has not said. */
+  genderPolicy: string | null
+  /** OSAS has taken it out of what students browse, without touching its accreditation. */
+  hiddenFromListings: boolean
 }
 
 export interface RealFacility {
@@ -98,6 +111,9 @@ export interface RealFacility {
   description: string
   floor: number | null
   photoCount: number
+  status: 'available' | 'under_repair'
+  /** Rooms the landlord/landlady says share it. */
+  roomIds: string[]
 }
 
 export interface RealRoom {
@@ -113,6 +129,8 @@ export interface RealRoom {
 }
 
 export interface RealOccupant {
+  /** The boarder's user id. */
+  id: string
   name: string
   initials: string
   /** Their profile photo, when they have one. */
@@ -131,6 +149,12 @@ export interface RealOccupant {
  */
 const NO_PHOTO = ''
 
+/** `student_profiles` is one-to-one with `users`, but PostgREST may still embed it as a list. */
+function profileOf(student: any): { program?: string | null; year_level?: string | null } | null {
+  const sp = student?.student_profiles
+  return (Array.isArray(sp) ? sp[0] : sp) ?? null
+}
+
 // `accommodation_type` holds snake_case enum values, so the old
 // charAt(0).toUpperCase() rendered "boarding_house" as "Boarding_house" — the
 // underscore was visible in the hub table and the map list.
@@ -148,18 +172,18 @@ export function useAccommodations() {
         supabase.from('accommodations').select(
           `id, name, address, city, barangay, lat, lng, room_type, accommodation_type,
             total_rooms, total_floors, description, status, rating_avg,
-            reviews_count, accommodation_manager_id, business_name, accreditation_status,
-            accredited_at, accreditation_expires_at,
-            accommodation_manager:users!accommodations_accommodation_manager_id_fkey(id, full_name, phone, initials, avatar_url)`
+            reviews_count, landlord_id, business_name, accreditation_status,
+            accredited_at, accreditation_expires_at, gender_policy, hidden_from_listings,
+            landlord:users!accommodations_landlord_id_fkey(id, full_name, phone, initials, avatar_url, sex)`
         ),
         supabase.from('rooms').select(
           `id, room_number, label, floor, capacity, current_pax, status, monthly_rent, accommodation_id`
         ),
         supabase.from('leases').select(
           `id, status, room_id, student_id, start_date,
-           student:users!leases_student_id_fkey(id, full_name, initials, sex, avatar_url)`
+           student:users!leases_student_id_fkey(id, full_name, initials, sex, avatar_url, student_profiles(program, year_level))`
         ).in('status', ['active', 'leave_requested']),
-        supabase.from('accommodation_manager_profiles').select(
+        supabase.from('landlord_profiles').select(
           `user_id, response_rate`
         ),
         supabase.from('accommodation_documents').select(
@@ -168,7 +192,7 @@ export function useAccommodations() {
         supabase.from('accommodation_images').select('accommodation_id, url, sort_order')
           .order('sort_order', { ascending: true }),
         supabase.from('accommodation_facilities')
-          .select('id, accommodation_id, facility_type, label, description, floor, sort_order')
+          .select('id, accommodation_id, facility_type, label, description, floor, sort_order, status, accommodation_facility_rooms(room_id)')
           .eq('access_scope', 'shared')
           .order('sort_order', { ascending: true }),
         supabase.from('accommodation_facility_images').select('facility_id'),
@@ -179,7 +203,7 @@ export function useAccommodations() {
       const props = (propsRes.data ?? []) as any[]
       const rooms = (roomsRes.data ?? []) as any[]
       const leases = (leasesRes.data ?? []) as any[]
-      const accommodationManagerProfiles = (profilesRes.data ?? []) as any[]
+      const landlordProfiles = (profilesRes.data ?? []) as any[]
       const permits = (permitsRes.data ?? []) as any[]
       const images = (imagesRes.data ?? []) as any[]
       const facilities = (facilitiesRes.data ?? []) as any[]
@@ -210,6 +234,8 @@ export function useAccommodations() {
           description: f.description ?? '',
           floor: f.floor ?? null,
           photoCount: photoCountByFacility.get(f.id) ?? 0,
+          status: f.status === 'under_repair' ? 'under_repair' : 'available',
+          roomIds: (f.accommodation_facility_rooms ?? []).map((l: { room_id: string }) => l.room_id),
         })
       }
 
@@ -222,9 +248,9 @@ export function useAccommodations() {
         }
       }
 
-      // Index accommodation-manager profiles by user_id.
+      // Index landlord/landlady profiles by user_id.
       const profileByUserId = new Map<string, any>()
-      for (const lr of accommodationManagerProfiles) {
+      for (const lr of landlordProfiles) {
         if (lr.user_id) profileByUserId.set(lr.user_id, lr)
       }
 
@@ -264,9 +290,9 @@ export function useAccommodations() {
       }
 
       accommodations.value = props.map((p): RealAccommodation => {
-        const accommodationManager = p.accommodation_manager
-        const accommodationManagerName = accommodationManager?.full_name ?? 'Unknown Accommodation Manager'
-        const profile = profileByUserId.get(p.accommodation_manager_id)
+        const landlord = p.landlord
+        const landlordName = landlord?.full_name ?? 'Unknown Landlord/Landlady'
+        const profile = profileByUserId.get(p.landlord_id)
         const roomList = roomsByAccommodation.get(p.id) ?? []
         const verified = p.status === 'accredited' || p.status === 'verified'
 
@@ -301,12 +327,13 @@ export function useAccommodations() {
             const st = l.student ?? {}
             const sex = st.sex === 'F' || st.sex === 'Female' ? 'female' : 'male'
             return {
+              id: st.id ?? '',
               name: st.full_name ?? 'Unknown',
               initials: st.initials ?? initialsOf(st.full_name),
               avatarUrl: st.avatar_url ?? '',
               gender: sex,
-              course: '—',
-              year: '—',
+              course: profileOf(st)?.program ?? '—',
+              year: profileOf(st)?.year_level ?? '—',
               since: l.start_date ? new Date(l.start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—',
             }
           }),
@@ -315,11 +342,22 @@ export function useAccommodations() {
         return {
           id: p.id,
           name: p.name ?? 'Unnamed Accommodation',
+          // The interface has always declared this, but nothing set it — so the
+          // hub's accommodation cell had no fallback behind its photo. Needed
+          // for a house whose landlord has not uploaded one yet.
+          initials: initialsOf(p.name ?? 'Unnamed Accommodation'),
           type: humanizeEnum(p.accommodation_type),
-          accommodationManager: accommodationManagerName,
-          accommodationManagerInitials: accommodationManager?.initials ?? initialsOf(accommodationManagerName),
-          accommodationManagerAvatarUrl: accommodationManager?.avatar_url ?? '',
-          contact: accommodationManager?.phone ?? '—',
+          landlord: landlordName,
+          landlordId: p.landlord_id ?? '',
+          landlordSex: landlord?.sex ?? null,
+          // Computed from the name rather than trusting `users.initials`: that
+          // column is stale for most landlord accounts on file (several
+          // unrelated people all stored as "DU"), so preferring it rendered
+          // the wrong letters — accurate but occasionally different from
+          // whatever a profile screen still reads straight off that column.
+          landlordInitials: initialsOf(landlordName),
+          landlordAvatarUrl: landlord?.avatar_url ?? '',
+          contact: landlord?.phone ?? '—',
           verified,
           status: p.status ?? 'unknown',
           statusLabel: humanizeEnum(p.status ?? 'unknown'),
@@ -333,8 +371,11 @@ export function useAccommodations() {
           occupancyRate: totalCapacity > 0 ? Math.round((totalPax / totalCapacity) * 100) : 0,
           femaleCount,
           maleCount,
-          image: coverByAccommodation.get(p.id) ?? NO_PHOTO,
-          address: [p.address, p.barangay, p.city].filter(Boolean).join(', ') || '—',
+          // Served through resolveAsset so the hub's 48px thumbnail pulls an
+          // f_auto,q_auto derivative rather than the full-size upload.
+          image: resolveAsset(coverByAccommodation.get(p.id) ?? NO_PHOTO),
+          address: composeAddress(p),
+          barangay: p.barangay ?? '',
           floors: p.total_floors ?? 0,
           lat: p.lat,
           lng: p.lng,
@@ -358,6 +399,8 @@ export function useAccommodations() {
             uploadedAt: dm.uploaded_at ?? null,
           })),
           facilities: facilitiesByAccommodation.get(p.id) ?? [],
+          genderPolicy: p.gender_policy ?? null,
+          hiddenFromListings: Boolean(p.hidden_from_listings),
         }
       })
       // Newest first, so the map and its list open on what just came in rather

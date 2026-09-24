@@ -70,7 +70,7 @@ export interface LeaseDetailRow {
   advance_paid: number | null
   deposit_paid: number | null
   ended_reason: string | null
-  accommodation_manager_id: string
+  landlord_id: string
   room: {
     id: string
     room_number: string | null
@@ -116,7 +116,7 @@ export async function fetchStudentLeaseHistory(studentId: string): Promise<Lease
       advance_paid,
       deposit_paid,
       ended_reason,
-      accommodation_manager_id,
+      landlord_id,
       room:rooms!inner(
         id,
         room_number,
@@ -153,3 +153,58 @@ export async function fetchPaymentsForLeases(leaseIds: string[]): Promise<LeaseP
   if (error) throw error
   return (data ?? []) as LeasePaymentRow[]
 }
+
+/**
+ * One stay as a student's record shows it in place: the accommodation, how
+ * many boarders it has now, and — when the lease is known — its room and who is
+ * in that room now.
+ */
+export async function fetchStaySummary(accommodationId: string, leaseId: string | null) {
+  const [accRes, boardersRes, leaseRes] = await Promise.all([
+    supabase
+      .from('accommodations')
+      .select(
+        `id, name, address, barangay, city, lat, lng, accommodation_type, status, rating_avg, reviews_count, total_rooms,
+         landlord:users!accommodations_landlord_id_fkey(full_name, sex, phone)`,
+      )
+      .eq('id', accommodationId)
+      .single(),
+    supabase
+      .from('leases')
+      .select('id, room:rooms!inner(accommodation_id)', { count: 'exact', head: true })
+      .eq('room.accommodation_id', accommodationId)
+      .in('status', ['active', 'leave_requested']),
+    leaseId
+      ? supabase
+          .from('leases')
+          .select('room:rooms(id, label, room_number, room_type, custom_room_type, floor, capacity, monthly_rent, status)')
+          .eq('id', leaseId)
+          .single()
+      : Promise.resolve({ data: null, error: null }),
+  ])
+  if (accRes.error) throw accRes.error
+  if (leaseRes.error) throw leaseRes.error
+
+  const one = <T>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null)
+  const room = one((leaseRes.data as any)?.room)
+  let occupants: { name: string; since: string | null }[] = []
+  if (room?.id) {
+    const { data, error } = await supabase
+      .from('leases')
+      .select('start_date, student:users!leases_student_id_fkey(full_name)')
+      .eq('room_id', room.id)
+      .in('status', ['active', 'leave_requested'])
+    if (error) throw error
+    occupants = ((data ?? []) as any[]).map((l) => ({ name: one<any>(l.student)?.full_name || 'Unknown', since: l.start_date }))
+  }
+
+  const acc = accRes.data as any
+  return {
+    accommodation: { ...acc, landlord: one<any>(acc.landlord) },
+    boarders: boardersRes.count ?? 0,
+    room: room as any,
+    occupants,
+  }
+}
+
+export type StaySummary = Awaited<ReturnType<typeof fetchStaySummary>>

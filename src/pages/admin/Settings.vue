@@ -95,6 +95,7 @@
         </q-card>
 
         <!-- Administrators -->
+        <ReportSettingsSection v-if="active === 'reports'" />
         <AdministratorsSection v-if="authStore.isSuperadmin" v-show="active === 'administrators'" />
 
         <!-- Action row: only when there are unsaved changes -->
@@ -126,16 +127,21 @@ import { useAuthStore } from '@/stores/auth'
 import { supabase } from '@/utils/supabase'
 import { type StatusTone } from '@/utils/status.config'
 import AdministratorsSection from '@/features/settings/AdministratorsSection.vue'
+import ReportSettingsSection from '@/features/settings/ReportSettingsSection.vue'
+import { useRoute } from 'vue-router'
 
 const notify = useNotify()
 const authStore = useAuthStore()
-const active = ref('profile')
+// ?section=reports opens a section directly (the report dialog links here).
+const requested = useRoute().query.section
+const active = ref(typeof requested === 'string' ? requested : 'profile')
 
 const sections = computed(() => {
   const list = [
     { id: 'profile', label: 'Profile', icon: 'lucide:circle-user' },
     { id: 'notifications', label: 'Notifications', icon: 'lucide:bell' },
     { id: 'security', label: 'Security', icon: 'lucide:shield' },
+    { id: 'reports', label: 'Reports', icon: 'lucide:file-chart-column' },
   ]
   if (authStore.isSuperadmin) {
     list.push({ id: 'administrators', label: 'Administrators', icon: 'lucide:user-cog' })

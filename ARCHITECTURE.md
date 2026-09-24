@@ -39,6 +39,10 @@ src/
   handles. `useTickets` is the canonical example: one instance per page —
   it is a factory, NOT a singleton; extracted components must never call it
   themselves, they receive data via props and emit events up.
+  `useNotifications` is the other shape worth knowing: two unrelated
+  surfaces (the header bell and the notification centre) share it, each
+  passing its own `limit` and realtime `channel`. Where two screens do the
+  same job, that difference belongs in arguments, not in a second copy.
 - **pages/** wire routing, table/filter state, and compose feature
   components. A page should not exceed ~400 lines; if it grows, extract a
   feature component with a real boundary (a whole overlay, a whole panel —
@@ -49,33 +53,55 @@ src/
 
 ## Rules of thumb
 
-1. **No file over 400 lines** (exceptions: `types/database.gen.ts` —
-   generated, never edit; `pages/admin/UIBible.vue` — dev-only style guide).
-2. **Icons** are `<Icon icon="mdi:..." />` from `@iconify/vue` — never
-   `q-icon`.
+1. **No file over 400 lines** (exception: `types/database.gen.ts` —
+   generated, never edit). Currently 16 files exceed this; treat it as the
+   target for files you touch, not a claim about the tree.
+2. **Icons** are `<Icon icon="lucide:..." />` from `@iconify/vue` — never
+   `q-icon`, and never the `mdi` collection (retired). The one remaining
+   exception is the `mdi-*` Quasar font names inside `utils/notify.ts` and
+   the two auth pages.
 3. **Status colors** come from `utils/status.config.ts`
-   (`getStatus().tone`, `toneVar()`), never hardcoded Quasar palette names
-   or hex maps.
+   (`getStatus().tone`, `getTone()`, `toneVar()`), never hardcoded Quasar
+   palette names or hex maps. `STATUS_MAP` covers roles, account and
+   accreditation status, ticket priority, announcement audience, **and room
+   occupancy** (`available` / `occupied` / `maintenance`). Add a key there
+   rather than writing a local tone function — two pages did that for room
+   status and their copies disagreed about `maintenance`.
 4. **Shared string/date helpers** live in `utils/format.ts`
    (`getInitials`, `getInitialsWide`, `getTimeAgo`, `getTimeAgoShort`,
-   `roleLabel`, `formatTime`, `formatDateTime`, `dayLabel`). Don't
-   re-define them locally. Note: `getInitials` and `getInitialsWide`
-   differ intentionally (single-word names → "M" vs "MA") — pick the one
-   your surface already used.
-5. **Type re-exports for compatibility**: `DetailDrawer.vue` re-exports the
+   `roleLabel`, `cap`, `capitalize`, `fmtDate`, `csvDate`, `avatarUrl`,
+   `formatTime`, `formatDateTime`, `dayLabel`, `humanizeEnum`). Don't
+   re-define them locally. Two pairs differ intentionally:
+   - `getInitials` / `getInitialsWide` — single-word names → "M" vs "MA"
+   - `cap` / `capitalize` — empty input → "—" vs "Pending", and
+     `capitalize` lowercases the tail
+   Pick the one your surface already used. Feature modules
+   (`features/announcements/shared.ts`, `features/audit/logMapping.ts`,
+   `features/users/userPreview.ts`, `features/drawer/preview.ts`) re-export
+   some of these so their importers have one import surface.
+5. **Dates are formatted in `en-PH`**, explicitly, never with the browser
+   default — otherwise the same timestamp renders differently per admin.
+6. **Type re-exports for compatibility**: `DetailDrawer.vue` re-exports the
    `DrawerPreview*` types from `features/drawer/preview.ts` so pages can
    keep importing from either location.
-6. **VerificationReview** keeps its `:request` / `@close` / `@submit`
+7. **VerificationReview** keeps its `:request` / `@close` / `@submit`
    contract with `pages/admin/Verifications.vue`; its internals are
    `features/verifications/*`.
 
 ## Verification gates (run before handing anything over)
 
 ```bash
-npx vue-tsc --noEmit          # must exit 0 (strict mode)
-npx quasar build              # must succeed
-grep -rn "console.log" src/   # must be empty
+npm run typecheck             # must exit 0 (strict mode)
+npm run lint                  # must stay at 0 errors
+npm run test                  # must stay green
+npm run build                 # must succeed
+grep -rnE "console\.(log|warn|error)" src/
 ```
+
+The console grep used to look for `console.log` alone, which nothing in the
+tree has ever used — every call is `warn` or `error`, so the gate passed
+while catching nothing. It is a review prompt, not a hard zero: the current
+count is 22, all of them deliberate `warn`/`error` on a non-fatal path.
 
 Screenshot parity for touched surfaces (shoot before, diff after) —
 refactors must be visually invisible.

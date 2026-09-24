@@ -32,8 +32,8 @@ import {
   fetchActiveLeaseAccreditation,
 } from '@/api/leases'
 import {
-  fetchPendingAccommodationManagerPaymentVerificationCount,
-  fetchOverdueAccommodationManagerPaymentCount,
+  fetchPendingLandlordPaymentVerificationCount,
+  fetchOverdueLandlordPaymentCount,
 } from '@/api/payments'
 
 export type { DashboardStats } from '@/types/dashboard'
@@ -93,8 +93,8 @@ function emptyStats(): DashboardStats {
     expiringLeases: [],
     expiringAccreditations: 0,
     recentTickets: [],
-    accommodationManagerPayments: { pendingVerification: 0, overdue: 0 },
-    verificationQueue: { students: 0, accommodationManagers: 0, withDocs: 0, oldestDays: 0, oldestStudentDays: 0, studentsReadyForReview: 0, studentsPastSla: 0, oldest: [] },
+    landlordPayments: { pendingVerification: 0, overdue: 0 },
+    verificationQueue: { students: 0, landlords: 0, withDocs: 0, oldestDays: 0, oldestStudentDays: 0, studentsReadyForReview: 0, studentsPastSla: 0, oldest: [] },
     accreditationQueue: { total: 0, withPermits: 0, ready: [] },
     ticketQueue: { open: 0, urgent: 0, unassigned: 0, oldestDays: 0, pastSla: 0, createdLast7Days: 0, createdPrevious7Days: 0, leadingOpenCategory: null, oldest: [] },
   }
@@ -241,20 +241,20 @@ function computeRegistrationTrend(
   for (let i = 12; i >= 0; i--) {
     monthLabels.push(monthKey(new Date(now.getFullYear(), now.getMonth() - i, 1)))
   }
-  const regByMonth = new Map(monthLabels.map(k => [k, { students: 0, accommodationManagers: 0 }]))
+  const regByMonth = new Map(monthLabels.map(k => [k, { students: 0, landlords: 0 }]))
   for (const u of regRows) {
     if (!u.created_at) continue
     const k = monthKey(new Date(u.created_at))
     const bucket = regByMonth.get(k)
     if (!bucket) continue
     if (u.role === 'student') bucket.students += 1
-    else if (u.role === 'accommodation_manager') bucket.accommodationManagers += 1
+    else if (u.role === 'landlord') bucket.landlords += 1
   }
   data.registrationsByMonth = monthLabels.map((k) => {
     const [y, m] = k.split('-')
     const label = new Date(Number(y), Number(m) - 1, 1).toLocaleString('en', { month: 'short' })
     const v = regByMonth.get(k)!
-    return { ym: k, month: label, students: v.students, accommodationManagers: v.accommodationManagers }
+    return { ym: k, month: label, students: v.students, landlords: v.landlords }
   })
 }
 
@@ -290,7 +290,7 @@ function computeVerificationAges(
   const rows = AGE_BUCKETS.map((bucket) => ({
     label: bucket.label,
     students: 0,
-    managers: 0,
+    landlords: 0,
     overdue: bucket.overdue,
   }))
 
@@ -299,7 +299,7 @@ function computeVerificationAges(
     const index = AGE_BUCKETS.findIndex((bucket) => age <= bucket.maxDays)
     const row = rows[index === -1 ? rows.length - 1 : index]
     if (!row) continue
-    if (user.role === 'accommodation_manager') row.managers += 1
+    if (user.role === 'landlord') row.landlords += 1
     else row.students += 1
   }
 
@@ -363,7 +363,7 @@ function computeOperationalQueues(
   const oldestPendingStudent = pendingUsers.find((user) => user.role === 'student')
   data.verificationQueue = {
     students: pendingUsers.filter((user) => user.role === 'student').length,
-    accommodationManagers: pendingUsers.filter((user) => user.role === 'accommodation_manager').length,
+    landlords: pendingUsers.filter((user) => user.role === 'landlord').length,
     withDocs: pendingUsers.filter((user) => (verificationDocs.get(user.id)?.length ?? 0) > 0).length,
     oldestDays: verificationOldest[0]?.ageDays ?? 0,
     oldestStudentDays: ageInDays(oldestPendingStudent?.created_at ?? null),
@@ -472,8 +472,8 @@ export function useDashboardStats() {
         regRows,
         expLeases,
         expAccred,
-        accommodationManagerPaymentsPending,
-        accommodationManagerPaymentsOverdue,
+        landlordPaymentsPending,
+        landlordPaymentsOverdue,
         verificationUsers,
         verificationDocs,
         pendingAccommodations,
@@ -492,8 +492,8 @@ export function useDashboardStats() {
         fetchRegistrationsSince(regFetchSince),
         fetchExpiringLeases(nowIso, thirtyDaysIso),
         fetchExpiringAccommodationAccreditations(nowIso, thirtyDaysIso),
-        fetchPendingAccommodationManagerPaymentVerificationCount(),
-        fetchOverdueAccommodationManagerPaymentCount(),
+        fetchPendingLandlordPaymentVerificationCount(),
+        fetchOverdueLandlordPaymentCount(),
         fetchPendingVerificationUsers(),
         fetchVerificationDocIndex(),
         fetchPendingAccommodations(),
@@ -517,10 +517,10 @@ export function useDashboardStats() {
       data.activeLeases = activeLeases
       data.leasesByAccreditation = leaseAccreditation
 
-      // Accommodation-manager lease payments.
-      data.accommodationManagerPayments = {
-        pendingVerification: accommodationManagerPaymentsPending,
-        overdue: accommodationManagerPaymentsOverdue,
+      // Landlord/landlady lease payments.
+      data.landlordPayments = {
+        pendingVerification: landlordPaymentsPending,
+        overdue: landlordPaymentsOverdue,
       }
 
       // Registration trend — the 13-month series behind the registrations chart.

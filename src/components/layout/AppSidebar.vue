@@ -225,8 +225,13 @@ onUnmounted(() => {
 });
 </script>
 
-<style>
-.sidebar-bg {
+<style scoped>
+/* `:deep()` is required, not stylistic. QDrawer sets `inheritAttrs: false` and
+   puts the class we pass onto its inner content div (q-drawer-container >
+   aside.q-drawer > div.sidebar-bg), which Quasar renders itself — so it never
+   carries this component's scope attribute. Plain `.sidebar-bg` under `scoped`
+   matches nothing and the rail loses its background entirely. */
+:deep(.sidebar-bg) {
   background: linear-gradient(180deg, var(--c-sidebar-bg) 0%, var(--c-sidebar-bg-2) 100%) !important;
   color: var(--c-sidebar-text) !important;
   overflow-x: hidden;
@@ -238,14 +243,21 @@ onUnmounted(() => {
 
 /* Quasar renders its own drawer shadow inside the drawer (.q-layout__shadow);
    hide it so we control the shadow ourselves below */
-.q-drawer .q-layout__shadow {
+/* QDrawer renders this inside its own <aside>, so scoped CSS needs :deep() to
+   reach it. Only rendered when the drawer is `elevated`, which this one is not
+   — kept as a guard so turning elevation on can't reintroduce Quasar's shadow
+   alongside the custom one below. */
+:deep(.q-layout__shadow) {
   display: none !important;
 }
 
 /* Custom shadow only when the drawer ROOT is expanded (not in mini state).
    NOTE: `sidebar-bg` lands on the inner content div, while `q-drawer--mini`
    is on the root <aside>, so we must key off the root element. */
-.q-drawer:not(.q-drawer--mini) .sidebar-bg {
+/* The whole selector goes inside :deep() — both `.q-drawer` and `.sidebar-bg`
+   are Quasar-rendered, so neither carries the scope attribute. Only the
+   component root (.q-drawer-container) does. */
+:deep(.q-drawer:not(.q-drawer--mini) .sidebar-bg) {
   box-shadow: var(--c-sidebar-shadow) !important;
 }
 

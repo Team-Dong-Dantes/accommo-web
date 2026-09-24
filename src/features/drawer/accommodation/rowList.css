@@ -1,0 +1,96 @@
+/* Rooms and Shared Facilities: floor-grouped rows that open in place. */
+.rl { display: flex; flex-direction: column; gap: 16px; }
+.rl-floor { display: flex; flex-direction: column; gap: 8px; }
+.rl-floor-head { display: flex; align-items: center; gap: 10px; }
+.rl-floor-name { color: var(--ar-muted); font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.rl-rule { flex: 1; height: 1px; background: var(--ar-border); }
+.rl-floor-count { color: var(--ar-muted); font-size: 11px; }
+
+.rl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--ar-border);
+  border-radius: 10px;
+  background: var(--ar-border);
+}
+.rl-item { background: var(--ar-surface); }
+/* The q-expansion-item header is rendered inside Quasar, so it needs :deep. */
+.rl-list :deep(.rl-row) {
+  align-items: center;
+  gap: 14px;
+  min-height: 0;
+  padding: 12px 14px;
+  background: var(--ar-surface);
+}
+.rl-thumb {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--ar-soft), var(--ar-border));
+  color: var(--ar-accent);
+}
+.rl-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.rl-main { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.rl-name { color: var(--ar-ink); font-size: 13px; font-weight: 600; }
+.rl-sub { color: var(--ar-muted); font-size: 11px; }
+.rl-col { display: flex; align-items: center; gap: 4px; width: 110px; flex-shrink: 0; }
+.rl-status { display: flex; width: 90px; flex-shrink: 0; }
+.rl-bed { width: 14px; height: 14px; border-radius: 4px; box-sizing: border-box; }
+.rl-bed--m { background: var(--ar-male); }
+.rl-bed--f { background: var(--ar-female); }
+.rl-bed--v { border: 1.5px dashed color-mix(in srgb, var(--ar-muted) 45%, var(--ar-border)); }
+.rl-count { margin-left: 4px; color: var(--ar-text); font-size: 12px; }
+.rl-pill { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.rl-pill--ok { background: color-mix(in srgb, var(--c-success) 14%, var(--ar-surface)); color: var(--c-success); }
+.rl-pill--full { background: var(--ar-soft); color: var(--ar-text); }
+.rl-pill--warn { background: color-mix(in srgb, var(--c-warning) 15%, var(--ar-surface)); color: var(--c-warning); }
+.rl-chev { flex-shrink: 0; color: var(--ar-muted); }
+
+.rl-detail { display: flex; flex-direction: column; gap: 6px; padding: 0 14px 12px 66px; }
+.rl-person { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: var(--ar-soft); }
+.rl-av {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 50%;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.rl-av img { width: 100%; height: 100%; object-fit: cover; }
+.rl-av--m { background: color-mix(in srgb, var(--ar-male) 16%, var(--ar-surface)); color: color-mix(in srgb, var(--ar-male) 70%, #000); }
+.rl-av--f { background: color-mix(in srgb, var(--ar-female) 14%, var(--ar-surface)); color: color-mix(in srgb, var(--ar-female) 75%, #000); }
+.rl-pname { color: var(--ar-ink); font-size: 12.5px; font-weight: 600; }
+.rl-since { color: var(--ar-muted); font-size: 11px; white-space: nowrap; }
+.rl-view {
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  color: var(--ar-accent);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rl-view:hover { text-decoration: underline; }
+.rl-vacant {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1.5px dashed var(--ar-border);
+  border-radius: 8px;
+  color: var(--ar-muted);
+  font-size: 12px;
+}
+.rl-vacant-dot { flex-shrink: 0; width: 28px; height: 28px; border: 1.5px dashed color-mix(in srgb, var(--ar-muted) 45%, var(--ar-border)); border-radius: 50%; box-sizing: border-box; }

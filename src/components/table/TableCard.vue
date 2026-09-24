@@ -28,13 +28,15 @@
         :loading="loading"
         :pagination="{ rowsPerPage: rowsPerPage }"
         :row-class="rowClass"
+        :start-index="(page - 1) * rowsPerPage"
+        :row-chevron="rowChevron"
         @row-click="$emit('row-click', $event)"
       >
         <template v-if="$slots.empty" #no-data>
           <slot name="empty" />
         </template>
         <template #body="props">
-          <slot name="body" :props="props.props" />
+          <slot name="body" :props="props.props" :row-number="props.rowNumber" />
         </template>
       </DataTable>
     </q-card>
@@ -71,8 +73,11 @@ withDefaults(defineProps<{
   itemName: string
   page: number
   rowClass?: (row: any) => string
+  /** See the same prop on DataTable.vue. */
+  rowChevron?: boolean
 }>(), {
   rowsPerPage: 10,
+  rowChevron: false,
   searchPlaceholder: '',
   rowKey: 'id',
   rows: () => [],

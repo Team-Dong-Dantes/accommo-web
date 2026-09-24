@@ -279,7 +279,7 @@ function stamp(value: string | null | undefined): string {
 const SEX_LABEL: Record<string, string> = { F: 'Female', M: 'Male', O: 'Other' }
 
 /** Enum columns ('bedspace', 'mixed_gender') read as words; typed text is left
- *  exactly as the manager entered it. */
+ *  exactly as the landlord/landlady entered it. */
 function label(value: string | null | undefined): string {
   if (!value) return ''
   const words = String(value).replace(/_/g, ' ')
@@ -306,7 +306,7 @@ interface InfoGroup {
  * own record: what it is, where it is, who runs it, and where its accreditation
  * stands. The account groups below would be entirely blank for one.
  *
- * Only what the manager submits with the property belongs here. Its size —
+ * Only what the landlord/landlady submits with the property belongs here. Its size —
  * rooms, floors, per-room types, the capacity summed from them — is built after
  * accreditation, so those fields are empty at exactly the moment this panel is
  * read, and nothing in either app ever writes `business_name` or `address`.
@@ -366,13 +366,13 @@ const accommodationGroups = computed<InfoGroup[]>(() => {
       ],
     },
     {
-      title: 'Manager',
+      title: 'Landlord/Landlady',
       icon: 'lucide:user-round',
       rows: [
         { label: 'Name', value: props.request?.owner || '' },
-        { label: 'Email', value: a.manager_email || '' },
-        { label: 'Phone', value: a.manager_phone || '' },
-        { label: 'Account', value: label(a.manager_status) },
+        { label: 'Email', value: a.landlord_email || '' },
+        { label: 'Phone', value: a.landlord_phone || '' },
+        { label: 'Account', value: label(a.landlord_status) },
       ],
     },
   ]
@@ -402,7 +402,7 @@ const infoGroups = computed(() => {
     ],
   })
 
-  if (!isManager.value) {
+  if (!isLandlord.value) {
     groups.push({
       title: 'Academic',
       icon: 'lucide:graduation-cap',
@@ -434,7 +434,7 @@ const infoGroups = computed(() => {
   return groups
 })
 
-const isManager = computed(() => props.request?.id?.startsWith('REQ-AM'))
+const isLandlord = computed(() => props.request?.id?.startsWith('REQ-AM'))
 const isAccommodation = computed(() => props.request?.id?.startsWith('REQ-AC'))
 
 /** 97% of this queue is past the 3-day target, so the wait is worth colouring. */

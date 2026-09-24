@@ -261,7 +261,7 @@ const emit = defineEmits<{
 type ComposerForm = {
   title: string
   body: string
-  audience: 'all' | 'students' | 'accommodation_managers'
+  audience: 'all' | 'students' | 'landlords'
   expiresAt: string | null
   version: string
   effectiveDate: string | null
@@ -289,7 +289,7 @@ const form = ref<ComposerForm>(emptyForm())
 const audienceOptions = [
   { label: 'All users', value: 'all' },
   { label: 'Students', value: 'students' },
-  { label: 'Accommodation Managers', value: 'accommodation_managers' },
+  { label: 'Landlords/Landladies', value: 'landlords' },
 ]
 
 const steps = computed<FormStep[]>(() => props.kind === 'announcements'

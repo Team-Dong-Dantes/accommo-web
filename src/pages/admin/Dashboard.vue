@@ -89,7 +89,7 @@ const todayLabel = computed(() =>
 // A thin strip of totals in the masthead, so the charts below never have to
 // repeat a headline number just to state one.
 const counters = computed(() => [
-  { label: 'Awaiting verification', value: data.verificationQueue.students + data.verificationQueue.accommodationManagers },
+  { label: 'Awaiting verification', value: data.verificationQueue.students + data.verificationQueue.landlords },
   { label: 'In accreditation', value: data.accreditationQueue.total },
   { label: 'Open tickets', value: data.ticketQueue.open },
   { label: 'Students', value: data.students.total },

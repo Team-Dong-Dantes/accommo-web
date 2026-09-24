@@ -62,6 +62,8 @@ export interface PreviewReview {
   rating: number
   comment?: string
   time?: string
+  /** The room the reviewer stayed in, when the review names its lease. */
+  room?: string | undefined
 }
 export interface PreviewHistoryCard {
   icon?: string
@@ -97,6 +99,12 @@ export interface PreviewFile {
   expiry?: string
   /** Section heading to file this document under, e.g. an accommodation name. */
   group?: string
+  /** Permit detail for the accommodation record's document viewer. */
+  issued?: string | undefined
+  uploaded?: string | undefined
+  version?: number | null | undefined
+  /** Whole days until expiry; negative once expired, null when no date is on file. */
+  daysLeft?: number | null | undefined
 }
 /**
  * A facility on an accommodation (shared) or a room (private). Which of the two
@@ -107,13 +115,18 @@ export interface PreviewFacility {
   id: string
   /** `facility_type` from the database. */
   type: string
-  /** The manager's own label, falling back to the type's name. */
+  /** The landlord/landlady's own label, falling back to the type's name. */
   label: string
   icon: string
   description?: string
   floor?: number | null
   /** How many photos are filed against it. */
   photoCount?: number
+  /** Its photos, once the record has loaded them. */
+  photos?: string[]
+  status?: 'available' | 'under_repair'
+  /** Rooms that share it, from `accommodation_facility_rooms`. */
+  roomIds?: string[]
 }
 export interface PreviewRoom {
   id: string
@@ -124,6 +137,10 @@ export interface PreviewRoom {
   status?: string | null
   statusTone?: StatusTone
   accommodationId?: string
+  /** Its current boarders — the accommodation record lists them under the room. */
+  occupants?: PreviewOccupant[]
+  /** Its photos, once the record has loaded them. */
+  photos?: string[]
 }
 export interface PreviewOccupant {
   id: string
@@ -135,6 +152,8 @@ export interface PreviewOccupant {
   since?: string | null
   status?: string | null
   statusTone?: StatusTone
+  /** "BS Nursing · 2nd year" — program and year level, when on file. */
+  detail?: string | undefined
 }
 export interface PreviewPhoto {
   id: string
@@ -153,7 +172,7 @@ export interface PreviewPlacement {
   statusTone?: StatusTone
   accommodation: string
   roomType?: string
-  accommodationManager?: string
+  landlord?: string
   address?: string
   moveIn?: string
 }
@@ -162,7 +181,7 @@ export interface PreviewLease {
   id: string
   accommodationId: string
   accommodationName: string
-  accommodationManagerName?: string
+  landlordName?: string
   roomName?: string
   roomType?: string | null
   startDate: string | null
@@ -195,6 +214,124 @@ export interface PreviewPayment {
   description?: string | null
 }
 
+/**
+ * The accommodation overview, as one typed block rather than as strings the
+ * pane would have to parse back out of `stats` and `detailGroups`.
+ *
+ * When this is set, PreviewBody renders the cover-led layout in place of the
+ * generic identity block, stat strip and field list. Nothing is lost by that
+ * swap: type and floors read as a line under the name, the address sits beneath
+ * them, occupancy and the sex split are the dial, accreditation and its expiry
+ * are their own band, and the landlord/landlady is the pane's foot.
+ */
+export interface PreviewAccommodationOverview {
+  /**
+   * Resolved cover URL, or '' when none is on file — `useAccommodations` maps a
+   * missing cover to an empty string rather than to a stand-in photograph, so
+   * emptiness here is a real signal and drives the pane's own empty state.
+   */
+  coverUrl: string
+  /** The kind of building, e.g. "Boarding House". */
+  typeLine: string
+  roomCount: number
+  /** `total_floors`. */
+  floors: number
+  /** "Co-ed", "Male only", "Female only", or "Not set" — shown as "Accepts". */
+  genderPolicyLabel: string
+  /** The average, e.g. "3.9", or "—" with no reviews. */
+  ratingLabel: string
+  /** Undefined until the record's reviews have loaded. */
+  reviewCount?: number | undefined
+  /** The landlord/landlady's response rate — theirs, not the accommodation's. */
+  responseLabel: string
+  amenities: string[]
+  /** OSAS has hidden it from what students browse. */
+  hidden: boolean
+  address: string
+  accredited: boolean
+  accreditationLabel: string
+  /** Already phrased by `expiryLabel` ("Expires 30 Jun 2027"). */
+  expiryLabel: string
+  /** ISO timestamps bounding the accreditation, for its timeline. */
+  accreditedAt: string | null
+  expiresAt: string | null
+  /** Averages over the accredited accommodations in the hub, for comparison. */
+  campus?: { count: number; occupancyPct: number; rating: number | null } | undefined
+  occupied: number
+  capacity: number
+  occupancyPct: number
+  female: number
+  male: number
+  landlord: {
+    id: string
+    name: string
+    /** From `landlordTitle(sex)`; neutral when the sex is not on file. */
+    title: string
+    contact: string
+    initials: string
+    avatarUrl?: string
+  }
+}
+
+/** One accommodation a landlord/landlady runs, as their portfolio chart draws it. */
+export interface PreviewPortfolioItem {
+  id: string
+  name: string
+  status: string
+  address: string
+  beds: number
+  taken: number
+  rating: number | null
+  reviews: number
+}
+
+/** The left panel of a person's record, for either role. */
+export interface PreviewUserOverview {
+  userId: string
+  role: 'student' | 'landlord' | 'other'
+  /** "Student", or "Landlord"/"Landlady" from users.sex. */
+  roleLabel: string
+  /** Account status as a word ("Verified", "Pending", "Suspended"…) and its raw value. */
+  statusLabel: string
+  status: string
+  email: string
+  phone: string
+  /** "Mar 3, 2025". */
+  joined: string
+  lastLoginAt: string | null
+  /** Students only. */
+  academic?: { college: string; program: string; yearLevel: string; studentId: string } | undefined
+  /** Students only; null when not placed anywhere. */
+  placement?: { accommodation: string; accommodationId?: string | undefined; room: string; landlord: string; since: string | null } | null | undefined
+  /** Landlords/landladies only. */
+  portfolio?: PreviewPortfolioItem[] | undefined
+  responseRate?: number | null | undefined
+  avgResponse?: string | undefined
+  /** Mean response rate over every landlord/landlady in the Users list. */
+  campusResponseRate?: number | null | undefined
+  /** Why the account is in its state, when a suspension ends, what it is restricted from. */
+  standing: { reason: string | null; suspendedUntil: string | null; restrictions: string[] }
+}
+
+/** The left panel of a room's record. */
+export interface PreviewRoomOverview {
+  coverUrl: string
+  /** "Room 304". */
+  title: string
+  typeLabel: string
+  accommodation: { id: string; name: string }
+  floor: number | null
+  capacity: number
+  status: string
+  statusLabel: string
+  rent: number | null
+  /** "room" — the whole room — or "person", each boarder paying the rent. */
+  rentBasis: 'room' | 'person'
+  advanceMonths: number | null
+  depositMonths: number | null
+  landlord: { id: string; name: string; title: string; contact: string; initials: string; avatarUrl?: string | undefined } | null
+}
+
 export interface DrawerPreview {
   kind?: 'user' | 'accommodation' | 'room'
   title?: string
@@ -202,12 +339,25 @@ export interface DrawerPreview {
   viewDetailsLabel?: string
   name: string
   avatar: string
+  /**
+   * Shown in place of `avatar` when there is no real photo, or the URL fails
+   * to load — a colored circle with these letters, the same fallback the
+   * table rows already use (`UserInfoCell.vue`), rather than a third-party
+   * generated placeholder image.
+   */
+  initials?: string
   subtitle?: string
   chips?: PreviewChip[]
   meta?: string
   metaIcon?: string
   stats?: PreviewStat[]
   detailGroups?: PreviewDetailGroup[]
+  /** Accommodations only — see PreviewAccommodationOverview. */
+  overview?: PreviewAccommodationOverview
+  /** A person's record overview (Users); drives UserRecord. */
+  userOverview?: PreviewUserOverview
+  /** A room's record overview (Room Hub); drives RoomRecord. */
+  roomOverview?: PreviewRoomOverview
   placement?: PreviewPlacement
   history?: PreviewTimelineItem[]
   files?: PreviewFile[]
@@ -229,6 +379,20 @@ export interface DrawerPreview {
   payments?: PreviewPayment[]
 }
 
+/** Who to show, and what the accommodation record already knows about them. */
+export interface PersonTarget {
+  userId: string
+  role: 'student' | 'landlord'
+  name: string
+  initials?: string | undefined
+  avatarUrl?: string | undefined
+  /** 'female' | 'male' for a boarder; the landlord/landlady keeps the brand color. */
+  gender?: string | null | undefined
+  roleLine: string
+  /** The boarder's place in this accommodation, from the room they were opened from. */
+  stay?: { room: string; floor?: string | number | null | undefined; since?: string | null | undefined }
+}
+
 /** Hub destinations reachable from hover-overlays and room rows. */
 export type HubKind = 'map' | 'accommodation' | 'room'
 
@@ -248,14 +412,10 @@ export function activityIconStyle(a: { tone?: string }) {
   }
 }
 
-/** Gender label helper (occupants tab). */
-export function capGender(g: string | null | undefined): string {
-  if (!g) return '—'
-  const s = g.toLowerCase()
-  if (s === 'female') return 'Female'
-  if (s === 'male') return 'Male'
-  return g.charAt(0).toUpperCase() + g.slice(1)
-}
+// The occupants tab used to call a `capGender` that special-cased 'male' and
+// 'female'; both branches produced exactly what plain sentence-casing produces,
+// so it was the shared `cap` with extra steps.
+export { cap } from '@/utils/format'
 
 /** Month-year helper (occupants tab). */
 export function fmtMonthYear(s: string | null | undefined): string {
@@ -263,4 +423,28 @@ export function fmtMonthYear(s: string | null | undefined): string {
   const d = new Date(s)
   if (isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}
+
+/** Rooms or facilities on one floor, in the drawer's floor-grouped lists. */
+export interface FloorGroup<T> {
+  key: string
+  /** "Floor 2" — the same wording accommo-mobile's landlord screens use. */
+  label: string
+  items: T[]
+}
+
+/** Groups by `floor`, lowest first, with anything unplaced last. */
+export function groupByFloor<T extends { floor?: string | number | null }>(items: T[]): FloorGroup<T>[] {
+  const byFloor = new Map<number, T[]>()
+  const unplaced: T[] = []
+  for (const it of items) {
+    const n = it.floor == null || it.floor === '' ? NaN : Number(it.floor)
+    if (Number.isNaN(n)) unplaced.push(it)
+    else byFloor.set(n, [...(byFloor.get(n) ?? []), it])
+  }
+  const groups: FloorGroup<T>[] = [...byFloor.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([n, list]) => ({ key: String(n), label: `Floor ${n}`, items: list }))
+  if (unplaced.length) groups.push({ key: 'none', label: 'No floor set', items: unplaced })
+  return groups
 }

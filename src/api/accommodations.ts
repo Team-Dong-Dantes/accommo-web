@@ -2,6 +2,7 @@
 // Query shapes lifted verbatim from the former useDashboardStats.load().
 
 import { supabase } from '@/utils/supabase'
+import { resolveAsset } from '@/utils/cloudinaryUrl'
 
 export interface AccommodationRow {
   id: string
@@ -78,7 +79,10 @@ export async function fetchAccommodationEvents(
   const { data, error } = await supabase
     .from('audit_logs')
     .select('action, created_at, before_json, after_json')
-    .eq('entity_type', 'accommodations')
+    // PropertyHub's own actions have always logged `accommodation` (singular)
+    // while other writers use the table name, so reading only one spelling left
+    // every suspend and restore out of the Activity tab.
+    .in('entity_type', ['accommodations', 'accommodation'])
     .eq('entity_id', accommodationId)
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -137,7 +141,7 @@ export async function fetchAccommodationPins(): Promise<AccommodationPin[]> {
   return (data ?? []) as unknown as AccommodationPin[]
 }
 
-/** What the manager filled in alongside the property, beyond its own columns. */
+/** What the landlord/landlady filled in alongside the property, beyond its own columns. */
 export interface AccommodationExtras {
   amenities: string[]
   policies: {
@@ -168,5 +172,104 @@ export async function fetchAccommodationExtras(accommodationId: string): Promise
   return {
     amenities: (amenityRes.data ?? []).map((row) => String((row as { amenity: string }).amenity)),
     policies: (policyRes.data ?? null) as AccommodationExtras['policies'],
+  }
+}
+
+/** One review of an accommodation, with its author resolved. */
+export interface AccommodationReviewRow {
+  author: string
+  /** The room named on the reviewer's lease, when there is one. */
+  room: string | null
+  rating: number
+  comment: string | null
+  createdAt: string | null
+}
+
+/** What the accommodation record loads on open, beyond the hub's list query. */
+export interface AccommodationDrawerExtras {
+  amenities: string[]
+  /** room id → photo URLs, in the landlord/landlady's own order. */
+  roomPhotos: Map<string, string[]>
+  /** facility id → photo URLs. */
+  facilityPhotos: Map<string, string[]>
+  reviews: AccommodationReviewRow[]
+}
+
+/**
+ * Photos, amenities and reviews for the one accommodation being read. Fetched
+ * when its record opens, like its audit trail, so the hub's list query does not
+ * pull every room's gallery for properties nobody opens. Reviews come through
+ * `review_admin_feed`, the one place a review keeps its author for OSAS.
+ */
+export async function fetchAccommodationDrawerExtras(
+  accommodationId: string,
+  roomIds: string[],
+  facilityIds: string[],
+): Promise<AccommodationDrawerExtras> {
+  const [extras, roomRes, facilityRes, reviewRes] = await Promise.all([
+    fetchAccommodationExtras(accommodationId),
+    roomIds.length
+      ? supabase.from('room_images').select('room_id, url, sort_order').in('room_id', roomIds)
+          .order('sort_order', { ascending: true })
+      : Promise.resolve({ data: [] as Array<{ room_id: string; url: string }> }),
+    facilityIds.length
+      ? supabase.from('accommodation_facility_images').select('facility_id, url, sort_order').in('facility_id', facilityIds)
+          .order('sort_order', { ascending: true })
+      : Promise.resolve({ data: [] as Array<{ facility_id: string; url: string }> }),
+    supabase
+      .from('review_admin_feed')
+      .select('rating, comment, created_at, author_id, lease_id')
+      .eq('kind', 'accommodation')
+      .eq('subject_id', accommodationId)
+      .order('created_at', { ascending: false }),
+  ])
+
+  const group = (rows: Array<{ url: string }>, key: (r: any) => string) => {
+    const map = new Map<string, string[]>()
+    for (const r of rows) {
+      if (!r.url) continue
+      const k = key(r)
+      map.set(k, [...(map.get(k) ?? []), resolveAsset(r.url)])
+    }
+    return map
+  }
+
+  const reviewRows = (reviewRes.data ?? []) as Array<{
+    rating: number | null
+    comment: string | null
+    created_at: string | null
+    author_id: string | null
+    lease_id: string | null
+  }>
+  const authorIds = [...new Set(reviewRows.map((r) => r.author_id).filter((id): id is string => !!id))]
+  const nameById = new Map<string, string>()
+  if (authorIds.length) {
+    const { data } = await supabase.from('users').select('id, full_name').in('id', authorIds)
+    for (const a of (data ?? []) as Array<{ id: string; full_name: string | null }>) {
+      nameById.set(a.id, a.full_name || '')
+    }
+  }
+
+  const leaseIds = [...new Set(reviewRows.map((r) => r.lease_id).filter((id): id is string => !!id))]
+  const roomByLease = new Map<string, string>()
+  if (leaseIds.length) {
+    const { data } = await supabase.from('leases').select('id, room:rooms(room_number, label)').in('id', leaseIds)
+    for (const l of (data ?? []) as Array<{ id: string; room: { room_number: string | null; label: string | null } | null }>) {
+      const name = l.room?.room_number || l.room?.label
+      if (name) roomByLease.set(l.id, name)
+    }
+  }
+
+  return {
+    amenities: extras.amenities,
+    roomPhotos: group((roomRes.data ?? []) as Array<{ room_id: string; url: string }>, (r) => r.room_id),
+    facilityPhotos: group((facilityRes.data ?? []) as Array<{ facility_id: string; url: string }>, (r) => r.facility_id),
+    reviews: reviewRows.map((r) => ({
+      author: (r.author_id && nameById.get(r.author_id)) || 'A former boarder',
+      room: (r.lease_id && roomByLease.get(r.lease_id)) || null,
+      rating: r.rating ?? 0,
+      comment: r.comment,
+      createdAt: r.created_at,
+    })),
   }
 }

@@ -11,7 +11,7 @@ import { useReviewPresence } from '@/composables/useReviewPresence'
 /**
  * The property behind an accreditation request. An accommodation is not an
  * account, so none of `ReviewProfile` applies to it — what a reviewer checks
- * the permits against is the address, the size and the manager behind it.
+ * the permits against is the address, the size and the landlord/landlady behind it.
  */
 export interface AccommodationFacts {
   accommodation_type: string | null
@@ -23,9 +23,9 @@ export interface AccommodationFacts {
   city: string | null
   lat: number | null
   lng: number | null
-  manager_email: string | null
-  manager_phone: string | null
-  manager_status: string | null
+  landlord_email: string | null
+  landlord_phone: string | null
+  landlord_status: string | null
 }
 
 export interface VerificationRequest {
@@ -105,7 +105,7 @@ export function useVerifications() {
   const loading = ref(true)
   const notify = useNotify()
 
-  const activeTab = ref<'student' | 'accommodation_manager' | 'accommodation'>('student')
+  const activeTab = ref<'student' | 'landlord' | 'accommodation'>('student')
   const search = ref('')
   const currentPage = ref(1)
   const selectedRequest = ref<VerificationRequest | null>(null)
@@ -127,32 +127,39 @@ export function useVerifications() {
   }
 
   const studentRequests = ref<VerificationRequest[]>([])
-  const accommodationManagerRequests = ref<VerificationRequest[]>([])
+  const landlordRequests = ref<VerificationRequest[]>([])
   const accommodationRequests = ref<VerificationRequest[]>([])
 
   const tabs = [
     { name: 'student', label: 'Student' },
-    { name: 'accommodation_manager', label: 'Accommodation Manager' },
+    { name: 'landlord', label: 'Landlord/Landlady' },
     { name: 'accommodation', label: 'Accommodation' },
   ]
 
   const searchPlaceholder = computed(() => {
     if (activeTab.value === 'student') return 'Search student name...'
-    if (activeTab.value === 'accommodation_manager') return 'Search accommodation manager name...'
+    if (activeTab.value === 'landlord') return 'Search landlord/landlady name...'
     return 'Search accommodation name...'
   })
 
   const columns = computed(() => {
     const label =
       activeTab.value === 'student' ? 'Student'
-        : activeTab.value === 'accommodation_manager' ? 'Accommodation Manager'
+        : activeTab.value === 'landlord' ? 'Landlord/Landlady'
           : 'Accommodation'
+    // Same fixed-width-column approach as the Accommodation Hub: every cell
+    // defaults to an equal flex share regardless of `headerStyle`, so a plain
+    // 6-column table gave "Ref ID" the same width as the name+email column
+    // that actually needs it. Only `action` is left flexible — its content
+    // (a "Review" button, or a locked note plus a reviewer's name and a "Take
+    // over" link) is genuinely variable-width, so it is the one column that
+    // should grow rather than be given a guess.
     return [
-      { name: 'entity', required: true, label, align: 'left', field: 'name' },
-      { name: 'id', label: 'Ref ID', align: 'left', field: 'id' },
-      { name: 'type', label: 'Document', align: 'left', field: 'type' },
-      { name: 'status', label: 'Status', align: 'left', field: 'status' },
-      { name: 'submitted', label: 'Received', align: 'left', field: 'submitted' },
+      { name: 'entity', required: true, label, align: 'left', field: 'name', headerClasses: 'col-title' },
+      { name: 'id', label: 'Ref ID', align: 'left', field: 'id', headerClasses: 'col-ref' },
+      { name: 'type', label: 'Document', align: 'left', field: 'type', headerClasses: 'col-type' },
+      { name: 'status', label: 'Status', align: 'left', field: 'status', headerClasses: 'col-badge' },
+      { name: 'submitted', label: 'Received', align: 'left', field: 'submitted', headerClasses: 'col-date' },
       { name: 'action', label: '', align: 'right', field: 'action' },
     ]
   })
@@ -169,7 +176,7 @@ export function useVerifications() {
         console.error('Could not fetch the verification queue:', queueError.message)
         notify.error('Verification queue unavailable', queueError.message)
         studentRequests.value = []
-        accommodationManagerRequests.value = []
+        landlordRequests.value = []
       } else {
         const grouped = new Map<string, any>()
         for (const row of (queueRows ?? []) as any[]) {
@@ -198,11 +205,11 @@ export function useVerifications() {
         const mapRequest = (user: any, manager: boolean) => ({
           id: `REQ-${manager ? 'AM' : 'S'}${user.id.substring(0, 4).toUpperCase()}`,
           rawId: user.id,
-          name: user.full_name || (manager ? 'Unknown Accommodation Manager' : 'Unknown Student'),
+          name: user.full_name || (manager ? 'Unknown Landlord/Landlady' : 'Unknown Student'),
           email: user.email,
           owner: '',
           initials: getInitials(user.full_name),
-          type: manager ? 'Accommodation Manager Identity' : 'Enrollment Form / COR',
+          type: manager ? 'Landlord/Landlady Identity' : 'Enrollment Form / COR',
           files: user.documents.map((document: QueueDocumentRow) => ({
             id: document.id,
             name: document.filename || document.doc_type || 'Verification document',
@@ -219,7 +226,7 @@ export function useVerifications() {
         })
 
         // Split on the account's own role. The old document-type heuristic put a
-        // manager who uploaded an `id_card` into the Student tab, and it still
+        // landlord/landlady who uploaded an `id_card` into the Student tab, and it still
         // matched the retired `landlord` role label.
         const queueUsers = Array.from(grouped.values())
         const roleOf = (user: any) => String(user.role).toLowerCase().trim()
@@ -227,8 +234,8 @@ export function useVerifications() {
           .filter((user) => roleOf(user) === 'student')
           .map((user) => mapRequest(user, false))
           .sort(byNewest)
-        accommodationManagerRequests.value = queueUsers
-          .filter((user) => roleOf(user) === 'accommodation_manager')
+        landlordRequests.value = queueUsers
+          .filter((user) => roleOf(user) === 'landlord')
           .map((user) => mapRequest(user, true))
           .sort(byNewest)
       }
@@ -236,9 +243,9 @@ export function useVerifications() {
       const { data: accommodations, error: accommodationError } = await supabase
         .from('accommodations')
         .select(
-          `id, name, status, accommodation_manager_id, accommodation_type, gender_policy,
+          `id, name, status, landlord_id, accommodation_type, gender_policy,
            barangay, city, description, lat, lng, reviewing_at,
-           manager:accommodation_manager_id ( full_name, email, phone, status )`,
+           landlord:landlord_id ( full_name, email, phone, status )`,
         )
         .in('status', ['pending', 'reviewing'])
 
@@ -262,8 +269,8 @@ export function useVerifications() {
           ])
         }
         accommodationRequests.value = (accommodations as any[]).map((p: any) => {
-          const managerRow = (Array.isArray(p.manager) ? p.manager[0] : p.manager) as any
-          const ownerName = managerRow?.full_name || 'Unknown Accommodation Manager'
+          const landlordRow = (Array.isArray(p.landlord) ? p.landlord[0] : p.landlord) as any
+          const ownerName = landlordRow?.full_name || 'Unknown Landlord/Landlady'
           const documentRows = documentsByAccommodation.get(p.id) ?? []
           const submittedAt = documentRows.reduce<string | null>(
             (latest, document) =>
@@ -285,7 +292,7 @@ export function useVerifications() {
             name: p.name || 'Unnamed Accommodation',
             email: '',
             owner: ownerName,
-            ownerId: p.accommodation_manager_id,
+            ownerId: p.landlord_id,
             initials: getInitials(p.name),
             type: 'OSAS Accreditation',
             files,
@@ -305,9 +312,9 @@ export function useVerifications() {
               city: p.city ?? null,
               lat: p.lat ?? null,
               lng: p.lng ?? null,
-              manager_email: managerRow?.email ?? null,
-              manager_phone: managerRow?.phone ?? null,
-              manager_status: managerRow?.status ?? null,
+              landlord_email: landlordRow?.email ?? null,
+              landlord_phone: landlordRow?.phone ?? null,
+              landlord_status: landlordRow?.status ?? null,
             },
           }
         }).sort(byNewest)
@@ -324,7 +331,7 @@ export function useVerifications() {
 
   const currentDataArray = computed(() => {
     if (activeTab.value === 'student') return studentRequests.value
-    if (activeTab.value === 'accommodation_manager') return accommodationManagerRequests.value
+    if (activeTab.value === 'landlord') return landlordRequests.value
     return accommodationRequests.value
   })
 
@@ -357,11 +364,11 @@ export function useVerifications() {
   }
 
   const studentFiltered = computed(() => filterArr(studentRequests.value))
-  const accommodationManagerFiltered = computed(() => filterArr(accommodationManagerRequests.value))
+  const landlordFiltered = computed(() => filterArr(landlordRequests.value))
   const accommodationFiltered = computed(() => filterArr(accommodationRequests.value))
 
   const studentPaginated = computed(() => paginateArr(studentFiltered.value))
-  const accommodationManagerPaginated = computed(() => paginateArr(accommodationManagerFiltered.value))
+  const landlordPaginated = computed(() => paginateArr(landlordFiltered.value))
   const accommodationPaginated = computed(() => paginateArr(accommodationFiltered.value))
 
   const totalLabel = computed(
@@ -370,12 +377,12 @@ export function useVerifications() {
 
   const emptyTitle = computed(() => {
     if (activeTab.value === 'student') return 'All caught up!'
-    if (activeTab.value === 'accommodation_manager') return 'All caught up!'
+    if (activeTab.value === 'landlord') return 'All caught up!'
     return 'All caught up!'
   })
   const emptyMessage = computed(() => {
     if (activeTab.value === 'student') return 'No pending student verifications.'
-    if (activeTab.value === 'accommodation_manager') return 'No pending accommodation-manager verifications.'
+    if (activeTab.value === 'landlord') return 'No pending landlord/landlady verifications.'
     return 'No pending accommodation accreditations.'
   })
 
@@ -397,7 +404,7 @@ export function useVerifications() {
   function patchRowStatus(id: string, next: 'pending' | 'reviewing', reviewingAt: string | null) {
     const label = capitalize(next)
     const style = getStatusStyle(next)
-    const lists = [studentRequests.value, accommodationManagerRequests.value, accommodationRequests.value]
+    const lists = [studentRequests.value, landlordRequests.value, accommodationRequests.value]
     for (const list of lists) {
       for (const row of list) {
         if (row.id !== id) continue
@@ -480,7 +487,7 @@ export function useVerifications() {
    */
   async function sweepStaleLocks() {
     if (!presence.ready.value) return
-    const lists = [studentRequests.value, accommodationManagerRequests.value, accommodationRequests.value]
+    const lists = [studentRequests.value, landlordRequests.value, accommodationRequests.value]
     for (const list of lists) {
       for (const row of list) {
         if (String(row.status).toLowerCase() !== 'reviewing') continue
@@ -578,7 +585,7 @@ export function useVerifications() {
   /** The account behind the request, loaded on open and merged into it. */
   async function loadReviewProfile(row: VerificationRequest) {
     if (row.id.startsWith('REQ-AC')) return
-    const role = row.id.startsWith('REQ-AM') ? 'accommodation_manager' : 'student'
+    const role = row.id.startsWith('REQ-AM') ? 'landlord' : 'student'
     const profile = await fetchReviewProfile(row.rawId, role)
     if (profile && selectedRequest.value?.id === row.id) {
       selectedRequest.value = { ...selectedRequest.value, profile }
@@ -635,10 +642,10 @@ export function useVerifications() {
       // otherwise it's a hard reject.
       const allowResub = decision === 'reject' && decisionPayload?.allowResubmission === true
 
-      // A refusal the manager can fix is not the same as a refusal. Soft
+      // A refusal the landlord/landlady can fix is not the same as a refusal. Soft
       // rejects used to land on `rejected` alongside an outright refusal, so a
       // blurry permit looked terminal; they now land on `needs_revision`, and
-      // the ball being with the manager keeps them out of the OSAS queue until
+      // the ball being with the landlord/landlady keeps them out of the OSAS queue until
       // a new document arrives and the permit trigger re-queues them.
       let newStatus: string
       if (decision === 'approve') newStatus = isAccommodation ? 'accredited' : 'verified'
@@ -745,7 +752,7 @@ export function useVerifications() {
             decision === 'approve'
               ? `Your ${isAccommodation ? 'accommodation' : 'account'} has been verified.`
               : allowResub
-                ? `We need more information — please re-upload your documents.${decisionPayload?.notes ? ' Note: ' + decisionPayload.notes : ''}`
+                ? `We need more information — please re-upload your requirements.${decisionPayload?.notes ? ' Note: ' + decisionPayload.notes : ''}`
                 : `Your ${isAccommodation ? 'accommodation' : 'account'} was rejected.${decisionPayload?.notes ? ' Reason: ' + decisionPayload.notes : ''}`
           notifs.push({
             user_id: subjectUserId,
@@ -826,15 +833,15 @@ export function useVerifications() {
     tabs,
     columns,
     studentRequests,
-    accommodationManagerRequests,
+    landlordRequests,
     accommodationRequests,
     filteredRows,
     paginatedRows,
     studentFiltered,
-    accommodationManagerFiltered,
+    landlordFiltered,
     accommodationFiltered,
     studentPaginated,
-    accommodationManagerPaginated,
+    landlordPaginated,
     accommodationPaginated,
     totalLabel,
     searchPlaceholder,

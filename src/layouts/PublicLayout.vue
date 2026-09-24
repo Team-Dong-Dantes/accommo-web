@@ -16,21 +16,23 @@
                 </div>
 
         <div class="nav-actions">
-          <a class="dl-btn gt-xs" href="#download">Get the app</a>
+          <a class="dl-btn gt-xs" :href="SIGN_UP_URL">Sign up</a>
 
-          <button class="menu-btn lt-md" @click="menu = true" aria-label="Menu">
+          <!-- The menu lives inside its button: a q-menu with no target binds to
+               its parent, and here that was .nav-actions, so Sign up opened it too. -->
+          <button class="menu-btn lt-md" aria-label="Menu">
             <Icon icon="lucide:menu" width="22" height="22" />
-          </button>
 
-          <q-menu v-model="menu" anchor="bottom right" self="top right" class="mobile-menu">
+          <q-menu anchor="bottom right" self="top right" class="mobile-menu">
             <q-list style="min-width: 200px">
               <q-item clickable v-close-popup href="#how"><q-item-section>How it works</q-item-section></q-item>
                             <q-item clickable v-close-popup href="#download"><q-item-section>Download</q-item-section></q-item>
                             <q-item clickable v-close-popup href="#faq"><q-item-section>Questions</q-item-section></q-item>
               <q-separator />
-              <q-item clickable v-close-popup href="#download" class="menu-cta"><q-item-section>Get the app</q-item-section></q-item>
+              <q-item clickable v-close-popup :href="SIGN_UP_URL" class="menu-cta"><q-item-section>Sign up</q-item-section></q-item>
             </q-list>
           </q-menu>
+          </button>
         </div>
       </div>
     </nav>
@@ -43,9 +45,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import { SIGN_UP_URL } from '@/utils/appLinks';
 
 const scrolled = ref(false);
-const menu = ref(false);
 function onScroll() { scrolled.value = window.scrollY > 40; }
 onMounted(() => { window.addEventListener('scroll', onScroll, { passive: true }); onScroll(); });
 onUnmounted(() => window.removeEventListener('scroll', onScroll));

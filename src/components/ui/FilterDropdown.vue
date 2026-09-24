@@ -1,10 +1,11 @@
 <template>
   <q-btn flat class="bg-surface text-muted text-weight-bold rounded-button custom-border" no-caps>
     <Icon icon="lucide:sliders-horizontal" class="on-left" width="18" height="18" />Filter
-    <q-menu anchor="bottom right" self="top right" :offset="[0, 8]" class="filter-menu" style="width: 220px">
+    <q-menu anchor="bottom right" self="top right" :offset="[0, 8]" class="filter-menu" :style="{ width: wide ? '460px' : '220px' }">
 
-      <div class="q-pa-md">
-        <template v-for="(filterGroup, index) in filters" :key="filterGroup.key">
+      <!-- Past four groups one column runs off the screen, so they flow into two. -->
+      <div class="q-pa-md" :class="{ 'filter-grid': wide }">
+        <div v-for="(filterGroup, index) in filters" :key="filterGroup.key">
           <div class="text-weight-bold text-ink q-mb-xs" style="font-size: 13px">{{ filterGroup.label }}</div>
 
           <q-option-group
@@ -15,11 +16,11 @@
             color="primary"
             dense
             class="text-muted custom-checkbox"
-            :class="{ 'q-mb-md': index !== filters.length - 1 }"
+            :class="{ 'q-mb-md': !wide && index !== filters.length - 1 }"
           />
 
-          <q-separator v-if="index !== filters.length - 1" class="q-my-sm" />
-        </template>
+          <q-separator v-if="!wide && index !== filters.length - 1" class="q-my-sm" />
+        </div>
       </div>
 
       <div class="bg-surface-2 q-pa-sm row justify-end filter-footer">
@@ -31,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { PropType } from 'vue'
+import { computed, PropType } from 'vue'
 
 interface FilterOption {
   label: string;
@@ -49,6 +50,8 @@ const props = defineProps({
   activeFilters: { type: Object as PropType<Record<string, any[]>>, default: () => ({}) }
 })
 
+const wide = computed(() => props.filters.length > 4)
+
 const emit = defineEmits(['update:activeFilters', 'clear'])
 
 function updateFilter(key: string, values: any[]) {
@@ -59,6 +62,11 @@ function updateFilter(key: string, values: any[]) {
 <style scoped>
 .filter-menu {
   overflow: hidden;
+}
+.filter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 20px;
 }
 .custom-border {
   border: 1px solid var(--c-border-strong);

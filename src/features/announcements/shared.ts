@@ -1,12 +1,10 @@
 // Shared announcement/policy helpers — used by both the page (row mapping)
 // and the composer (form fill + save).
 
-export function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
+// Re-exported so this module stays the single import surface for the
+// announcements feature; the implementation lives in utils/format.ts, where
+// shared date helpers belong (ARCHITECTURE.md rule 4).
+export { fmtDate } from '@/utils/format'
 
 export function dateInput(iso: string | null | undefined): string | null {
   if (!iso) return null

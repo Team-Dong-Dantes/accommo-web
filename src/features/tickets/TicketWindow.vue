@@ -50,7 +50,7 @@ import MessageThread from './MessageThread.vue'
 import TicketDetails from './TicketDetails.vue'
 import type { MsgGroup } from './types'
 
-export type DrillKind = 'user' | 'accommodation' | 'accommodation_manager' | 'room'
+export type DrillKind = 'user' | 'accommodation' | 'landlord' | 'room'
 
 defineProps<{
   /** Nullable so the leave transition can play while the ticket deselects. */

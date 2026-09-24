@@ -1,7 +1,7 @@
 <template>
   <div class="row items-center no-wrap">
 
-    <q-avatar :color="avatarColor" text-color="white" class="text-weight-bold q-mr-md">
+    <q-avatar :color="avatarColor" :rounded="rounded" text-color="white" class="text-weight-bold q-mr-md">
       <img v-if="avatarUrl && !broken" :src="avatarUrl" :alt="name" @error="broken = true" />
       <template v-else>{{ initials }}</template>
     </q-avatar>
@@ -24,7 +24,13 @@ const props = defineProps({
   subtitle: { type: String, default: '' },
   avatarColor: { type: String, default: 'grey-5' },
   /** A profile photo, when the person has one. Falls back to the initials. */
-  avatarUrl: { type: String, default: '' }
+  avatarUrl: { type: String, default: '' },
+  /**
+   * Rounded square instead of a circle. For the rows where the image is a
+   * place rather than a person — a boarding house photo in a circle reads as
+   * somebody's profile picture.
+   */
+  rounded: { type: Boolean, default: false }
 })
 
 // Avatars are third-party URLs (a Google account photo) that can disappear, and

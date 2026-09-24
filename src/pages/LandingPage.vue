@@ -25,14 +25,14 @@
           <div class="actions">
             <a class="cta" href="#download">
               <Icon icon="lucide:smartphone" width="19" height="19" />
-              Download the app
+              Download App
             </a>
             <a class="cta-quiet" href="#how">See how it works</a>
           </div>
         </div>
 
         <p class="hero-foot">
-          Free for students. Accommodation managers list only after OSAS accreditation.
+          Free for students. Landlords/Landladies list only after OSAS accreditation.
         </p>
       </div>
     </section>
@@ -66,12 +66,12 @@
             <ol class="steps">
               <li><span>1</span><div><strong>Make an account</strong> with your school email — takes a minute.</div></li>
               <li><span>2</span><div><strong>Browse nearby boarding houses</strong> by price, room type, and distance to campus.</div></li>
-               <li><span>3</span><div><strong>Message the accommodation manager</strong> and sort out your stay, with OSAS there if something goes wrong.</div></li>
+               <li><span>3</span><div><strong>Message the landlord/landlady</strong> and sort out your stay, with OSAS there if something goes wrong.</div></li>
             </ol>
           </div>
 
           <div class="col-block" v-reveal>
-             <h3 class="sub">If you're an accommodation manager</h3>
+             <h3 class="sub">If you're a landlord/landlady</h3>
             <ol class="steps">
                <li><span>1</span><div><strong>Add your accommodation and rooms</strong> with photos and house rules.</div></li>
               <li><span>2</span><div><strong>OSAS reviews and accredits it</strong> — your listing goes live once it's cleared.</div></li>
@@ -104,7 +104,7 @@
         </div>
 
         <p class="fineprint" style="margin-top:16px;">
-           Free for students. Accommodation managers list only after OSAS accreditation.
+           Free for students. Landlords/Landladies list only after OSAS accreditation.
         </p>
       </div>
     </section>
@@ -151,12 +151,13 @@
         </div>
         <div>
           <div class="foot-h">Get the app</div>
+          <a :href="APP_URL">Web app</a>
           <a :href="APK_URL" target="_blank" rel="noopener">Android (APK)</a>
         </div>
       </div>
       <div class="container foot-bar">
         <span>© {{ year }} Accommo</span>
-        <span>Made for ISU Echague students and accommodation managers</span>
+        <span>Made for ISU Echague students and landlords/landladies</span>
       </div>
     </footer>
 
@@ -170,11 +171,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import { APP_URL, APK_URL } from '@/utils/appLinks';
 
 const year = new Date().getFullYear();
 const showTop = ref(false);
-// Latest signed release APK, published by the mobile repo's CI.
-const APK_URL = 'https://github.com/Team-Dong-Dantes/accommo-mobile/releases/latest/download/app-release.apk';
 const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 function onScroll() { showTop.value = window.scrollY > 600; }
 
@@ -198,10 +198,10 @@ const vReveal = {
 };
 
 const faqs = [
-  { q: 'How much does it cost for students?', a: 'Nothing. Students browse and message accommodation managers for free.' },
+  { q: 'How much does it cost for students?', a: 'Nothing. Students browse and message landlords/landladies for free.' },
   { q: 'Why does a listing say "Accredited"?', a: 'It means OSAS has reviewed the boarding house — ownership, documents, and location — before it was listed.' },
-  { q: 'I\'m an accommodation manager. How do I get listed?', a: 'Add your accommodation in the app and submit the required documents. OSAS reviews and accredits it, then your listing goes live.' },
-  { q: 'Something\'s wrong with my stay — what do I do?', a: 'Open a support ticket in the app. OSAS can step in if an accommodation manager or accommodation is not holding up their side.' },
+  { q: 'I\'m a landlord/landlady. How do I get listed?', a: 'Add your accommodation in the app and submit the requirements. OSAS reviews and accredits it, then your listing goes live.' },
+  { q: 'Something\'s wrong with my stay — what do I do?', a: 'Open a support ticket in the app. OSAS can step in if a landlord/landlady or accommodation is not holding up their side.' },
 ];
 </script>
 

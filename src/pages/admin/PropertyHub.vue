@@ -9,9 +9,9 @@
         color="teal-7"
         no-caps
         class="text-weight-bold rounded-button q-mb-md"
-        @click="handleExport"
+        @click="reportOpen = true"
       >
-        <Icon icon="lucide:download" class="on-left" width="18" height="18" />Export
+        <Icon icon="lucide:file-chart-column" class="on-left" width="18" height="18" />Report
       </q-btn>
     </div>
 
@@ -20,7 +20,7 @@
         v-model:search="search"
         v-model:active-filters="activeFilters"
         v-model:page="currentPage"
-        :search-placeholder="'Search accommodation, manager, or address…'"
+        :search-placeholder="'Search accommodation, landlord/landlady, or address…'"
         :filters="filterConfig"
         :loading="loading"
         :total-label="`${filteredAccommodations.length} accommodation${filteredAccommodations.length === 1 ? '' : 's'}`"
@@ -34,7 +34,7 @@
 
           <!-- OVERVIEW -->
           <q-tab-panel name="overview" class="q-pa-none">
-            <DataTable :rows="paginatedAccommodations" :columns="overviewColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+            <DataTable :rows="paginatedAccommodations" :columns="overviewColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron>
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon icon="lucide:map-pin-house" width="48" height="48" class="q-mb-md" />
@@ -42,15 +42,35 @@
                   <div>Listed accommodations will appear here.</div>
                 </div>
               </template>
-              <template #body="{ props }">
+              <template #body="{ props, rowNumber }">
                 <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openAccommodation(props.row)">
-                  <q-td key="accommodation" :props="props">
-                    <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :avatar-url="props.row.accommodationManagerAvatarUrl" :subtitle="props.row.type" />
+                  <q-td class="row-num-cell">{{ rowNumber }}</q-td>
+                  <q-td key="accommodation" :props="props" class="col-title">
+                    <UserInfoCell rounded :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :avatar-url="props.row.image" :subtitle="props.row.address" />
                   </q-td>
-                  <q-td key="accommodationManager" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accommodationManager }}</q-td>
-                  <q-td key="rooms" :props="props" class="text-center text-ink" style="font-size: 13px;">{{ props.row.totalRooms }}</q-td>
-                  <q-td key="occupants" :props="props" class="text-center text-ink" style="font-size: 13px;">{{ props.row.totalStudents }}</q-td>
-                  <q-td key="status" :props="props">
+                  <q-td key="landlord" :props="props" class="col-person">
+                    <UserInfoCell :initials="props.row.landlordInitials" :name="props.row.landlord" :avatar-color="'indigo-5'" :avatar-url="props.row.landlordAvatarUrl" :subtitle="props.row.contact" />
+                  </q-td>
+                  <q-td key="rooms" :props="props" class="num-cell col-num-wide col-split text-ink">
+                    <span class="rooms-cell">
+                      <Icon icon="lucide:door-closed" width="13" height="13" />{{ props.row.totalRooms }}
+                    </span>
+                  </q-td>
+                  <q-td key="floors" :props="props" class="num-cell col-num-wide text-ink">
+                    <span class="rooms-cell">
+                      <Icon icon="lucide:layers" width="13" height="13" />{{ props.row.floors || '—' }}
+                    </span>
+                  </q-td>
+                  <q-td key="occupants" :props="props" class="num-cell col-occupants">
+                    <span class="occupants-cell">
+                      <span class="text-ink text-weight-bold">{{ props.row.totalStudents }}</span>
+                      <span class="gender-split">
+                        <span class="gender-figure is-male"><Icon icon="lucide:mars" width="12" height="12" />{{ props.row.maleCount }}</span>
+                        <span class="gender-figure is-female"><Icon icon="lucide:venus" width="12" height="12" />{{ props.row.femaleCount }}</span>
+                      </span>
+                    </span>
+                  </q-td>
+                  <q-td key="status" :props="props" class="col-badge">
                     <BadgePill :tone="props.row.statusStyle.tone" :icon="props.row.statusStyle.icon" :label="props.row.statusLabel" />
                   </q-td>
                 </q-tr>
@@ -60,7 +80,7 @@
 
           <!-- COMPLIANCE (one row per house; a capsule per required permit) -->
           <q-tab-panel name="compliance" class="q-pa-none">
-            <DataTable :rows="paginatedAccommodations" :columns="complianceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+            <DataTable :rows="paginatedAccommodations" :columns="complianceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron>
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon icon="lucide:file-check" width="48" height="48" class="q-mb-md" />
@@ -68,12 +88,13 @@
                   <div>Permit compliance appears once documents are uploaded.</div>
                 </div>
               </template>
-              <template #body="{ props }">
+              <template #body="{ props, rowNumber }">
                 <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openAccommodation(props.row)">
-                  <q-td key="accommodation" :props="props">
-                    <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :avatar-url="props.row.accommodationManagerAvatarUrl" :subtitle="props.row.type" />
+                  <q-td class="row-num-cell">{{ rowNumber }}</q-td>
+                  <q-td key="accommodation" :props="props" class="col-title">
+                    <UserInfoCell rounded :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :avatar-url="props.row.image" :subtitle="props.row.address" />
                   </q-td>
-                  <q-td v-for="perm in requiredPermits" :key="perm" :props="props" class="text-center">
+                  <q-td v-for="(perm, i) in requiredPermits" :key="perm" :props="props" class="col-badge text-center" :class="{ 'col-split': i === 0 }">
                     <BadgePill
                       :tone="PERMIT_STATE[permitStatus(props.row, perm)].tone"
                       :icon="PERMIT_STATE[permitStatus(props.row, perm)].icon"
@@ -87,27 +108,30 @@
 
           <!-- PERFORMANCE -->
           <q-tab-panel name="performance" class="q-pa-none">
-            <DataTable :rows="paginatedAccommodations" :columns="performanceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }">
+            <DataTable :rows="paginatedAccommodations" :columns="performanceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron>
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon icon="lucide:chart-column" width="48" height="48" class="q-mb-md" />
                   <div class="text-h6 text-weight-bold">No performance data</div>
-                  <div>Ratings and reviews aren't populated yet.</div>
+                  <div>Ratings aren't populated yet.</div>
                 </div>
               </template>
-              <template #body="{ props }">
+              <template #body="{ props, rowNumber }">
                 <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openAccommodation(props.row)">
-                  <q-td key="accommodation" :props="props">
-                    <UserInfoCell :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :avatar-url="props.row.accommodationManagerAvatarUrl" :subtitle="props.row.type" />
+                  <q-td class="row-num-cell">{{ rowNumber }}</q-td>
+                  <q-td key="accommodation" :props="props" class="col-title">
+                    <UserInfoCell rounded :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :avatar-url="props.row.image" :subtitle="props.row.address" />
                   </q-td>
-                  <q-td key="accommodationManager" :props="props" class="text-ink" style="font-size: 13px;">{{ props.row.accommodationManager }}</q-td>
-                  <q-td key="rating" :props="props" class="text-ink" style="font-size: 13px;">
+                  <q-td key="landlord" :props="props" class="col-person">
+                    <UserInfoCell :initials="props.row.landlordInitials" :name="props.row.landlord" :avatar-color="'indigo-5'" :avatar-url="props.row.landlordAvatarUrl" :subtitle="props.row.contact" />
+                  </q-td>
+                  <q-td key="rating" :props="props" class="col-num-wide col-split text-ink" style="font-size: 13px;">
                     <span class="text-orange-5 text-weight-bold row items-center no-wrap">
                       <Icon icon="lucide:star" width="14" height="14" class="q-mr-xs" /> {{ props.row.rating }}
                     </span>
                   </q-td>
-                  <q-td key="response" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.responseRate != null ? `${props.row.responseRate}%` : '—' }}</q-td>
-                  <q-td key="occupancy" :props="props" class="text-ink text-weight-medium text-center" style="font-size: 13px;">
+                  <q-td key="response" :props="props" class="col-num-wide text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.responseRate != null ? `${props.row.responseRate}%` : '—' }}</q-td>
+                  <q-td key="occupancy" :props="props" class="num-cell col-badge text-ink text-weight-medium" style="font-size: 13px;">
                     {{ props.row.totalStudents }}/{{ props.row.totalCapacity }}
                   </q-td>
                 </q-tr>
@@ -122,9 +146,7 @@
     <!-- DETAIL DRAWER: docks to the right edge of the table, flush, no margin -->
     <DetailDrawer
       v-model="drawerOpen"
-      :width="'540px'"
-      anchored
-      position="right"
+      size="full"
       close-on-backdrop
       :loading="detailLoading"
         :preview="accommodationPreview"
@@ -134,6 +156,19 @@
 
     </div><!-- /prop-hub-body -->
 
+    <ReportDialog
+      v-model="reportOpen"
+      :reports="['masterlist', 'renewals', 'occupancy']"
+      :initial="reportInitial"
+      :accommodations="reportRows"
+      :scope-note="reportScope"
+    />
+    <ReportDialog
+      v-model="statusReportOpen"
+      :reports="['status']"
+      :preview="accommodationPreview"
+      :record-id="selectedAccommodation?.id"
+    />
   </q-page>
 </template>
 
@@ -147,13 +182,20 @@ import BadgePill from '@/components/user/BadgePill.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import type { DrawerPreview, PreviewChip } from '@/components/ui/DetailDrawer.vue'
+import type { PreviewAccommodationOverview } from '@/features/drawer/preview'
 import { getStatus, getTone, type StatusTone } from '@/utils/status.config'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
-import { escapeHtml, formatDateTime, humanizeEnum } from '@/utils/format'
-import { fetchAccommodationEvents, type AccommodationEventRow } from '@/api/accommodations'
-import { downloadCsv } from '@/utils/csv'
-import { PERMIT_STATE, expiryLabel, permitStateOf, type PermitState } from '@/utils/permitExpiry'
+import { cap, composeAddress, escapeHtml, fmtDate, formatDateTime, humanizeEnum, landlordTitle } from '@/utils/format'
+import {
+  fetchAccommodationDrawerExtras,
+  fetchAccommodationEvents,
+  type AccommodationDrawerExtras,
+  type AccommodationEventRow,
+} from '@/api/accommodations'
+import ReportDialog from '@/features/reports/ReportDialog.vue'
+import type { ReportId } from '@/features/reports/reports'
+import { PERMIT_STATE, REQUIRED_PERMITS, expiryLabel, permitStateOf, requiredPermitState, type PermitState } from '@/utils/permitExpiry'
 import { useAccommodations } from '@/composables/useAccommodations'
 
 const search = ref('')
@@ -173,10 +215,11 @@ const tabs = [
 
 // Accommodation types are derived from the loaded rows rather than hardcoded.
 // The fixed list read 'Boarding House' / 'Apartment' against a row value of
-// 'Boarding House' built from the enum 'boarding_house', so the filter matched
-// nothing; and the column also holds condominium_unit, residence_hall and a few
-// stray room-type values no hardcoded list would have covered. Same pattern as
-// AuditLogs.vue's computed filterConfig.
+// 'Boarding House' built from 'boarding_house', so the filter matched nothing.
+// The column is now constrained to boarding_house / residence / dormitory
+// (see the accommodation-type migration), but deriving still beats a second
+// hardcoded copy of that list here. Same pattern as AuditLogs.vue's computed
+// filterConfig.
 const filterConfig = computed(() => [
   {
     // Derived from the loaded rows, like the type filter below it: the fixed
@@ -199,76 +242,27 @@ function clearFilters() {
   activeFilters.value = {}
 }
 
-/** ISO timestamp -> YYYY-MM-DD, so a spreadsheet sorts the column. */
-function csvDate(v: string | null | undefined): string {
-  return v ? String(v).slice(0, 10) : ''
-}
-
-/**
- * Export what the open tab is actually showing. A single fixed column set
- * exported none of the Compliance permits and none of the Performance figures,
- * so a permit-compliance view downloaded a CSV with no permit column in it.
- * Overview carries every field on the row; the two other tabs stay narrow so
- * each CSV is readable. Nested rooms and occupants are not flattened here —
- * that is Room Hub's export.
- */
-function handleExport() {
-  const rows = filteredAccommodations.value
-
-  if (activeTab.value === 'compliance') {
-    downloadCsv(
-      'accommodation_compliance_export',
-      [
-        'Accommodation', 'Accommodation Manager', 'Status',
-        ...requiredPermits.flatMap((perm) => {
-          const label = `${perm.charAt(0).toUpperCase()}${perm.slice(1)} Permit`
-          return [label, `${label} Issued`, `${label} Expires`, `${label} Version`]
-        }),
-      ],
-      rows.map((p) => [
-        p.name, p.accommodationManager, p.statusLabel,
-        ...requiredPermits.flatMap((perm) => {
-          const pm = findPermit(p, perm)
-          return [
-            PERMIT_STATE[permitStatus(p, perm)].label,
-            csvDate(pm?.issuedAt), csvDate(pm?.expiresAt), pm?.version ?? '',
-          ]
-        }),
-      ]),
-    )
-    return
-  }
-
-  if (activeTab.value === 'performance') {
-    downloadCsv(
-      'accommodation_performance_export',
-      ['Accommodation', 'Accommodation Manager', 'Rating', 'Reviews', 'Response Rate (%)',
-        'Occupants', 'Capacity', 'Occupancy (%)', 'Occupied Rooms', 'Total Rooms'],
-      rows.map((p) => [
-        p.name, p.accommodationManager, p.rating, p.reviewsCount, p.responseRate ?? '',
-        p.totalStudents, p.totalCapacity, p.occupancyRate, p.occupiedRooms, p.totalRooms,
-      ]),
-    )
-    return
-  }
-
-  downloadCsv(
-    'accommodations_export',
-    ['Accommodation', 'Business Name', 'Accommodation Type', 'Room Type', 'Description',
-      'Accommodation Manager', 'Contact', 'Address', 'Latitude', 'Longitude', 'Floors',
-      'Status', 'Accreditation Status', 'Submitted', 'Accredited', 'Accreditation Expires',
-      'Total Rooms', 'Occupied Rooms', 'Occupants', 'Capacity', 'Occupancy (%)',
-      'Female Occupants', 'Male Occupants', 'Rating', 'Reviews', 'Response Rate (%)', 'ID'],
-    rows.map((p) => [
-      p.name, p.businessName ?? '', p.type, p.roomType, p.description,
-      p.accommodationManager, p.contact, p.address, p.lat ?? '', p.lng ?? '', p.floors,
-      p.statusLabel, p.accreditationStatus ? humanizeEnum(p.accreditationStatus) : '',
-      csvDate(p.submittedAt), csvDate(p.accreditedAt), csvDate(p.accreditationExpiresAt),
-      p.totalRooms, p.occupiedRooms, p.totalStudents, p.totalCapacity, p.occupancyRate,
-      p.femaleCount, p.maleCount, p.rating, p.reviewsCount, p.responseRate ?? '', p.id,
-    ]),
-  )
-}
+// Report: opens on the one matching the tab, over the rows the hub is showing,
+// so the hub's own filters carry into it and the report says so on the page.
+const reportOpen = ref(false)
+// The open record's own Status report, in the same report window.
+const statusReportOpen = ref(false)
+const reportInitial = computed<ReportId>(() =>
+  activeTab.value === 'compliance' ? 'renewals' : activeTab.value === 'performance' ? 'occupancy' : 'masterlist')
+// The composable's own rows (the report reads its fields), limited to what the hub shows.
+const reportRows = computed(() => {
+  const shown = new Set(filteredAccommodations.value.map((a) => a.id))
+  return realAccommodations.value.filter((a) => shown.has(a.id))
+})
+const reportScope = computed(() => {
+  const f = activeFilters.value
+  const parts = [
+    f.status?.length ? `status ${f.status.join(', ')}` : '',
+    f.type?.length ? `type ${f.type.join(', ')}` : '',
+    search.value ? `matching "${search.value}"` : '',
+  ].filter(Boolean)
+  return parts.length ? `Filtered in the Accommodation Hub: ${parts.join('; ')}` : undefined
+})
 
 async function fetchAccommodations() {
   await loadAccommodations()
@@ -288,7 +282,7 @@ onMounted(async () => {
 type ManagementAction = { label: string; action: string; danger?: boolean }
 
 /**
- * OSAS pulling an accredited property is a different act from the manager
+ * OSAS pulling an accredited property is a different act from the landlord/landlady
  * delisting their own, and from a refusal at accreditation — so it gets its own
  * status rather than another meaning loaded onto `rejected`. Same shape as the
  * account actions in Users.vue.
@@ -297,18 +291,64 @@ const accommodationActions = computed<ManagementAction[]>(() => {
   const a = selectedAccommodation.value
   if (!a) return []
   const status = String(a.status || '').toLowerCase()
-  if (status === 'suspended') {
-    return [{ label: 'Restore Accreditation', action: 'restore' }]
-  }
+  const actions: ManagementAction[] = [{ label: 'Status report', action: 'export' }]
   if (status === 'accredited') {
-    return [{ label: 'Suspend Property', action: 'suspend', danger: true }]
+    actions.push(
+      a.hiddenFromListings
+        ? { label: 'Show in listings', action: 'unhide' }
+        : { label: 'Hide from listings', action: 'hide' },
+      { label: 'Suspend accreditation', action: 'suspend', danger: true },
+    )
   }
-  return []
+  if (status === 'suspended') actions.push({ label: 'Restore accreditation', action: 'restore' })
+  return actions
 })
+
+/**
+ * Hiding takes an accredited property out of what students browse without
+ * touching its accreditation — current boarders still see their own stay. Only
+ * an admin can flip the flag; a trigger on `accommodations` enforces that.
+ */
+async function setHidden(a: any, hidden: boolean) {
+  if (hidden && !window.confirm(`Hide ${a.name} from student listings? Its current boarders are not affected.`)) return
+  const { error } = await supabase
+    .from('accommodations')
+    .update({ hidden_from_listings: hidden } as never)
+    .eq('id', a.id)
+  if (error) {
+    notify.error('Could not change whether it is listed', error.message)
+    return
+  }
+  selectedAccommodation.value = { ...a, hiddenFromListings: hidden }
+  const row = realAccommodations.value.find((r) => r.id === a.id)
+  if (row) row.hiddenFromListings = hidden
+
+  const actorId = (await supabase.auth.getUser()).data.user?.id || null
+  const { error: auditErr } = await supabase.from('audit_logs').insert({
+    action: hidden ? 'accommodation.hide' : 'accommodation.unhide',
+    actor_id: actorId,
+    entity_id: a.id,
+    entity_type: 'accommodation',
+    before_json: { hidden_from_listings: !hidden },
+    after_json: { hidden_from_listings: hidden },
+  } as never)
+  if (auditErr) notify.warning('Change not recorded in the audit log', auditErr.message)
+
+  notify.success(hidden ? 'Hidden from student listings.' : 'Shown in student listings again.')
+  void loadAccommodationEvents(a.id)
+}
 
 async function onManageAccommodation(action: string) {
   const a = selectedAccommodation.value
   if (!a?.id) return
+  if (action === 'export') {
+    statusReportOpen.value = true
+    return
+  }
+  if (action === 'hide' || action === 'unhide') {
+    await setHidden(a, action === 'hide')
+    return
+  }
   const next = action === 'suspend' ? 'suspended' : action === 'restore' ? 'accredited' : null
   if (!next) return
 
@@ -360,13 +400,31 @@ const drawerOpen = ref(false)
 const detailLoading = ref(false)
 const selectedAccommodation = ref<any | null>(null)
 const accommodationEvents = ref<AccommodationEventRow[]>([])
+const drawerExtras = ref<AccommodationDrawerExtras | null>(null)
 
 function openAccommodation(row: any) {
   selectedAccommodation.value = row
   accommodationEvents.value = []
+  drawerExtras.value = null
   drawerOpen.value = true
   void fetchAccommodationDetail(row)
   void loadAccommodationEvents(row.id)
+  void loadDrawerExtras(row)
+}
+
+async function loadDrawerExtras(row: any) {
+  try {
+    const extras = await fetchAccommodationDrawerExtras(
+      row.id,
+      (row.rooms ?? []).map((r: any) => r.id),
+      (row.facilities ?? []).map((f: any) => f.id),
+    )
+    // A slow response for a record the reviewer has already left is dropped.
+    if (selectedAccommodation.value?.id === row.id) drawerExtras.value = extras
+  } catch {
+    // Photos, amenities and reviews fill in when they arrive; without them the
+    // record still reads, with empty strips and an empty Reviews tab.
+  }
 }
 
 async function loadAccommodationEvents(id: string) {
@@ -401,8 +459,9 @@ async function fetchAccommodationDetail(row: any) {
         accreditationStatus: d.accreditation_status ?? row.accreditationStatus,
         accreditationExpiresAt: d.accreditation_expires_at ?? row.accreditationExpiresAt,
         rating: d.rating_avg != null ? d.rating_avg.toFixed(1) : row.rating,
-        address: [d.address, d.barangay, d.city].filter(Boolean).join(', ') || row.address,
-        type: d.accommodation_type ? cap(d.accommodation_type) : row.type,
+        // composeAddress drops the barangay most street lines already contain.
+        address: composeAddress(d) === '—' ? row.address : composeAddress(d),
+        type: d.accommodation_type ? humanizeEnum(d.accommodation_type) : row.type,
         floors: d.total_floors ?? row.floors,
         totalRooms: d.total_rooms ?? row.totalRooms,
       }
@@ -414,41 +473,41 @@ async function fetchAccommodationDetail(row: any) {
   }
 }
 
-function cap(s: string | null | undefined) {
-  if (!s) return '—'
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
-function roomTone(status: string | null | undefined): StatusTone {
-  const s = (status || '').toLowerCase()
-  if (s.includes('occup')) return 'warning'
-  if (s.includes('avail')) return 'success'
-  if (s.includes('maint')) return 'danger'
-  if (s.includes('reserv')) return 'info'
-  return 'neutral'
-}
-
+// Male and Female sit beside Total rather than under it, so a reviewer can scan
+// one column down the page. That costs width, hence the tighter percentages on
+// the two identity columns — both already truncate with an ellipsis.
 const overviewColumns = [
-  { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'name', headerStyle: 'width: 28%' },
-  { name: 'accommodationManager', align: 'left', label: 'Accommodation Manager', field: 'accommodationManager', headerStyle: 'width: 18%' },
-  { name: 'rooms', align: 'center', label: 'Rooms', field: 'totalRooms', headerStyle: 'width: 12%' },
-  { name: 'occupants', align: 'center', label: 'Occupants', field: 'totalStudents', headerStyle: 'width: 14%' },
-  { name: 'status', align: 'left', label: 'Status', field: 'verified', headerStyle: 'width: 18%' },
+  // Only Accommodation is left flexible, so it takes every pixel the sized
+  // columns do not. See the column-sizing block in DataTable.vue.
+  { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'name', headerClasses: 'col-title' },
+  { name: 'landlord', align: 'left', label: 'Landlord/Landlady', field: 'landlord', headerClasses: 'col-person' },
+  { name: 'rooms', align: 'center', label: 'No. of Rooms', field: 'totalRooms', headerClasses: 'num-cell col-num-wide col-split' },
+  { name: 'floors', align: 'center', label: 'No. of Stories', field: 'floors', headerClasses: 'num-cell col-num-wide' },
+  // Total, Male and Female used to be three separate columns of plain digits.
+  // One column now: the total leads, with a male/female breakdown in the same
+  // mars/venus icon + colour pairing PropertyDetail.vue already uses for this
+  // accommodation's gender split, so the table and its own detail drawer read
+  // as the same visual language rather than two different ones.
+  { name: 'occupants', align: 'center', label: 'Boarders', field: 'totalStudents', headerClasses: 'num-cell col-occupants' },
+  { name: 'status', align: 'left', label: 'Status', field: 'status', headerClasses: 'col-badge' },
 ]
 
 const complianceColumns = [
-  { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'name', headerStyle: 'width: 22%' },
-  { name: 'fire', align: 'center', label: 'Fire Permit', field: 'fire', headerStyle: 'width: 19%' },
-  { name: 'business', align: 'center', label: 'Business Permit', field: 'business', headerStyle: 'width: 19%' },
-  { name: 'sanitary', align: 'center', label: 'Sanitary Permit', field: 'sanitary', headerStyle: 'width: 20%' },
-  { name: 'building', align: 'center', label: 'Building Permit', field: 'building', headerStyle: 'width: 20%' },
+  { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'name', headerClasses: 'col-title' },
+  { name: 'fire', align: 'center', label: 'Fire Permit', field: 'fire', headerClasses: 'col-badge col-split' },
+  { name: 'business', align: 'center', label: 'Business Permit', field: 'business', headerClasses: 'col-badge' },
+  { name: 'sanitary', align: 'center', label: 'Sanitary Permit', field: 'sanitary', headerClasses: 'col-badge' },
+  { name: 'building', align: 'center', label: 'Building Permit', field: 'building', headerClasses: 'col-badge' },
 ]
 
 const performanceColumns = [
-  { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'name', headerStyle: 'width: 28%' },
-  { name: 'accommodationManager', align: 'left', label: 'Accommodation Manager', field: 'accommodationManager', headerStyle: 'width: 20%' },
-  { name: 'rating', align: 'left', label: 'Rating', field: 'rating', headerStyle: 'width: 14%' },
-  { name: 'response', align: 'left', label: 'Response', field: 'responseRate', headerStyle: 'width: 14%' },
-  { name: 'occupancy', align: 'center', label: 'Occupancy', field: 'totalStudents', headerStyle: 'width: 24%' },
+  // Sized rather than flexible: this column carries an avatar, the name and the
+  // phone number underneath it.
+  { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'name', headerClasses: 'col-title' },
+  { name: 'landlord', align: 'left', label: 'Landlord/Landlady', field: 'landlord', headerClasses: 'col-person' },
+  { name: 'rating', align: 'left', label: 'Rating', field: 'rating', headerClasses: 'col-num-wide col-split' },
+  { name: 'response', align: 'left', label: 'Response', field: 'responseRate', headerClasses: 'col-num-wide' },
+  { name: 'occupancy', align: 'center', label: 'Occupancy', field: 'totalStudents', headerClasses: 'num-cell col-badge' },
 ]
 
 // Map real Supabase accommodations straight through — no invented audit/compliance
@@ -458,9 +517,19 @@ const accommodations = computed(() => realAccommodations.value.map((p) => ({
   name: p.name,
   type: p.accommodationType,
   businessName: p.businessName,
-  initials: p.accommodationManagerInitials,
-  accommodationManagerAvatarUrl: p.accommodationManagerAvatarUrl,
-  accommodationManager: p.accommodationManager,
+  // The house's own cover photo and its own initials behind it. This mapping
+  // used to drop `image` entirely and fill `initials` from the LANDLORD, so
+  // every row showed a person's letters where the building should be, and no
+  // photo could ever reach the table no matter what the composable resolved.
+  image: p.image,
+  initials: p.initials,
+  landlordInitials: p.landlordInitials,
+  landlordAvatarUrl: p.landlordAvatarUrl,
+  landlord: p.landlord,
+  landlordId: p.landlordId,
+  landlordSex: p.landlordSex,
+  genderPolicy: p.genderPolicy,
+  hiddenFromListings: p.hiddenFromListings,
   contact: p.contact,
   verified: p.verified,
   status: p.status,
@@ -491,29 +560,10 @@ const accommodations = computed(() => realAccommodations.value.map((p) => ({
   facilities: p.facilities,
 })))
 
-// Set of permits a boarding house is required to submit for verification.
-// Each becomes its own column in the Compliance tab.
-const requiredPermits = ['fire', 'business', 'sanitary', 'building']
-
-// True if the accommodation has a submitted document matching the given required
-// permit keyword. Matching is case-insensitive and bidirectional so labels like
-// "fire certificate" or "business permit" both count against fire / business.
-function findPermit(prop: any, requiredType: string): any {
-  const kw = requiredType.toLowerCase()
-  return (prop.permits ?? []).find((pm: any) => {
-    const t = String(pm.type || '').toLowerCase()
-    return t.includes(kw) || kw.includes(t)
-  })
-}
-
-// Compliance state of one required permit for an accommodation. The date
-// comparison itself lives in utils/permitExpiry so the Compliance tab and the
-// detail drawers cannot drift apart on what "expiring" means.
-function permitStatus(prop: any, requiredType: string): PermitState {
-  const pm = findPermit(prop, requiredType)
-  if (!pm) return 'missing'
-  return permitStateOf(pm.expiresAt)
-}
+// The required permits, one Compliance column each; the list and the matching
+// live in utils/permitExpiry, shared with the renewal report.
+const requiredPermits = REQUIRED_PERMITS.map((p) => p.key)
+const permitStatus = (prop: any, requiredType: string): PermitState => requiredPermitState(prop.permits, requiredType)
 
 const filteredAccommodations = computed(() => {
   let result = [...accommodations.value]
@@ -531,7 +581,7 @@ const filteredAccommodations = computed(() => {
     const q = search.value.toLowerCase()
     result = result.filter((p) =>
       p.name.toLowerCase().includes(q) ||
-      p.accommodationManager.toLowerCase().includes(q) ||
+      p.landlord.toLowerCase().includes(q) ||
       p.type.toLowerCase().includes(q) ||
       p.address.toLowerCase().includes(q)
     )
@@ -550,33 +600,84 @@ watch(activeTab, () => {
   currentPage.value = 1
 })
 
-const avatarUrl = (name: string) =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=160&background=0F766E&color=fff&bold=true`
+/** Occupancy and rating across every accredited accommodation, for the record's bullet graphs. */
+const campusBenchmark = computed(() => {
+  const acc = accommodations.value.filter((a) => a.verified)
+  const cap = acc.reduce((n, a) => n + (a.totalCapacity ?? 0), 0)
+  const pax = acc.reduce((n, a) => n + Math.min(a.totalStudents ?? 0, a.totalCapacity ?? 0), 0)
+  const rated = acc.map((a) => Number(a.rating)).filter((n) => Number.isFinite(n) && n > 0)
+  return {
+    count: acc.length,
+    occupancyPct: cap ? Math.round((pax / cap) * 100) : 0,
+    rating: rated.length ? rated.reduce((a, b) => a + b, 0) / rated.length : null,
+  }
+})
+
+/** `accommodations.gender_policy` as the overview's Boarders tile reads it. */
+const GENDER_POLICY_LABEL: Record<string, string> = {
+  co_ed: 'Co-ed',
+  male: 'Male only',
+  female: 'Female only',
+}
 
 const accommodationPreview = computed<DrawerPreview>(() => {
   const p = selectedAccommodation.value
   if (!p) return { kind: 'accommodation', title: 'Accommodation Preview', name: '', avatar: '', stats: [], detailGroups: [] }
   const chips: PreviewChip[] = [
-    { text: p.type, tone: 'primary', icon: 'lucide:building-2' },
+    { text: humanizeEnum(p.type), tone: 'primary', icon: 'lucide:building-2' },
     p.verified
-      ? { text: 'Verified', tone: 'success', icon: 'lucide:circle-check' }
+      ? { text: 'Accredited', tone: 'success', icon: 'lucide:award' }
       : { text: 'Pending', tone: 'warning', icon: 'lucide:clock' },
   ]
-  const occupancy = p.totalCapacity ? `${Math.round((p.totalStudents / p.totalCapacity) * 100)}%` : '—'
+  const occupancyPct = p.totalCapacity ? Math.round((p.totalStudents / p.totalCapacity) * 100) : 0
+  // Occupants and occupancy are the overview's dial, which states the share and
+  // the raw beds in one place; repeating either here would be one fact twice.
   const stats = [
-    { label: 'Occupants', value: p.totalStudents },
     { label: 'Rooms', value: p.totalRooms },
     { label: 'Rating', value: p.rating != null ? `${p.rating} ★` : '—' },
-    { label: 'Occupancy', value: occupancy },
+    { label: 'Response', value: p.responseRate != null ? `${p.responseRate}%` : '—' },
   ]
+  const overview: PreviewAccommodationOverview = {
+    // '' when the landlord/landlady has uploaded none — see useAccommodations,
+    // which deliberately does not substitute a stand-in photograph.
+    coverUrl: p.image || '',
+    typeLine: p.type,
+    roomCount: p.totalRooms ?? 0,
+    floors: p.floors ?? 0,
+    genderPolicyLabel: GENDER_POLICY_LABEL[p.genderPolicy ?? ''] ?? 'Not set',
+    ratingLabel: p.rating && p.rating !== '—' ? String(p.rating) : '—',
+    reviewCount: drawerExtras.value?.reviews.length,
+    responseLabel: p.responseRate != null ? `${p.responseRate}%` : '—',
+    amenities: drawerExtras.value?.amenities ?? [],
+    hidden: Boolean(p.hiddenFromListings),
+    address: p.address,
+    accredited: Boolean(p.verified),
+    accreditationLabel: p.verified ? 'Accredited' : 'Pending',
+    expiryLabel: expiryLabel(p.accreditationExpiresAt),
+    accreditedAt: p.accreditedAt ?? null,
+    expiresAt: p.accreditationExpiresAt ?? null,
+    campus: campusBenchmark.value,
+    occupied: Math.min(p.totalStudents, p.totalCapacity),
+    capacity: p.totalCapacity,
+    occupancyPct,
+    female: p.femaleCount,
+    male: p.maleCount,
+    landlord: {
+      id: p.landlordId ?? '',
+      name: p.landlord,
+      title: landlordTitle(p.landlordSex),
+      contact: p.contact,
+      initials: p.landlordInitials,
+      avatarUrl: p.landlordAvatarUrl || undefined,
+    },
+  }
   const detailGroups = [
     {
       title: 'Identity',
       icon: 'lucide:building-2',
       rows: [
-        { label: 'Accommodation ID', value: String(p.id) },
         { label: 'Type', value: p.type },
-        { label: 'Accommodation Manager', value: p.accommodationManager },
+        { label: 'Landlord/Landlady', value: p.landlord },
       ],
     },
     {
@@ -621,6 +722,10 @@ const accommodationPreview = computed<DrawerPreview>(() => {
         status: state.label,
         statusTone: state.tone,
         expiry: expiryLabel(pm.expiresAt),
+        issued: pm.issuedAt ? fmtDate(pm.issuedAt) : '—',
+        uploaded: pm.uploadedAt ? fmtDate(pm.uploadedAt) : '—',
+        version: pm.version ?? null,
+        daysLeft: pm.expiresAt ? Math.ceil((new Date(pm.expiresAt).getTime() - Date.now()) / 86_400_000) : null,
       }
     })
   // Rooms of this accommodation — clickable to jump to Room Hub.
@@ -631,8 +736,30 @@ const accommodationPreview = computed<DrawerPreview>(() => {
     capacity: r.capacity,
     pax: r.currentPax,
     status: r.status,
-    statusTone: roomTone(r.status),
+    statusTone: getTone(r.status),
     accommodationId: p.id,
+    occupants: (r.occupants ?? []).map((o: any) => ({
+      id: o.id,
+      name: o.name,
+      initials: o.initials,
+      avatarUrl: o.avatarUrl || '',
+      gender: o.gender,
+      since: o.since && o.since !== '—' ? o.since : null,
+      detail: [o.course, o.year].filter((x: string) => x && x !== '—').join(' · '),
+    })),
+    photos: drawerExtras.value?.roomPhotos.get(r.id) ?? [],
+  }))
+  // Until the photos arrive a facility keeps its counted `photoCount`.
+  const facilities = (p.facilities ?? []).map((f: any) => {
+    const photos = drawerExtras.value?.facilityPhotos.get(f.id)
+    return drawerExtras.value ? { ...f, photos: photos ?? [] } : f
+  })
+  const reviews = (drawerExtras.value?.reviews ?? []).map((r) => ({
+    author: r.author,
+    room: r.room ?? undefined,
+    rating: r.rating,
+    comment: r.comment ?? '',
+    time: r.createdAt ? formatDateTime(r.createdAt) : '',
   }))
   // Real events from the audit trail. `text` is rendered with v-html by
   // ActivityTab.vue, so anything spliced in is escaped — see escapeHtml() in
@@ -645,6 +772,15 @@ const accommodationPreview = computed<DrawerPreview>(() => {
         time: formatDateTime(e.created_at),
         icon: 'lucide:circle-plus',
         tone: 'primary' as StatusTone,
+      }
+    }
+    if (e.action === 'accommodation.hide' || e.action === 'accommodation.unhide') {
+      const hidden = e.action === 'accommodation.hide'
+      return {
+        text: hidden ? 'Hidden from student listings by OSAS' : 'Shown in student listings again',
+        time: formatDateTime(e.created_at),
+        icon: hidden ? 'lucide:eye-off' : 'lucide:eye',
+        tone: (hidden ? 'warning' : 'success') as StatusTone,
       }
     }
     if (changed) {
@@ -666,18 +802,20 @@ const accommodationPreview = computed<DrawerPreview>(() => {
   return {
     kind: 'accommodation',
     title: 'Accommodation Preview',
-    viewDetailsLabel: 'View Full Details',
     name: p.name,
-    avatar: avatarUrl(p.name),
+    avatar: p.image,
+    initials: p.initials,
     chips,
     meta: p.address,
-    org: { name: p.accommodationManager, icon: 'lucide:user-round' },
+    org: { name: p.landlord, icon: 'lucide:user-round' },
     stats,
+    overview,
     detailGroups,
     files,
     rooms,
-    facilities: p.facilities ?? [],
+    facilities,
     activity,
+    reviews,
   }
 })
 </script>
@@ -687,6 +825,40 @@ const accommodationPreview = computed<DrawerPreview>(() => {
   overflow: hidden !important;
   height: 100% !important;
 }
+
+.rooms-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--c-ink);
+}
+.rooms-cell .iconify { color: var(--c-muted); }
+
+/* Total leads in ink; the gender breakdown underneath uses the same
+   mars/venus icon + colour pairing as this accommodation's own detail drawer
+   (components/properties/PropertyDetail.vue), so a reviewer reads one gender
+   visual language across the table and the drawer it opens into. */
+.occupants-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font-size: 13px;
+}
+.gender-split {
+  display: inline-flex;
+  gap: 6px;
+}
+.gender-figure {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.gender-figure.is-male { color: #42a5f5; }
+.gender-figure.is-female { color: #e91e63; }
 
 /* Holds the table + the right-docked detail drawer together so the drawer
    anchors flush to the table's right edge (no margin, inside the card area). */

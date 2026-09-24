@@ -35,12 +35,12 @@ export interface DashboardStats {
   }
   gender: { female: number; male: number; other: number; unspecified: number }
   activeLeases: number
-  registrationsByMonth: { ym: string; month: string; students: number; accommodationManagers: number }[]
+  registrationsByMonth: { ym: string; month: string; students: number; landlords: number }[]
   /**
    * How long the verification queue has been waiting, not just how deep it is.
    * A single "69 waiting" hid that 47 of them had sat for over a fortnight.
    */
-  verificationAges: { label: string; students: number; managers: number; overdue: boolean }[]
+  verificationAges: { label: string; students: number; landlords: number; overdue: boolean }[]
   /** Accreditation pipeline by stage — shows where applications actually stop. */
   accommodationFunnel: { stage: string; count: number }[]
   /**
@@ -65,11 +65,11 @@ export interface DashboardStats {
   expiringLeases: { id: string; end_date: string | null }[]
   expiringAccreditations: number
   recentTickets: { id: string; subject: string | null; priority: string; status: string; reported_at: string }[]
-  accommodationManagerPayments: { pendingVerification: number; overdue: number }
+  landlordPayments: { pendingVerification: number; overdue: number }
   /** Admin home — triage queues with the oldest rows surfaced. */
   verificationQueue: {
     students: number
-    accommodationManagers: number
+    landlords: number
     withDocs: number
     oldestDays: number
     oldestStudentDays: number

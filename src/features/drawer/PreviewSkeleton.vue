@@ -1,73 +1,23 @@
 <template>
-  <div>
+  <!-- Mirrors PreviewBody's two-pane grid. If it did not, the layout would jump
+       the moment real content landed: the loading shape has to reserve the same
+       space the loaded shape occupies. Each kind's existing skeleton goes in the
+       left pane; the right pane is one shared tab-strip-plus-card block, since
+       every kind renders the same tab furniture there. -->
+  <div class="dd-skel-content">
     <!-- Common top bar -->
-    <div class="dd-header row items-center justify-between q-pa-md">
-      <q-skeleton type="text" width="160px" height="22px" />
-      <q-skeleton type="circle" size="36px" />
+    <div class="dd-skel-head">
+      <div class="dd-header row items-center justify-between q-pa-md">
+        <q-skeleton type="text" width="160px" height="22px" />
+        <q-skeleton type="circle" size="36px" />
+      </div>
+      <q-separator style="background: var(--c-border)" />
     </div>
-    <q-separator style="background: var(--c-border)" />
 
-    <!-- Accommodation preview skeleton -->
-    <template v-if="kind === 'accommodation'">
-      <div class="q-pa-md">
-        <div class="row items-center q-gutter-x-md">
-          <q-skeleton type="circle" size="72px" />
-          <div class="col">
-            <q-skeleton type="text" width="55%" height="24px" class="q-mb-xs" />
-            <div class="row q-gutter-x-sm q-mt-xs">
-              <q-skeleton type="rect" width="96px" height="22px" style="border-radius: 999px" />
-              <q-skeleton type="rect" width="96px" height="22px" style="border-radius: 999px" />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="q-px-md q-pb-md">
-        <div class="row border-all rounded-borders q-pa-md text-center" style="border-radius: var(--radius-sm);">
-          <div v-for="n in 4" :key="n" class="col" :class="n < 4 ? 'border-right' : ''">
-            <q-skeleton type="text" width="60%" class="q-mx-auto q-mb-xs" />
-            <q-skeleton type="text" width="50%" class="q-mx-auto" />
-          </div>
-        </div>
-      </div>
-      <div class="q-px-md q-pb-md">
-        <div class="border-all rounded-borders" style="border-radius: var(--radius-sm);">
-          <div class="row items-center justify-between q-pa-md border-bottom">
-            <q-skeleton type="text" width="40%" />
-            <q-skeleton type="rect" width="104px" height="22px" style="border-radius: 999px" />
-          </div>
-          <div class="row q-pa-sm">
-            <div v-for="n in 4" :key="n" class="col" :class="n < 4 ? 'border-right' : ''">
-              <div class="q-pa-xs">
-                <q-skeleton type="text" width="50%" class="q-mb-xs" />
-                <q-skeleton type="text" width="60%" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="q-px-md q-pb-md">
-        <div class="dd-hc-list">
-          <div v-for="n in 2" :key="n" class="dd-hc-row">
-            <div class="dd-hc-rail">
-              <q-skeleton type="circle" size="40px" />
-            </div>
-            <div class="dd-hc-card border-all rounded-borders" style="border-radius: var(--radius-sm);">
-              <div class="row justify-between items-center">
-                <q-skeleton type="text" width="55%" height="16px" />
-                <q-skeleton type="rect" width="64px" height="20px" style="border-radius: 999px;" />
-              </div>
-              <div class="row justify-between items-end">
-                <q-skeleton type="text" width="40%" height="12px" />
-                <q-skeleton type="text" width="28%" height="12px" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </template>
-
-    <!-- Room Preview skeleton -->
-    <template v-else-if="kind === 'room'">
+    <div class="dd-skel-left">
+    <!-- Room Preview skeleton. An accommodation never lands here: its record
+         (AccommodationRecord) draws its own in-place skeleton while loading. -->
+    <template v-if="kind === 'room'">
       <div class="q-pa-md">
         <div class="row items-center q-gutter-x-md">
           <q-skeleton type="circle" size="72px" />
@@ -212,6 +162,20 @@
         </div>
       </div>
     </template>
+    </div>
+
+    <!-- Right pane: the tab furniture, identical for every kind. -->
+    <div class="dd-skel-right">
+      <div class="dd-skel-strip row q-gutter-x-sm">
+        <q-skeleton v-for="n in 4" :key="n" type="rect" width="104px" height="34px" style="border-radius: 10px 10px 0 0" />
+      </div>
+      <div class="dd-skel-card">
+        <div v-for="n in 5" :key="n" class="dd-skel-line row items-center justify-between">
+          <q-skeleton type="text" width="42%" height="14px" />
+          <q-skeleton type="text" width="18%" height="14px" />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -222,6 +186,70 @@ defineProps<{
 </script>
 
 <style scoped>
+/* Same grid and the same column sizes as PreviewBody.vue's `.dd-content` —
+   they have to agree, or the shape shifts when loading ends. */
+.dd-skel-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 3fr 4fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'head head'
+    'left right';
+  overflow: hidden;
+}
+.dd-skel-head {
+  grid-area: head;
+}
+.dd-skel-left {
+  grid-area: left;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--c-border);
+}
+.dd-skel-right {
+  grid-area: right;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-4);
+  background: var(--c-surface-2);
+  overflow: hidden;
+}
+.dd-skel-strip {
+  flex: 0 0 auto;
+  padding: 0 var(--sp-4);
+}
+.dd-skel-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  padding: var(--sp-4);
+  overflow: hidden;
+}
+.dd-skel-line + .dd-skel-line {
+  margin-top: 18px;
+}
+@media (max-width: 1023px) {
+  .dd-skel-content {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'head'
+      'left'
+      'right';
+    grid-template-rows: auto auto 1fr;
+  }
+  .dd-skel-left {
+    border-right: none;
+    border-bottom: 1px solid var(--c-border);
+  }
+  .dd-skel-right {
+    min-height: 420px;
+  }
+}
 .sk-card {
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm, 10px);

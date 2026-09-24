@@ -83,7 +83,7 @@ async function runAutoChecks() {
   const list: VerificationCheck[] = []
 
   const have = props.isAccommodation ? 0 : (r.files?.length ?? 0)
-  const need = r.type?.includes('Accommodation Manager') ? 1 : 2
+  const need = r.type?.includes('Landlord/Landlady') ? 1 : 2
   const docsOk = props.isAccommodation ? true : have >= need
 
   if (props.isAccommodation) {
