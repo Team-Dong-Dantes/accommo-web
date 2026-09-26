@@ -42,6 +42,12 @@ h4,
   outline-offset: 2px;
   border-radius: 4px;
 }
+/* …except a menu's own box. QMenu focuses its container on open so arrow keys
+   and Esc work, which drew the ring round the whole popover (the bell's, the
+   profile menu). Its rows still get their own ring. */
+.q-menu:focus-visible {
+  outline: none;
+}
 
 ::selection {
   background: var(--c-primary-soft);

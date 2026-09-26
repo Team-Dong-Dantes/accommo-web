@@ -29,9 +29,19 @@
       <q-list class="q-py-xs">
         <q-item clickable v-ripple to="/settings" class="menu-row">
           <q-item-section avatar class="menu-ico">
-            <Icon icon="lucide:settings" width="20" height="20" color="#424242" />
+            <Icon icon="lucide:settings" width="20" height="20" class="text-muted" />
           </q-item-section>
           <q-item-section class="menu-label">Settings</q-item-section>
+        </q-item>
+
+        <q-item clickable v-ripple class="menu-row" @click="onToggleDark(!darkMode)">
+          <q-item-section avatar class="menu-ico">
+            <Icon icon="lucide:moon" width="20" height="20" class="text-muted" />
+          </q-item-section>
+          <q-item-section class="menu-label">Dark mode</q-item-section>
+          <q-item-section side>
+            <q-toggle :model-value="darkMode" color="primary" dense @update:model-value="onToggleDark" @click.stop />
+          </q-item-section>
         </q-item>
 
         <q-separator class="q-my-xs" inset />
@@ -52,12 +62,19 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useNotify } from '@/utils/notify';
+import { getStoredTheme, setStoredTheme } from '@/utils/theme';
 
 const router = useRouter();
 const authStore = useAuthStore();
 const { error: notifyError } = useNotify();
 
 const menuOpen = ref(false);
+
+const darkMode = ref(getStoredTheme() === 'dark');
+function onToggleDark(value: boolean) {
+  darkMode.value = value;
+  setStoredTheme(value ? 'dark' : 'light');
+}
 
 async function handleLogout() {
   try {
@@ -103,8 +120,11 @@ async function handleLogout() {
   margin-left: 4px;
 }
 
-.profile-menu {
+/* :global — QMenu teleports its content to <body>, outside this component's
+   scope. Gray to match the table header and pagination bar. */
+:global(.profile-menu) {
   overflow: hidden;
+  background: var(--c-surface-2) !important;
 }
 
 .menu-row {
@@ -114,8 +134,9 @@ async function handleLogout() {
   min-height: 42px !important;
 }
 
+/* The menu itself is surface-2 now, so hover steps one shade further. */
 .menu-row:hover {
-  background: var(--c-surface-2);
+  background: var(--c-border);
 }
 
 .menu-ico {

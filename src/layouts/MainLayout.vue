@@ -1,7 +1,7 @@
 <template>
   <q-layout view="lHh Lpr lFf" class="app-shell">
 
-    <Sidebar />
+    <DesktopRail />
 
     <q-header class="bg-transparent text-ink app-header" :class="{ 'is-scrolled': scrolled }">
         <q-toolbar class="q-py-xs q-px-sm">
@@ -26,7 +26,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import Sidebar from '@/components/layout/AppSidebar.vue'
+import DesktopRail from '@/components/layout/DesktopRail.vue'
 import ScreenGate from '@/components/layout/ScreenGate.vue'
 import HeaderNotification from '@/components/ui/Notification.vue'
 import HeaderProfile from '@/components/layout/UserMenu.vue'
@@ -54,8 +54,17 @@ onUnmounted(() => {
 .app-shell {
   background-color: var(--c-bg);
 }
-.app-header {
-  margin: 6px 12px 0;
+/* The page starts where the rail ends. The rail is a fixed <nav>, not a
+   q-drawer, so QLayout reserves no room for it — these two insets do. */
+.app-shell :deep(.q-page-container) {
+  padding-left: var(--rail-w);
+}
+/* `.q-header` in the selector is for specificity, not scope: in dark mode
+   Quasar paints `body.body--dark .q-header { border-color: …0.28 }`, which
+   outranked a bare `.app-header` and drew the outline on an unscrolled header.
+   The scrolled state below already out-ranked it, so only rest was broken. */
+.q-header.app-header {
+  margin: 6px 12px 0 calc(var(--rail-w) + 12px);
   border-radius: var(--radius-lg);
   padding: 2px 8px;
   background: transparent;

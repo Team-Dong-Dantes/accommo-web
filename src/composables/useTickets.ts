@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { getInitials, getTimeAgo, capitalize } from '@/utils/format'
+import { ticketRef, waitingSince } from '@/utils/ticketTriage'
 
 export interface TicketMessage {
   id: string
@@ -41,6 +42,12 @@ export interface Ticket {
   photoUrls: string[]
   messages: TicketMessage[]
   lastPreview: string
+  /** The requester's latest message, or the description if they have sent none. */
+  lastRequesterText: string
+  /** Support's latest public reply, or null if nobody has answered. */
+  lastReplyAt: string | null
+  /** When the requester started waiting on support; null when they are not (see utils/ticketTriage.ts). */
+  waitingSince: string | null
   unread: number
 }
 
@@ -53,7 +60,7 @@ function avatarColorFor(id: string) {
 }
 
 const ENRICHED_SELECT = `
-  id, subject, description, category, priority, status, assignee_id, reporter_name, reported_at, updated_at, resolved_at, photo_urls, lease_id, student_id, accommodation_id, landlord_id,
+  id, ticket_no, subject, description, category, priority, status, assignee_id, reporter_name, reported_at, updated_at, resolved_at, photo_urls, lease_id, student_id, accommodation_id, landlord_id,
   lease:lease_id (
     id,
     student:student_id ( id, full_name, email, phone, avatar_url, student_profiles ( program, college ) ),
@@ -121,10 +128,15 @@ function mapTicket(r: any, seenRequesterMessageIds: Set<string> = new Set()): Ti
 
   const subject = r.subject || r.description?.slice(0, 60) || 'Untitled ticket'
   const lastPreview = messages.length ? (messages.at(-1)?.body ?? '') : (r.description || '')
+  // What the requester last said — the queue's preview. lastPreview is the
+  // latest message of anyone's, which on an answered ticket is OSAS's own
+  // canned reply, repeated down every row.
+  const lastRequesterText = messages.filter((m) => m.authorRole === 'student').at(-1)?.body || r.description || ''
+  const lastReplyAt = messages.filter((m) => m.authorRole === 'agent' && !m.isInternal).at(-1)?.createdAt ?? null
 
   return {
     id: r.id,
-    ref: 'TKT-' + r.id.replace(/-/g, '').slice(0, 4).toUpperCase(),
+    ref: ticketRef(r.ticket_no, r.id),
     subject,
     description: r.description || '',
     category: r.category || 'others',
@@ -148,6 +160,9 @@ function mapTicket(r: any, seenRequesterMessageIds: Set<string> = new Set()): Ti
     photoUrls: Array.isArray(r.photo_urls) ? r.photo_urls : [],
     messages,
     lastPreview,
+    lastRequesterText,
+    lastReplyAt,
+    waitingSince: waitingSince(messages, r.reported_at, r.status || 'open'),
     unread,
   }
 }

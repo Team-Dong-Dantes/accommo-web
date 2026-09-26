@@ -6,6 +6,7 @@ const env = loadDotenv({ path: '.env', quiet: true }).parsed || {};
 export default defineConfig((/* ctx */) => {
   return {
     boot: [
+      'theme',
       'pinia',
       'iconify',
       'apexcharts',

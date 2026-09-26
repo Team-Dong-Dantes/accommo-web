@@ -21,7 +21,7 @@ import {
   type NotificationRow,
 } from '@/api/notifications'
 import { supabase } from '@/utils/supabase'
-import { getTimeAgo, humanizeEnum } from '@/utils/format'
+import { dayLabel, getTimeAgo, humanizeEnum } from '@/utils/format'
 import { notificationStyle } from '@/utils/notificationStyle'
 import { notificationTarget } from '@/utils/notificationTarget'
 
@@ -61,6 +61,22 @@ function mapRow(row: NotificationRow): NotificationItem {
     unread: !row.read_at,
     linkUrl: row.link_url || '',
   }
+}
+
+/**
+ * Notifications under Today / Yesterday / Earlier, for the bell and the centre.
+ * Expects newest first (as fetched), so a group only ever continues the last.
+ */
+export function groupByDay(items: NotificationItem[]): { label: string; items: NotificationItem[] }[] {
+  const out: { label: string; items: NotificationItem[] }[] = []
+  for (const n of items) {
+    const day = dayLabel(n.createdAt)
+    const label = day === 'Today' || day === 'Yesterday' ? day : 'Earlier'
+    const last = out[out.length - 1]
+    if (last?.label === label) last.items.push(n)
+    else out.push({ label, items: [n] })
+  }
+  return out
 }
 
 export function useNotifications({ limit, channel }: UseNotificationsOptions) {

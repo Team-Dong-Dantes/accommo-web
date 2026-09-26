@@ -1,7 +1,7 @@
 <template>
   <section class="correspondence" aria-label="Ticket conversation">
     <header class="conversation-context">
-      <span class="context-avatar" :style="{ background: ticket.avatarColor }">
+      <span class="context-avatar" :class="`bg-${ticket.avatarColor}`">
         <img v-if="ticket.avatarUrl" :src="ticket.avatarUrl" :alt="ticket.reporterName" />
         <template v-else>{{ ticket.initials }}</template>
       </span>
@@ -16,7 +16,7 @@
     <div ref="threadEl" class="correspondence-body" aria-live="polite">
       <article class="correspondence-item is-request">
         <header class="message-header">
-          <span class="message-avatar" :style="{ background: ticket.avatarColor }">
+          <span class="message-avatar" :class="`bg-${ticket.avatarColor}`">
             <img v-if="ticket.avatarUrl" :src="ticket.avatarUrl" :alt="ticket.reporterName" />
             <template v-else>{{ ticket.initials }}</template>
           </span>
@@ -43,8 +43,10 @@
           <header class="message-header">
             <span
               class="message-avatar"
-              :class="{ 'is-support': message.authorRole === 'agent', 'is-note': message.isInternal }"
-              :style="message.authorRole === 'student' ? { background: ticket.avatarColor } : undefined"
+              :class="[
+                { 'is-support': message.authorRole === 'agent', 'is-note': message.isInternal },
+                message.authorRole === 'student' ? `bg-${ticket.avatarColor}` : '',
+              ]"
             >
               <img
                 v-if="message.authorRole === 'student' && message.authorAvatarUrl"
@@ -72,6 +74,9 @@
 </template>
 
 <script setup lang="ts">
+// Avatars take `bg-${avatarColor}`: avatarColor is a Quasar palette name
+// ('teal-6'), not a CSS colour, so binding it to `background` painted nothing
+// and the requester's initials sat on a bare circle.
 import { nextTick, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { formatDateTime, roleLabel, dayLabel } from '@/utils/format'

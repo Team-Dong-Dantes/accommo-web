@@ -275,14 +275,16 @@ const paddedRows = computed(() => {
 .custom-data-table :deep(tbody tr.body-row) {
   border-bottom: 1px solid var(--c-border);
   box-sizing: border-box;
+  background-color: var(--c-surface);
 }
 
 .custom-data-table :deep(tbody tr.body-row:last-child) {
   border-bottom: none;
 }
 
+/* Rows share the empty filler rows' surface; teal on hover. */
 .custom-data-table :deep(tbody tr.body-row:hover) {
-  background-color: var(--c-surface-2);
+  background-color: var(--c-primary-soft);
 }
 
 /* Neutralize Quasar's per-cell :before/:after hover & selected overlays —
@@ -354,14 +356,14 @@ const paddedRows = computed(() => {
 }
 
 /*
- * The green fill lives on the ROW, not on each `th`. It used to be painted per
+ * The header fill lives on the ROW, not on each `th`. It used to be painted per
  * cell, which left a grey stripe wherever two cells did not sit flush — the
  * `.col-split` gap (margin-left: auto, used to push a group of columns to the
  * right) has no cell in it, so the row's own grey background showed through
- * and broke the green into two pieces.
+ * and broke the fill into two pieces.
  */
 .custom-data-table :deep(thead tr.header-row) {
-  background-color: var(--c-primary-soft);
+  background-color: var(--c-surface-2);
 }
 
 /* Columns holding a single number: the 16px side padding is most of the cell at

@@ -382,7 +382,7 @@ fetch()
   transition: background-color 0.2s ease;
 }
 .smart-row:hover {
-  background-color: var(--c-surface-2) !important;
+  background-color: var(--c-primary-soft) !important;
 }
 
 .row-flash {

@@ -8,15 +8,20 @@
       :class="{ active: modelValue === opt.value }"
       @click="$emit('update:modelValue', opt.value)"
     >
+      <Icon v-if="opt.icon" :icon="opt.icon" width="16" height="16" aria-hidden="true" />
       {{ opt.label }}
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Icon } from '@iconify/vue'
+
 interface SegOption {
   value: string
   label: string
+  /** Optional lucide icon shown before the label. */
+  icon?: string
 }
 defineProps({
   modelValue: { type: String, required: true },
@@ -36,6 +41,10 @@ defineEmits<{ (e: 'update:modelValue', value: string): void }>()
   margin-bottom: 16px;
 }
 .usr-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   flex: 1;
   border: none;
   background: transparent;

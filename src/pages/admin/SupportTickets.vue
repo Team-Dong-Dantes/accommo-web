@@ -1,70 +1,43 @@
 <template>
   <q-page class="support-tickets-page column no-wrap" style="background-color: var(--c-bg)">
-    <div class="row justify-between items-end non-shrink">
-      <TabNav v-model="statusFilter" :tabs="tabs" />
+    <div class="row justify-between items-end non-shrink tickets-bar" :class="{ 'is-board': view === 'board' }">
+      <!-- The board's columns are the statuses, so it swaps the status tabs for
+           the search the table otherwise carries in its own toolbar. -->
+      <TabNav v-if="view === 'table'" v-model="statusFilter" :tabs="tabs" />
+      <SearchInput v-else v-model="search" placeholder="Search tickets..." />
+      <div class="view-toggle">
+        <SegmentedToggle v-model="view" :options="VIEW_OPTS" />
+      </div>
     </div>
 
-    <div class="support-tickets-body">
-      <TableCard
+    <div v-if="view === 'board'" class="support-tickets-body">
+      <TicketBoard :groups="groups" :selected-id="selectedId" @select="selectTicket" />
+    </div>
+
+    <div v-else class="support-tickets-body">
+      <TicketTable
         v-model:search="search"
         v-model:page="page"
+        :rows="paginatedGroups"
+        :total-items="groups.length"
+        :total-label="totalLabel"
         :loading="loading"
-        :total-label="`${tickets.length} total ${tickets.length === 1 ? 'ticket' : 'tickets'}`"
-        :rows="paginatedTickets"
-        :columns="columns"
-        row-key="id"
-        :total-items="tickets.length"
-        item-name="tickets"
-        :row-class="(row) => [selectedTicket && selectedTicket.id === row.id ? 'is-active' : '', highlightId === row.id ? 'row-flash' : '', 'cursor-pointer ticket-row'].filter(Boolean).join(' ')"
-        @row-click="(row) => selectTicket(row.id)"
+        :error="error"
+        :selected-id="selectedId"
+        :highlight-id="highlightId"
+        @select="selectTicket"
         @refresh="fetch"
-      >
-        <template #empty>
-          <div class="full-width row flex-center text-muted q-pa-xl column">
-            <Icon icon="lucide:ticket" width="48" height="48" class="q-mb-md" />
-            <div class="text-h6 text-weight-bold">No tickets found</div>
-            <div v-if="error" class="text-caption q-mt-xs" style="color: var(--c-danger)">{{ error }}</div>
-            <div v-else>No support tickets match the current filter.</div>
-          </div>
-        </template>
-        <template #body="{ props, rowNumber }">
-            <q-td class="row-num-cell">{{ rowNumber }}</q-td>
-            <q-td key="ref" :props="props" class="text-muted text-weight-medium ref-cell" style="font-family: var(--font-mono)">{{ props.row.ref }}</q-td>
-            <q-td key="reporter" :props="props">
-              <UserInfoCell
-                :initials="props.row.initials"
-                :name="props.row.reporterName"
-                :email="props.row.reporterEmail"
-                :subtitle="roleLabel(props.row.reporterRole)"
-                :avatar-color="props.row.avatarColor"
-                :avatar-url="props.row.avatarUrl"
-              />
-            </q-td>
-            <q-td key="subject" :props="props" class="subject-cell">
-              <div class="subject-text">{{ props.row.subject }}</div>
-              <div class="subject-preview">{{ props.row.lastPreview }}</div>
-            </q-td>
-            <q-td key="category" :props="props"><span class="cat-chip">{{ capitalize(props.row.category) }}</span></q-td>
-            <q-td key="status" :props="props">
-              <BadgePill :tone="getStatus(props.row.status).tone" :icon="getStatus(props.row.status).icon ?? ''" :label="stLabel(props.row.status)" />
-            </q-td>
-            <q-td key="priority" :props="props">
-              <BadgePill :tone="getStatus(props.row.priority).tone" :icon="getStatus(props.row.priority).icon ?? ''" :label="stLabel(props.row.priority)" />
-            </q-td>
-            <q-td key="updated" :props="props" class="text-muted">{{ getTimeAgo(props.row.updatedAt) }}</q-td>
-            <q-td key="unread" :props="props" class="unread-cell">
-              <span v-if="props.row.unread > 0" class="unread-badge">{{ props.row.unread }}</span>
-            </q-td>
-        </template>
-      </TableCard>
+      />
           </div>
 
     <TicketWindow
       :ticket="selectedTicket"
+      :reports="selectedReports"
       :groups="messageGroups"
       :sending="sending"
       :drill="drill"
       @close="closeWindow"
+      @select-report="selectTicket"
       @update:status="updateStatus"
       @update:priority="updatePriority"
       @resolve="updateStatus('resolved')"
@@ -80,23 +53,21 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { Icon } from '@iconify/vue'
 import { useTickets } from '@/composables/useTickets'
-import { getStatus } from '@/utils/status.config'
-import { roleLabel } from '@/utils/format'
-import BadgePill from '@/components/user/BadgePill.vue'
-import UserInfoCell from '@/components/user/UserInfoCell.vue'
+import { groupReports, sortGroups } from '@/utils/ticketTriage'
 import TabNav from '@/components/ui/TabNav.vue'
-import TableCard from '@/components/table/TableCard.vue'
+import SearchInput from '@/components/ui/SearchInput.vue'
+import SegmentedToggle from '@/components/ui/SegmentedToggle.vue'
+import TicketBoard from '@/features/tickets/TicketBoard.vue'
+import TicketTable from '@/features/tickets/TicketTable.vue'
 import TicketWindow from '@/features/tickets/TicketWindow.vue'
-import { stLabel } from '@/features/tickets/types'
 import type { MsgGroup } from '@/features/tickets/types'
 import type { DrillKind } from '@/features/tickets/TicketWindow.vue'
 
 const {
   loading, error, search, statusFilter, tickets, counts,
   selectedTicket, selectedId, selectTicket, allTickets,
-  getTimeAgo, capitalize, fetch,
+  fetch,
   sendMessage, updateStatus, updatePriority,
 } = useTickets()
 
@@ -131,16 +102,50 @@ onMounted(async () => {
 
 const page = ref(1)
 
-/**
- * The table was handed the whole `tickets` list while still rendering a
- * pagination control, so the control changed `page` and nothing read it — every
- * ticket rendered into a fixed-height container and the pager did nothing.
- * Slice like every other table does.
- */
-const paginatedTickets = computed(() => {
-  const start = (page.value - 1) * 10
-  return tickets.value.slice(start, start + 10)
+/* ---- Table / board view, remembered per browser ---- */
+const VIEW_KEY = 'accommo:tickets-view'
+const VIEW_OPTS = [
+  { value: 'table', label: 'Table', icon: 'lucide:table-2' },
+  { value: 'board', label: 'Board', icon: 'lucide:kanban' },
+]
+function storedView(): 'table' | 'board' {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'board' ? 'board' : 'table'
+  } catch {
+    return 'table'
+  }
+}
+const view = ref<string>(storedView())
+watch(view, (v) => {
+  try { localStorage.setItem(VIEW_KEY, v) } catch { /* non-fatal: just not remembered */ }
+  // The board lays every status out side by side; a status tab left on from the
+  // table would empty two of its three columns.
+  if (v === 'board') statusFilter.value = 'all'
+}, { immediate: true })
+
+// One row per incident, in queue order (utils/ticketTriage.ts). Both views
+// read this, so the board and the table always agree on what a row is.
+const groups = computed(() => sortGroups(groupReports(tickets.value)))
+
+const totalLabel = computed(() => {
+  const n = tickets.value.length
+  const rows = groups.value.length
+  return `${n} ${n === 1 ? 'ticket' : 'tickets'}` + (rows < n ? ` · ${rows} issues` : '')
 })
+
+/**
+ * Slice like every other table does — the table was once handed the whole list
+ * while still rendering a pager, which then changed a `page` nothing read.
+ */
+const paginatedGroups = computed(() => {
+  const start = (page.value - 1) * 10
+  return groups.value.slice(start, start + 10)
+})
+
+// The other reports of the open ticket's incident, for the drawer's switcher.
+const selectedReports = computed(() =>
+  groups.value.find((g) => g.reports.some((r) => r.id === selectedId.value))?.reports ?? [],
+)
 
 // Filtering or switching tabs can leave the view past the end of a now-shorter
 // list, which would render an empty page with the pager showing a valid number.
@@ -152,16 +157,6 @@ const tabs = computed(() => [
   { name: 'in_progress', label: `In progress (${counts.value.in_progress})` },
   { name: 'resolved', label: `Resolved (${counts.value.resolved})` },
 ])
-const columns = [
-  { name: 'ref', label: 'REF', align: 'left' as const, field: 'ref' },
-  { name: 'reporter', label: 'REPORTER', align: 'left' as const, field: 'reporterName' },
-  { name: 'subject', label: 'SUBJECT', align: 'left' as const, field: 'subject' },
-  { name: 'category', label: 'CATEGORY', align: 'left' as const, field: 'category' },
-  { name: 'status', label: 'STATUS', align: 'left' as const, field: 'status' },
-  { name: 'priority', label: 'PRIORITY', align: 'left' as const, field: 'priority' },
-  { name: 'updated', label: 'UPDATED', align: 'left' as const, field: 'updatedAt' },
-  { name: 'unread', label: '', align: 'center' as const, field: 'unread' },
-]
 
 /* ---- Ticket window wiring (state lives in the page, view in features/) -- */
 
@@ -236,6 +231,14 @@ watch(() => selectedTicket.value?.id, () => { drill.value = null })
   height: 100%;
   gap: 0;
 }
+.tickets-bar { gap: var(--sp-3); }
+/* Lifted off the table: the folder tabs beside it sit flush on the card by
+   design, but the toggle is a control, not a tab, and read as fused to it. */
+.view-toggle { width: 180px; margin-bottom: var(--sp-2); }
+.is-board .view-toggle { margin-bottom: 0; }
+.view-toggle :deep(.usr-seg) { margin-bottom: 0; padding: 3px; }
+.view-toggle :deep(.usr-seg-btn) { padding: 6px 0; }
+.tickets-bar.is-board { align-items: center; margin-bottom: var(--sp-3); }
 .support-tickets-body {
   flex: 1 1 0;
   min-height: 0;
@@ -243,46 +246,4 @@ watch(() => selectedTicket.value?.id, () => { drill.value = null })
   flex-direction: column;
 }
 
-/* ---- Table cell polish (table design preserved) ---- */
-.ticket-row.is-active {
-  background: var(--c-primary-soft);
-  box-shadow: inset 3px 0 0 var(--c-primary);
-}
-.ref-cell { font-size: 12px; letter-spacing: 0.02em; }
-.subject-cell { min-width: 0; }
-.subject-text { font-weight: 700; color: var(--c-ink); }
-.subject-preview { font-size: 12px; color: var(--c-muted); max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cat-chip {
-  display: inline-flex;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--c-muted);
-  background: var(--c-surface-2);
-  border: 1px solid var(--c-border);
-  padding: 2px 10px;
-  border-radius: 999px;
-}
-.unread-cell { text-align: center; }
-.unread-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #fff;
-  background: var(--c-accent);
-  border-radius: 999px;
-}
-
-.ticket-row.row-flash {
-  animation: rowFlash 2.4s ease;
-}
-@keyframes rowFlash {
-  0% { background-color: var(--c-primary-soft, rgba(0, 150, 136, 0.16)); }
-  100% { background-color: transparent; }
-}
 </style>

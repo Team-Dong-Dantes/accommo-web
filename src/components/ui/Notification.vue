@@ -12,9 +12,11 @@
     >
       <section class="notification-popover" aria-labelledby="notification-popover-title">
         <header class="popover-head">
-          <div>
-            <h2 id="notification-popover-title">Notifications</h2>
-          </div>
+          <h2 id="notification-popover-title">Notifications</h2>
+          <!-- The count doubles as the live region the old summary strip was. -->
+          <span class="unread-pill" :class="{ 'is-clear': !unreadCount }" role="status" aria-live="polite">
+            {{ unreadCount ? `${unreadCount} new` : 'All caught up' }}
+          </span>
           <q-btn
             v-if="unreadCount > 0"
             flat
@@ -26,47 +28,50 @@
           />
         </header>
 
-        <div class="popover-summary" role="status" aria-live="polite">
-          <Icon :icon="unreadCount ? 'lucide:bell-dot' : 'lucide:circle-check'" width="17" height="17" aria-hidden="true" />
-          <span>{{ inboxSummary }}</span>
-        </div>
-
         <div v-if="error" class="popover-error" role="alert">
           <Icon icon="lucide:circle-alert" width="18" height="18" aria-hidden="true" />
           <span>Couldn't load notifications.</span>
           <q-btn flat dense no-caps class="retry-btn" label="Retry" @click="load" />
         </div>
 
-        <q-list v-else-if="notifications.length" class="popover-list" aria-label="Recent notifications">
-          <q-item
-            v-for="notif in notifications.slice(0, 6)"
-            :key="notif.id"
-            clickable
-            v-ripple
-            v-close-popup
-            class="notification-row"
-            :class="{ 'is-unread': notif.unread }"
-            @click="open(notif)"
-          >
-            <q-item-section avatar top>
-              <q-avatar :color="notif.color" text-color="white" size="34px" font-size="17px">
-                <Icon :icon="notif.icon" width="17" height="17" aria-hidden="true" />
-              </q-avatar>
-            </q-item-section>
-            <q-item-section>
-              <div class="notification-meta">
-                <span class="notification-type">{{ notif.typeLabel }}</span>
-                <time :datetime="notif.createdAt">{{ notif.time }}</time>
-              </div>
-              <q-item-label class="notification-title">{{ notif.title }}</q-item-label>
-              <q-item-label caption class="notification-message">{{ notif.body }}</q-item-label>
-            </q-item-section>
-            <q-item-section side top class="notification-side">
-              <span v-if="notif.unread" class="unread-dot" aria-label="Unread" />
-              <Icon icon="lucide:chevron-right" width="17" height="17" aria-hidden="true" />
-            </q-item-section>
-          </q-item>
-        </q-list>
+        <div v-else-if="notifications.length" class="popover-list" aria-label="Recent notifications">
+          <section v-for="group in groups" :key="group.label" class="day-group">
+            <h3 class="day-label">{{ group.label }}</h3>
+            <q-list>
+              <q-item
+                v-for="notif in group.items"
+                :key="notif.id"
+                clickable
+                v-ripple
+                v-close-popup
+                class="notification-row"
+                :class="{ 'is-unread': notif.unread }"
+                :aria-label="`${notif.unread ? 'Unread. ' : ''}${notif.typeLabel}: ${notif.title}`"
+                @click="open(notif)"
+              >
+                <q-item-section avatar top class="notif-icon-cell">
+                  <!-- Read items drop their colour, so what is new is what is lit. -->
+                  <q-avatar
+                    :color="notif.unread ? notif.color : undefined"
+                    :text-color="notif.unread ? 'white' : undefined"
+                    size="32px"
+                    class="notif-avatar"
+                  >
+                    <Icon :icon="notif.icon" width="16" height="16" aria-hidden="true" />
+                  </q-avatar>
+                </q-item-section>
+                <q-item-section class="notif-text">
+                  <div class="notification-line">
+                    <span class="notification-title" :title="notif.title">{{ notif.title }}</span>
+                    <time :datetime="notif.createdAt">{{ notif.time }}</time>
+                    <span v-if="notif.unread" class="unread-dot" aria-hidden="true" />
+                  </div>
+                  <div class="notification-message" :title="notif.body">{{ notif.body }}</div>
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </section>
+        </div>
 
         <div v-else class="popover-empty">
           <div class="empty-icon"><Icon icon="lucide:bell-ring" width="24" height="24" aria-hidden="true" /></div>
@@ -88,7 +93,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
-import { useNotifications } from '@/composables/useNotifications'
+import { groupByDay, useNotifications } from '@/composables/useNotifications'
 
 const router = useRouter()
 
@@ -102,11 +107,8 @@ const notificationTriggerLabel = computed(() =>
     ? `Open notifications. ${unreadCount.value} unread.`
     : 'Open notifications. No unread notifications.',
 )
-const inboxSummary = computed(() =>
-  unreadCount.value
-    ? `${unreadCount.value} item${unreadCount.value === 1 ? '' : 's'} need${unreadCount.value === 1 ? 's' : ''} your attention`
-    : 'You are up to date',
-)
+// The six most recent, under Today / Yesterday / Earlier.
+const groups = computed(() => groupByDay(notifications.value.slice(0, 6)))
 
 function viewAll() {
   void router.push('/notifications')
@@ -118,30 +120,47 @@ function viewAll() {
 .notif-trigger:hover { border-color: var(--c-primary); background: var(--c-primary-soft) !important; color: var(--c-primary) !important; }
 .notif-trigger:focus-visible { outline: 3px solid var(--c-primary); outline-offset: 2px; }
 .notif-count { display: inline-flex; box-sizing: border-box; top: 1px !important; right: 3px !important; width: 16px; min-width: 16px; height: 16px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: var(--c-danger); box-shadow: 0 1px 3px color-mix(in srgb, var(--c-danger) 35%, transparent); color: #fff; font-family: var(--font-body); font-size: 9px; font-weight: 800; letter-spacing: 0; line-height: 1; }
-:deep(.notification-menu) { border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-surface); box-shadow: var(--shadow-lg); overflow: hidden; }
+/* :global, not :deep — QMenu teleports its content to <body>, outside this
+   component's root, so the :deep() form never matched and the popover fell
+   back to Quasar's own menu frame. */
+:global(.notification-menu) { border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-surface); box-shadow: var(--shadow-lg); overflow: hidden; }
 .notification-popover { display: flex; flex-direction: column; max-height: inherit; }
-.popover-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-5) var(--sp-5) var(--sp-3); }
+.popover-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-4) var(--sp-4) var(--sp-3); border-bottom: 1px solid var(--c-border); }
 .popover-head h2 { margin: 0; font-family: var(--font-display); font-size: 1.125rem; line-height: 1.15; color: var(--c-ink); }
-.mark-read-btn { min-height: 34px; margin-top: -4px; padding: 0 var(--sp-2); border-radius: var(--radius-sm); color: var(--c-primary); font-size: 11px; font-weight: 700; }
+.mark-read-btn { min-height: 30px; margin-left: auto; padding: 0 var(--sp-2); border-radius: var(--radius-sm); color: var(--c-primary); font-size: 11px; font-weight: 700; }
 .mark-read-btn:hover { background: var(--c-primary-soft); }
 .mark-read-btn:focus-visible, .open-center-btn:focus-visible, .notification-row:focus-visible { outline: 3px solid var(--c-primary); outline-offset: -3px; }
-.popover-summary { display: flex; align-items: center; gap: 7px; margin: 0 var(--sp-5) var(--sp-2); padding: 9px var(--sp-3); border: 1px solid var(--c-border); border-radius: var(--radius-sm); background: var(--c-surface-2); color: var(--c-muted); font-size: 11px; font-weight: 600; }
-.popover-summary .iconify { color: var(--c-primary); }
-.popover-list { overflow-y: auto; padding: var(--sp-2) 0; }
+.popover-list { overflow-y: auto; padding-bottom: var(--sp-2); }
+.unread-pill { padding: 2px 8px; border-radius: 999px; background: var(--c-primary-soft); color: var(--c-primary); font-size: 10.5px; font-weight: 700; }
+.unread-pill.is-clear { background: var(--c-surface-2); color: var(--c-muted); }
+.day-label { margin: 0; padding: var(--sp-3) var(--sp-4) var(--sp-1); color: var(--c-muted); font-family: var(--font-body); font-size: 10px; font-weight: 800; letter-spacing: .08em; line-height: 1.2; text-transform: uppercase; }
+/* Quasar's avatar column is 56px wide, far more than a 32px icon needs, and a
+   flex item won't shrink below its text without min-width: 0 — without it the
+   time was pushed off the right edge by a long body line. */
+.notif-icon-cell { min-width: 0; padding-right: var(--sp-3); }
+/* Quasar gives item sections `.column`, which also sets flex-wrap: wrap — a
+   wrapping column sizes to its widest line, so the one-line ellipsis never
+   engaged and a long sign-in message pushed the row out to ~875px. */
+.notif-text { min-width: 0; flex-wrap: nowrap; }
+.notif-avatar { background: var(--c-surface-2); color: var(--c-muted); }
+.notification-line { display: flex; align-items: baseline; gap: var(--sp-2); }
+.notification-line .notification-title { flex: 1; min-width: 0; }
+/* Unread: the lit icon, the heavier title, this dot, and a faint teal wash
+   with an accent edge. The wash is kept light on purpose — a full
+   primary-soft fill, with several new items, turned the whole popover teal. */
+.is-unread .notification-title { font-weight: 800; }
+.unread-dot { flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--c-primary); align-self: center; }
+.notification-line time { flex-shrink: 0; color: var(--c-muted); font-size: 10.5px; font-weight: 600; }
 .popover-error { display: flex; align-items: center; gap: 7px; margin: 0 var(--sp-5) var(--sp-3); padding: 9px var(--sp-3); border: 1px solid var(--c-danger); border-radius: var(--radius-sm); background: var(--c-danger-soft); color: var(--c-danger); font-size: 11px; font-weight: 600; }
 .popover-error > span { flex: 1; }
 .retry-btn { padding: 0 var(--sp-2); border-radius: var(--radius-sm); color: var(--c-danger); font-size: 11px; font-weight: 700; }
 .retry-btn:focus-visible { outline: 3px solid var(--c-danger); outline-offset: -3px; }
-.notification-row { position: relative; min-height: 76px; padding: var(--sp-3) var(--sp-4); border-left: 3px solid transparent; transition: background var(--t-fast), border-color var(--t-fast); }
+.notification-row { min-height: 60px; margin: 1px var(--sp-2); padding: var(--sp-2) var(--sp-2); border-radius: var(--radius-sm); transition: background var(--t-fast); }
 .notification-row:hover { background: var(--c-surface-2); }
-.notification-row.is-unread { border-left-color: var(--c-primary); background: color-mix(in srgb, var(--c-primary-soft) 52%, var(--c-surface)); }
-.notification-meta { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-bottom: 3px; }
-.notification-type { overflow: hidden; color: var(--c-primary); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
-.notification-meta time { flex-shrink: 0; color: var(--c-muted); font-size: 10px; font-weight: 600; }
-.notification-title { overflow: hidden; color: var(--c-ink); font-size: 12px; font-weight: 700; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
-.notification-message { display: -webkit-box; overflow: hidden; margin-top: 3px; color: var(--c-text) !important; font-size: 11px; line-height: 1.38; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.notification-side { min-width: 16px; padding-left: var(--sp-1); color: var(--c-muted); }
-.unread-dot { width: 7px; height: 7px; margin: 3px 1px 10px 0; border-radius: 50%; background: var(--c-danger); box-shadow: 0 0 0 3px var(--c-danger-soft); }
+.notification-row.is-unread { background: color-mix(in srgb, var(--c-primary-soft) 45%, transparent); box-shadow: inset 3px 0 0 var(--c-primary); }
+.notification-row.is-unread:hover { background: var(--c-primary-soft); }
+.notification-title { overflow: hidden; color: var(--c-ink); font-size: 12.5px; font-weight: 600; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.notification-message { overflow: hidden; margin-top: 2px; color: var(--c-muted); font-size: 11.5px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .popover-empty { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: var(--sp-8) var(--sp-5); color: var(--c-muted); font-size: 11px; text-align: center; }
 .popover-empty strong { color: var(--c-ink); font-family: var(--font-display); font-size: 14px; }
 .empty-icon { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 50%; background: var(--c-success-soft); color: var(--c-success); }

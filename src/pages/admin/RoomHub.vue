@@ -527,7 +527,7 @@ onMounted(async () => {
   transition: background-color 0.2s ease;
 }
 .smart-row:hover {
-  background-color: var(--c-surface-2) !important;
+  background-color: var(--c-primary-soft) !important;
 }
 
 /* Text sizes match UserInfoCell (15px / 12px at 1440px), so these cells read

@@ -105,7 +105,10 @@ function jumpToPage() {
 </script>
 
 <style scoped>
+/* The same gray as the table's header row, so the table is framed top and
+   bottom by one shade. */
 .pagination-card {
+  background: var(--c-surface-2);
   border-radius: 16px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04) !important;
 }

@@ -1,6 +1,6 @@
 /* ============================================================
    Accommo Design Tokens — "Refined Institutional"
-   Light is the only theme.
+   Light by default; dark via utils/theme.ts (see the block below).
    Driven by CSS custom properties so Quasar + ApexCharts share
    one source of truth (read at runtime via getComputedStyle).
    ============================================================ */
@@ -34,19 +34,11 @@
   --c-border: #E7ECF2;
   --c-border-strong: #D3DAE3;
 
-  /* ----- Color: sidebar (always deep teal) ----- */
-  --c-sidebar-bg: #0E2E2A;
-  --c-sidebar-bg-2: #0B2421;       /* subtle gradient stop for depth */
-  --c-sidebar-text: #EAF4F1;
-  --c-sidebar-muted: rgba(234, 244, 241, 0.55);
-  --c-sidebar-hover: rgba(255, 255, 255, 0.08);
-  --c-sidebar-border: rgba(255, 255, 255, 0.07);
-  --c-sidebar-accent: #14B8A6;     /* active indicator bar */
-  --c-sidebar-active-bg: #F3F6FA;
-  --c-sidebar-active-text: #0F766E;
-  --c-sidebar-search-bg: rgba(255, 255, 255, 0.06);
-  --c-sidebar-search-border: rgba(255, 255, 255, 0.10);
-  --c-sidebar-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  /* ----- Sidebar -----
+     The rail (layout/DesktopRail.vue) is accommo-mobile's desktop rail and
+     draws from the theme tokens directly; only its collapsed width, which the
+     header and page inset by, lives here. */
+  --rail-w: 68px;
 
   /* ----- Dark panels (Quick Actions card) ----- */
   --c-panel-dark: #0E2E2A;
@@ -112,40 +104,43 @@
 
 /* ============================================================
    Dark theme — opt-in via <html data-theme="dark">.
-   Surfaces, text and borders flip; the sidebar stays deep teal
-   by design, so its tokens are intentionally untouched.
+   Surfaces, text and borders flip. Stamped by utils/theme.ts,
+   toggled from the profile menu.
    ============================================================ */
 [data-theme="dark"] {
-  --c-bg: #0B1413;
-  --c-surface: #12201E;
-  --c-surface-2: #1A2B28;
-  --c-ink: #EAF4F1;
-  --c-text: #C7D3CF;
-  --c-muted: #8A9A94;
-  --c-border: #223530;
-  --c-border-strong: #2E4540;
+  /* accommo-mobile's dark palette (src/css/app.scss, `:root.dark`), so the
+     two apps look the same at night. surface-2, border-strong, primary-ink and
+     accent have no mobile counterpart and are picked to sit in its range. */
+  --c-bg: #101216;
+  --c-surface: #1A1D23;
+  --c-surface-2: #22262E;
+  --c-ink: #F3F4F6;
+  --c-text: #CBD5E1;
+  --c-muted: #94A3B8;
+  --c-border: #2A2E37;
+  --c-border-strong: #3A3F4A;
 
-  --c-primary: #14B8A6;
-  --c-primary-soft: #14302D;
-  --c-primary-ink: #5EEAD4;
+  --c-primary: #26A69A;
+  --c-primary-soft: #123734;
+  --c-primary-ink: #80CBC4;
 
   --c-accent: #F0806A;
   --c-accent-soft: #3A221C;
 
   --c-success: #4ADE80;
-  --c-success-soft: #14301F;
+  --c-success-soft: #12321F;
   --c-warning: #FBBF24;
-  --c-warning-soft: #33250E;
-  --c-danger: #FB7185;
-  --c-danger-soft: #3A1714;
-  --c-info: #38BDF8;
-  --c-info-soft: #0E2A33;
+  --c-warning-soft: #3A2A0D;
+  --c-danger: #F87171;
+  --c-danger-soft: #3A1414;
+  --c-info: #60A5FA;
+  --c-info-soft: #132A42;
 
   --c-panel-dark: #0E2E2A;
   --c-panel-dark-text: #EAF4F1;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.6);
 
   --card-bg: var(--c-surface);
