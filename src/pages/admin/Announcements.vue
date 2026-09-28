@@ -164,6 +164,7 @@
 </template>
 
 <script setup lang="ts">
+import { errorMessage } from '@/utils/errors'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { supabase } from '@/utils/supabase'
@@ -362,7 +363,7 @@ async function togglePublish(row: any) {
     await fetchAll()
   } catch (e) {
     console.error('Toggle publish failed:', e)
-    notify.error(e instanceof Error ? e.message : 'Failed to update')
+    notify.error(errorMessage(e, 'Failed to update'))
   }
 }
 
@@ -389,7 +390,7 @@ async function setArchivedAndReload(table: Tab, row: any, archived: boolean) {
     await fetchAll()
   } catch (e) {
     console.error('Archive/restore failed:', e)
-    notify.error(e instanceof Error ? e.message : 'Failed to update')
+    notify.error(errorMessage(e, 'Failed to update'))
   }
 }
 

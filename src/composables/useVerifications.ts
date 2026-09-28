@@ -1,6 +1,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
+import { registerReset } from '@/utils/pageCache'
 import { getStatus } from '@/utils/status.config'
 import { getInitials, capitalize, getTimeAgo, ageInDays, formatPhone, humanizeEnum } from '@/utils/format'
 import { secureDocUrl } from '@/utils/docUrl'
@@ -160,8 +161,22 @@ interface QueueFile {
   type?: string
 }
 
+// Module scope: the three queues survive navigation, so returning to
+// Verifications shows them at once while fetch() refreshes them. Tabs, search,
+// paging and the open request stay per visit. See utils/pageCache.ts.
+const studentRequests = ref<VerificationRequest[]>([])
+const landlordRequests = ref<VerificationRequest[]>([])
+const accommodationRequests = ref<VerificationRequest[]>([])
+const hasLoaded = ref(false)
+registerReset(() => {
+  studentRequests.value = []
+  landlordRequests.value = []
+  accommodationRequests.value = []
+  hasLoaded.value = false
+})
+
 export function useVerifications() {
-  const loading = ref(true)
+  const loading = ref(!hasLoaded.value)
   const notify = useNotify()
 
   const activeTab = ref<'student' | 'landlord' | 'accommodation'>('student')
@@ -186,10 +201,6 @@ export function useVerifications() {
   function clearFilters() {
     activeFilters.value = { readiness: [] }
   }
-
-  const studentRequests = ref<VerificationRequest[]>([])
-  const landlordRequests = ref<VerificationRequest[]>([])
-  const accommodationRequests = ref<VerificationRequest[]>([])
 
   const tabs = [
     { name: 'student', label: 'Student' },
@@ -239,7 +250,8 @@ export function useVerifications() {
   })
 
   async function fetch() {
-    loading.value = true
+    // With cached queues on screen, refresh without the loading state.
+    if (!hasLoaded.value) loading.value = true
     try {
       // get_verification_queue() is the one source for users + documents: it is
       // admin-gated server-side and already joins the pending document rows.
@@ -443,6 +455,7 @@ export function useVerifications() {
           }
         }).sort(byQueueOrder)
       }
+      hasLoaded.value = true
     } catch (err) {
       console.error('Unexpected error fetching verifications:', err)
     } finally {

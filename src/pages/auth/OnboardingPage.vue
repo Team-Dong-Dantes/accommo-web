@@ -101,6 +101,7 @@
 </template>
 
 <script setup lang="ts">
+import { errorMessage } from '@/utils/errors'
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar, type QForm } from 'quasar';
@@ -181,7 +182,7 @@ onMounted(async () => {
     await authStore.connectGoogle(invitedEmail);
   } catch (e) {
     connecting.value = false;
-    $q.notify({ message: e instanceof Error ? e.message : 'Could not connect Google. Fill in your name instead.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' });
+    $q.notify({ message: errorMessage(e, 'Could not connect Google. Fill in your name instead.'), position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' });
   }
 });
 
@@ -233,7 +234,7 @@ async function submit() {
     $q.notify({ message: 'Profile complete. Welcome aboard!', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-check-circle', iconColor: 'teal-4', classes: 'custom-notify' });
     void router.push('/dashboard');
   } catch (e) {
-    $q.notify({ message: e instanceof Error ? e.message : 'Could not save your profile.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' });
+    $q.notify({ message: errorMessage(e, 'Could not save your profile.'), position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' });
   } finally {
     saving.value = false;
   }

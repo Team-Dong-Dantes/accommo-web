@@ -45,7 +45,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Dashboard.vue'),
-        meta: { title: 'Dashboard' },
+        meta: { title: 'Dashboard', subtitle: 'Housing, verification and support activity at a glance' },
       },
     ],
   },
@@ -57,7 +57,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Users.vue'),
-        meta: { title: 'Account Management' },
+        meta: { title: 'Account Management', subtitle: 'Students and landlords/landladies, their accounts and access' },
       },
     ],
   },
@@ -69,7 +69,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Verifications.vue'),
-        meta: { title: 'Verifications' },
+        meta: { title: 'Verifications', subtitle: 'Review requirements and decide on new accounts and accommodations' },
       },
     ],
   },
@@ -81,7 +81,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/MapView.vue'),
-        meta: { title: 'Map View' },
+        meta: { title: 'Map View', subtitle: 'Every accommodation and where it stands, on the map' },
       },
     ],
   },
@@ -93,7 +93,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/PropertyHub.vue'),
-        meta: { title: 'Accommodation Hub' },
+        meta: { title: 'Accommodation Hub', subtitle: 'Accreditation, rooms and ratings for each accommodation' },
       },
     ],
   },
@@ -105,7 +105,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/RoomHub.vue'),
-        meta: { title: 'Room Hub' },
+        meta: { title: 'Room Hub', subtitle: 'Rooms, occupancy and rent across all accommodations' },
       },
     ],
   },
@@ -117,7 +117,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/SupportTickets.vue'),
-        meta: { title: 'Support Tickets' },
+        meta: { title: 'Support Tickets', subtitle: 'Concerns raised by students and landlords/landladies' },
       },
     ],
   },
@@ -141,7 +141,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Announcements.vue'),
-        meta: { title: 'Announcements' },
+        meta: { title: 'Announcements', subtitle: 'Notices and policies for students and landlords/landladies' },
       },
     ],
   },
@@ -153,7 +153,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/AuditLogs.vue'),
-        meta: { title: 'Audit Logs' },
+        meta: { title: 'Audit Logs', subtitle: 'Who changed what, and when' },
       },
     ],
   },
@@ -165,7 +165,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Settings.vue'),
-        meta: { title: 'Settings' },
+        meta: { title: 'Settings', subtitle: 'Your account, security and console preferences' },
       },
     ],
   },
@@ -177,7 +177,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Notifications.vue'),
-        meta: { title: 'Notifications' },
+        meta: { title: 'Notifications', subtitle: 'Alerts about requests, tickets and accounts' },
       },
     ],
   },

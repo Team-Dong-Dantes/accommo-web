@@ -8,7 +8,7 @@
     <q-form @submit.prevent="handleLogin" ref="loginFormRef" class="signin-form">
       <label class="field">
         <span class="field-label">Email address</span>
-        <AuthInput v-model="email" autocomplete="username" :rules="[(val: string) => !!val || 'Email is required', (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) || 'Enter a valid email address']">
+        <AuthInput v-model="email" type="email" autocomplete="username" placeholder="name@isu.edu.ph" :rules="[(val: string) => !!val || 'Email is required', (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) || 'Enter a valid email address']">
           <template #prepend><Icon icon="lucide:mail" width="18" height="18" /></template>
         </AuthInput>
       </label>
@@ -16,7 +16,7 @@
       <label class="field">
         <span class="field-label">Password</span>
         <AuthInput v-model="password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password"
-          :rules="[(val: string) => !!val || 'Password is required']">
+          placeholder="Enter your password" :rules="[(val: string) => !!val || 'Password is required']">
           <template #prepend><Icon icon="lucide:lock" width="18" height="18" /></template>
           <template #append>
             <button type="button" class="reveal" :aria-label="showPassword ? 'Hide password' : 'Show password'"
@@ -40,6 +40,7 @@
 </template>
 
 <script setup lang="ts">
+import { errorMessage } from '@/utils/errors'
 import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar, type QForm } from 'quasar';
@@ -85,7 +86,7 @@ async function sendReset() {
     if (error) throw error;
     notify.success('If that address has an account, a reset link is on its way.');
   } catch (e) {
-    notify.error(e instanceof Error ? e.message : 'Could not send the reset e-mail.');
+    notify.error(errorMessage(e, 'Could not send the reset e-mail.'));
   } finally {
     resetting.value = false;
   }
@@ -112,7 +113,7 @@ async function handleLogin() {
     $q.notify({ message: 'Welcome back!', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-check-circle', iconColor: 'teal-4', classes: 'custom-notify' });
     void router.push(authStore.needsOnboarding ? '/onboarding' : '/dashboard');
   } catch (error: unknown) {
-    $q.notify({ message: error instanceof Error ? error.message : 'An unexpected error occurred', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' });
+    $q.notify({ message: errorMessage(error, 'An unexpected error occurred'), position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' });
   } finally {
     loading.value = false;
   }

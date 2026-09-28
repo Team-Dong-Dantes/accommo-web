@@ -55,6 +55,11 @@ const model = defineModel<string | number | null>();
   color: #ffffff;
   font-size: 15px;
 }
+/* A shade fainter than the icons, so a hint never reads as typed text. */
+.auth-input :deep(.q-field__native::placeholder) {
+  color: rgba(255, 255, 255, 0.5);
+  opacity: 1;
+}
 /* Chrome paints autofilled fields an opaque yellow, which would punch a solid
    block through the glass. */
 .auth-input :deep(input:-webkit-autofill) {

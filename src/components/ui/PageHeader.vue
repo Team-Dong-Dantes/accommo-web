@@ -73,13 +73,20 @@ const resolvedSubtitle = computed(
   margin-bottom: 0;
 }
 .page-head--bar .page-head-top {
-  align-items: baseline;
+  align-items: center;
+}
+.page-head--bar .page-head-lead {
+  min-width: 0;
 }
 .page-head--bar .page-title {
   font-size: var(--fs-h2);
 }
+/* One line under the title; long ones trim rather than push the header taller. */
 .page-head--bar .page-sub {
-  margin: 0 0 0 10px;
-  display: inline;
+  margin: 1px 0 0;
+  font-size: var(--fs-xs, 12px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

@@ -98,6 +98,7 @@
 </template>
 
 <script setup lang="ts">
+import { errorMessage } from '@/utils/errors'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import TabNav from '@/components/ui/TabNav.vue'
@@ -161,7 +162,7 @@ watch([() => props.modelValue, current], async ([open]) => {
     if (def.value.needs === 'boarders' && !boarders.value) boarders.value = await fetchBoarders()
     if (def.value.needs === 'landlords' && !landlords.value) landlords.value = await fetchLandlords()
   } catch (err) {
-    loadError.value = `Could not load the report's data: ${err instanceof Error ? err.message : String(err)}`
+    loadError.value = `Could not load the report's data: ${errorMessage(err, 'Unknown error')}`
   }
 }, { immediate: true })
 

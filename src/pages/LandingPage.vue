@@ -27,7 +27,7 @@
               <Icon icon="lucide:smartphone" width="19" height="19" />
               Download App
             </a>
-            <a class="cta-quiet" href="#how">See how it works</a>
+            <a class="cta-quiet" :href="SIGN_IN_URL">Sign in as Student or Landlord/Landlady</a>
           </div>
         </div>
 
@@ -119,8 +119,8 @@
             :key="i"
             :label="item.q"
             expand-separator
+            :dark="false"
             :class="i % 2 ? 'b' : 'a'"
-            header-class="faq-h"
           >
             <div class="faq-a">{{ item.a }}</div>
           </q-expansion-item>
@@ -171,7 +171,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { APP_URL, APK_URL } from '@/utils/appLinks';
+import { APP_URL, APK_URL, SIGN_IN_URL } from '@/utils/appLinks';
 
 const year = new Date().getFullYear();
 const showTop = ref(false);
@@ -402,7 +402,11 @@ const faqs = [
 
 /* faq */
 .faq { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; }
-.faq-h { font-weight: 600; font-size: 1rem; }
+/* The page is light-only; with the console in dark mode, QItem painted the
+   questions white on these white rows. :dark="false" plus an explicit colour
+   keeps them readable. header-class never reached the item under scoping. */
+.faq :deep(.q-item) { color: var(--ink); font-weight: 600; font-size: 1rem; }
+.faq :deep(.q-expansion-item__toggle-icon) { color: var(--muted); }
 .a { background: #fff; } .b { background: var(--paper); }
 .faq-a { padding: 4px 16px 16px; color: var(--muted); font-size: 0.95rem; line-height: 1.6; }
 

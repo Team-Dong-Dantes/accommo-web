@@ -34,6 +34,7 @@
 </template>
 
 <script setup lang="ts">
+import { errorMessage } from '@/utils/errors'
 import { computed, onMounted, reactive, ref } from 'vue'
 import PanelHeader from '@/components/ui/PanelHeader.vue'
 import { useNotify } from '@/utils/notify'
@@ -55,7 +56,7 @@ onMounted(async () => {
     saved.value = await fetchReportSettings()
     Object.assign(form, saved.value)
   } catch (err) {
-    notify.error(`Could not load report settings: ${err instanceof Error ? err.message : String(err)}`)
+    notify.error(`Could not load report settings: ${errorMessage(err, 'Unknown error')}`)
   } finally {
     loading.value = false
   }
@@ -68,7 +69,7 @@ async function save() {
     saved.value = { ...form }
     notify.success('Report signatories saved.')
   } catch (err) {
-    notify.error(`Could not save: ${err instanceof Error ? err.message : String(err)}`)
+    notify.error(`Could not save: ${errorMessage(err, 'Unknown error')}`)
   } finally {
     saving.value = false
   }

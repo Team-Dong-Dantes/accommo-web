@@ -23,6 +23,7 @@
 </template>
 
 <script setup lang="ts">
+import { errorMessage } from '@/utils/errors'
 import { ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import { uploadCloudinaryFile } from '@/utils/cloudinary'
@@ -50,7 +51,7 @@ async function onPick(e: Event) {
   try {
     details.value.imageUrl = (await uploadCloudinaryFile(file, 'announcements')).url
   } catch (err) {
-    notify.error(err instanceof Error ? err.message : 'Upload failed')
+    notify.error(errorMessage(err, 'Upload failed'))
   } finally {
     uploading.value = false
   }

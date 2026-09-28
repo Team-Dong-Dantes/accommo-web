@@ -3,8 +3,11 @@
 // current stay, a landlord/landlady's accommodations, and when they were last
 // active. Loaded in a handful of batch queries, never one per row.
 
+import { errorMessage } from '@/utils/errors'
 import { computed, ref } from 'vue'
 import { supabase } from '@/utils/supabase'
+import { fetchAll } from '@/utils/fetchAll'
+import { registerReset } from '@/utils/pageCache'
 import { getStatus, getTone, type StatusTone } from '@/utils/status.config'
 import { getTimeAgo, landlordTitle, roleLabel } from '@/utils/format'
 
@@ -129,16 +132,25 @@ export function campusRate(landlords: DirectoryRow[]): number | null {
   return rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null
 }
 
+// Module scope: the directory survives navigation (see utils/pageCache.ts).
+const rows = ref<DirectoryRow[]>([])
+const hasLoaded = ref(false)
+registerReset(() => { rows.value = []; hasLoaded.value = false })
+
 export function useUserDirectory() {
-  const loading = ref(true)
+  // A return visit shows the cached rows at once; load() refreshes them.
+  const loading = ref(!hasLoaded.value)
   const error = ref('')
-  const rows = ref<DirectoryRow[]>([])
 
   async function load() {
-    loading.value = true
+    loading.value = !hasLoaded.value
     error.value = ''
     try {
-      const { data, error: err } = await supabase
+      // Paged: the directory can outgrow PostgREST's 1,000-row cap. The profile
+      // tables are read whole (admin RLS allows it) rather than filtered by a
+      // list of user ids, which put every id in the URL and would overrun its
+      // length limit at a few hundred users.
+      const data = await fetchAll((from, to) => supabase
         .from('users')
         .select(
           `id, full_name, email, phone, sex, role, status, created_at, registered_at, updated_at,
@@ -147,29 +159,31 @@ export function useUserDirectory() {
         )
         .in('role', ['student', 'landlord'])
         .order('created_at', { ascending: false })
-      if (err) throw err
+        .order('id')
+        .range(from, to))
 
-      const ids = (data ?? []).map((u) => u.id)
       // `qr_code_token` is deliberately not selected — it is a live credential.
-      const [studentRes, landlordRes, leaseRes, accRes] = ids.length
+      const [studentRows, landlordRows, leaseRes, accRes] = data.length
         ? await Promise.all([
-            supabase.from('student_profiles')
+            fetchAll((from, to) => supabase.from('student_profiles')
               .select('user_id, student_id, program, year_level, college, osas_verified_at, emergency_contact_json, school_id_url, assessment_of_fees_url, extracted_name, extracted_school_id')
-              .in('user_id', ids),
-            supabase.from('landlord_profiles')
+              .order('user_id')
+              .range(from, to)),
+            fetchAll((from, to) => supabase.from('landlord_profiles')
               .select('user_id, government_id_url, response_rate, avg_response_minutes, extracted_name, extracted_gov_id')
-              .in('user_id', ids),
+              .order('user_id')
+              .range(from, to)),
             supabase.from('leases')
               .select('student_id, room:rooms!leases_room_id_fkey(room_number, label, accommodation:accommodations!rooms_accommodation_id_fkey(id, name))')
               .eq('status', 'active'),
             supabase.from('accommodations').select('landlord_id, status, rooms(capacity, current_pax)'),
           ])
-        : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }]
+        : [[], [], { data: [] }, { data: [] }]
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const profileByUser = new Map<string, any>()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const p of [...(studentRes.data ?? []), ...(landlordRes.data ?? [])] as any[]) profileByUser.set(p.user_id, p)
+      for (const p of [...studentRows, ...landlordRows] as any[]) profileByUser.set(p.user_id, p)
       const stays = staysByStudent((leaseRes.data ?? []) as never)
       const portfolios = portfoliosByLandlord((accRes.data ?? []) as never)
 
@@ -192,8 +206,9 @@ export function useUserDirectory() {
         r.responseState = r.responseRate == null ? 'none' : campus != null && r.responseRate < campus ? 'below' : 'ok'
       }
       rows.value = mapped
+      hasLoaded.value = true
     } catch (err) {
-      error.value = err instanceof Error ? err.message : String(err)
+      error.value = errorMessage(err, 'Unknown error')
     } finally {
       loading.value = false
     }

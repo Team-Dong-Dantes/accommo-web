@@ -1,6 +1,8 @@
+import { errorMessage } from '@/utils/errors'
 import { ref, computed, onUnmounted } from 'vue'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
+import { registerReset } from '@/utils/pageCache'
 import { getInitials, getTimeAgo, capitalize } from '@/utils/format'
 import { ticketRef, waitingSince } from '@/utils/ticketTriage'
 import type { TablesUpdate } from '@/types/database.gen'
@@ -170,16 +172,26 @@ function mapTicket(r: any, seenRequesterMessageIds: Set<string> = new Set()): Ti
   }
 }
 
+// Module scope: the ticket list survives navigation, so returning to Support
+// Tickets shows it at once while fetch() refreshes it. See utils/pageCache.ts.
+const tickets = ref<Ticket[]>([])
+const agents = ref<{ id: string; full_name: string }[]>([])
+const seenRequesterMessageIds = new Set<string>()
+const hasLoaded = ref(false)
+registerReset(() => {
+  tickets.value = []
+  agents.value = []
+  seenRequesterMessageIds.clear()
+  hasLoaded.value = false
+})
+
 export function useTickets() {
-  const loading = ref(true)
+  const loading = ref(!hasLoaded.value)
   const error = ref<string | null>(null)
   const notify = useNotify()
 
   const search = ref('')
   const selectedId = ref<string | null>(null)
-  const tickets = ref<Ticket[]>([])
-  const agents = ref<{ id: string; full_name: string }[]>([])
-  const seenRequesterMessageIds = new Set<string>()
 
   const currentUserId = ref<string | null>(null)
 
@@ -222,7 +234,8 @@ export function useTickets() {
 
   /** `quiet` refreshes in place — a live update must not flash the loading state. */
   async function fetch(quiet = false) {
-    if (!quiet) loading.value = true
+    // With cached tickets on screen, a refresh is quiet too.
+    if (!quiet && !hasLoaded.value) loading.value = true
     error.value = null
     await ensureUser()
     await fetchAgents()
@@ -235,6 +248,7 @@ export function useTickets() {
       error.value = msg
     } else if (result.data) {
       tickets.value = (result.data ?? []).map((row) => mapTicket(row, seenRequesterMessageIds))
+      hasLoaded.value = true
     }
     loading.value = false
   }
@@ -264,7 +278,7 @@ export function useTickets() {
       await fetch(true)
       return true
     } catch (e) {
-      notify.error('Failed to send', e instanceof Error ? e.message : '')
+      notify.error('Failed to send', errorMessage(e, ''))
       return false
     }
   }

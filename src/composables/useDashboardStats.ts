@@ -3,9 +3,11 @@
 // lives in src/api/* modules. Transform logic lifted verbatim from the
 // original monolithic load() — no behavior change.
 
+import { errorMessage } from '@/utils/errors'
 import { ref, reactive } from 'vue'
 import type { DashboardStats } from '@/types/dashboard'
 import { ageInDays } from '@/utils/format'
+import { registerReset } from '@/utils/pageCache'
 import {
   fetchAccommodationRows,
   fetchExpiringAccommodationAccreditations,
@@ -436,12 +438,21 @@ function computeOperationalQueues(
 
 // --- orchestrator ------------------------------------------------------------
 
+// Module scope: the last figures survive navigation, so returning to the
+// dashboard shows them at once (dimmed) while load() refreshes them.
+// See utils/pageCache.ts.
+const data = reactive<DashboardStats>(emptyStats())
+const hasLoaded = ref(false)
+const lastUpdated = ref<Date | null>(null)
+registerReset(() => {
+  Object.assign(data, emptyStats())
+  hasLoaded.value = false
+  lastUpdated.value = null
+})
+
 export function useDashboardStats() {
   const loading = ref(true)
-  const hasLoaded = ref(false)
   const error = ref<string | null>(null)
-  const lastUpdated = ref<Date | null>(null)
-  const data = reactive<DashboardStats>(emptyStats())
 
   async function load() {
     loading.value = true
@@ -555,7 +566,7 @@ export function useDashboardStats() {
           reported_at: ticket.reported_at,
         }))
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load dashboard data'
+      error.value = errorMessage(e, 'Failed to load dashboard data')
     } finally {
       hasLoaded.value = true
       loading.value = false

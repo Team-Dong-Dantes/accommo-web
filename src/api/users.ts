@@ -1,6 +1,7 @@
 // Data access for users — pure fetchers, no reactive state.
 
 import { supabase } from '@/utils/supabase'
+import { fetchAll } from '@/utils/fetchAll'
 
 export async function fetchAdminName(): Promise<string | null> {
   const {
@@ -38,13 +39,14 @@ export async function fetchNewStudentCount(sinceIso: string): Promise<number> {
 
 
 
+// The three below read one row per user, so they page past the 1,000-row cap.
 export async function fetchRegistrationsSince(sinceIso: string): Promise<Array<{ created_at: string | null; role: string }>> {
-  const { data, error } = await supabase
+  return fetchAll((from, to) => supabase
     .from('users')
     .select('created_at, role')
     .gte('created_at', sinceIso)
-  if (error) throw error
-  return (data ?? []) as unknown as Array<{ created_at: string | null; role: string }>
+    .order('id')
+    .range(from, to))
 }
 
 
@@ -56,20 +58,18 @@ export interface RangeUserRow {
 }
 
 export async function fetchUsersInRange(fromIso: string, toIso: string): Promise<RangeUserRow[]> {
-  const { data, error } = await (supabase as any)
+  return fetchAll((from, to) => supabase
     .from('users')
     .select('id, full_name, role, created_at')
     .gte('created_at', fromIso)
     .lte('created_at', toIso)
     .order('created_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []) as unknown as RangeUserRow[]
+    .order('id')
+    .range(from, to)) as Promise<RangeUserRow[]>
 }
 
 export async function fetchStudentSexes(): Promise<Array<{ sex: string | null }>> {
-  const { data, error } = await supabase.from('users').select('sex').eq('role', 'student')
-  if (error) throw error
-  return (data ?? []) as unknown as Array<{ sex: string | null }>
+  return fetchAll((from, to) => supabase.from('users').select('sex').eq('role', 'student').order('id').range(from, to))
 }
 
 // --- admin home: verification queue -----------------------------------------

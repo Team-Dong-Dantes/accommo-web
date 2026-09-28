@@ -91,6 +91,7 @@
 </template>
 
 <script setup lang="ts">
+import { errorMessage } from '@/utils/errors'
 import { ref, reactive, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import BadgePill from '@/components/user/BadgePill.vue'
@@ -156,7 +157,7 @@ async function inviteAdmin() {
     invite.email = ''
     await loadAdmins()
   } catch (e) {
-    inviteError.value = e instanceof Error ? e.message : 'Invitation failed.'
+    inviteError.value = errorMessage(e, 'Invitation failed.')
   } finally {
     inviting.value = false
   }
@@ -215,7 +216,7 @@ async function manageAdmin(action: 'revoke' | 'remove', a: AdminRow) {
     notify.success(action === 'revoke' ? 'Invite cancelled' : 'Admin access removed')
     await loadAdmins()
   } catch (e) {
-    notify.error(e instanceof Error ? e.message : 'Action failed.')
+    notify.error(errorMessage(e, 'Action failed.'))
   }
 }
 

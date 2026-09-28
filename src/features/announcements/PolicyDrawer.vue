@@ -62,6 +62,7 @@
 </template>
 
 <script setup lang="ts">
+import { errorMessage } from '@/utils/errors'
 import { computed, ref, watch } from 'vue'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import InfoCard from '@/components/ui/InfoCard.vue'
@@ -99,7 +100,7 @@ watch(() => props.row?.id, async (id) => {
     pending.value = p
     versions.value = v
   } catch (e) {
-    notify.error(e instanceof Error ? e.message : 'Could not load policy details')
+    notify.error(errorMessage(e, 'Could not load policy details'))
   } finally {
     pendingLoading.value = false
   }

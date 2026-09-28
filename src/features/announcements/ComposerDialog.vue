@@ -295,6 +295,7 @@
 </template>
 
 <script setup lang="ts">
+import { errorMessage } from '@/utils/errors'
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { supabase } from '@/utils/supabase'
@@ -629,7 +630,7 @@ async function save() {
     dialogOpen.value = false
     emit('saved')
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Failed to save'
+    const msg = errorMessage(e, 'Failed to save')
     console.error('Save failed:', e)
     notify.error(msg)
   } finally {

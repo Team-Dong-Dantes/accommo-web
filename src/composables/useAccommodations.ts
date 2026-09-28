@@ -1,5 +1,7 @@
+import { errorMessage } from '@/utils/errors'
 import { ref } from 'vue'
 import { supabase } from '@/utils/supabase'
+import { registerReset } from '@/utils/pageCache'
 import { getStatus, type StatusTone } from '@/utils/status.config'
 import { composeAddress, getInitialsWide as initialsOf, humanizeEnum } from '@/utils/format'
 import { resolveAsset } from '@/utils/cloudinaryUrl'
@@ -159,13 +161,19 @@ function profileOf(student: any): { program?: string | null; year_level?: string
 // charAt(0).toUpperCase() rendered "boarding_house" as "Boarding_house" — the
 // underscore was visible in the hub table and the map list.
 
+// Module scope, shared by the Map View and the Accommodation Hub: a return
+// visit shows the cached list at once while load() refreshes it.
+// See utils/pageCache.ts.
+const accommodations = ref<RealAccommodation[]>([])
+const hasLoaded = ref(false)
+registerReset(() => { accommodations.value = []; hasLoaded.value = false })
+
 export function useAccommodations() {
-  const loading = ref(true)
+  const loading = ref(!hasLoaded.value)
   const error = ref<string | null>(null)
-  const accommodations = ref<RealAccommodation[]>([])
 
   async function load() {
-    loading.value = true
+    loading.value = !hasLoaded.value
     error.value = null
     try {
       const [propsRes, roomsRes, leasesRes, profilesRes, permitsRes, imagesRes, facilitiesRes, facilityImagesRes] = await Promise.all([
@@ -407,8 +415,9 @@ export function useAccommodations() {
       // than on whatever order Postgres happened to return. Undated properties
       // sort last instead of jumping the queue.
       accommodations.value.sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''))
+      hasLoaded.value = true
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load accommodations'
+      error.value = errorMessage(e, 'Failed to load accommodations')
     } finally {
       loading.value = false
     }

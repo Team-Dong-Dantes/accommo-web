@@ -1,3 +1,4 @@
+import { errorMessage } from '@/utils/errors'
 import { callEdgeFunction } from '@/utils/edgeFunction'
 
 export type DocumentTable = 'verification_documents' | 'accommodation_documents'
@@ -41,7 +42,7 @@ export async function signDocUrl(
     const { url } = await callEdgeFunction<{ url?: string }>('doc-access', { action: 'view', table, id, ref })
     return url ? { url, error: null } : { url: '', error: 'The document service returned no link for this file.' }
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
+    const message = errorMessage(e, 'Unknown error')
     console.warn('Could not sign document URL:', message)
     return { url: '', error: `Could not open this document — ${message}` }
   }

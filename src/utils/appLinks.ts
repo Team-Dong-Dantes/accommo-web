@@ -8,6 +8,8 @@ export const APP_URL = import.meta.env.DEV
   : 'https://accommo-app.vercel.app';
 // The app's root is GetStartedPage — the role fork a new visitor starts from.
 export const SIGN_UP_URL = `${APP_URL}/`;
+// Students and landlords/landladies sign in to the app, never this console.
+export const SIGN_IN_URL = `${APP_URL}/login`;
 
 // Latest signed release APK, published by the mobile repo's CI.
 export const APK_URL = 'https://github.com/Team-Dong-Dantes/accommo-mobile/releases/latest/download/app-release.apk';

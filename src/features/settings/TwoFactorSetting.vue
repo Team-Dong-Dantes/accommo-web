@@ -30,6 +30,7 @@
 </template>
 
 <script setup lang="ts">
+import { errorMessage } from '@/utils/errors'
 import { onMounted, ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { supabase } from '@/utils/supabase'
@@ -62,7 +63,7 @@ async function start() {
     enrolling.value = { id: data.id, qr: data.totp.qr_code, secret: data.totp.secret }
     code.value = ''
   } catch (e) {
-    notify.error(e instanceof Error ? e.message : 'Could not start two-factor setup')
+    notify.error(errorMessage(e, 'Could not start two-factor setup'))
   } finally {
     busy.value = false
   }
@@ -78,7 +79,7 @@ async function verify() {
     enrolling.value = null
     notify.success('Two-factor authentication is on')
   } catch (e) {
-    notify.error(e instanceof Error ? e.message : 'That code did not work')
+    notify.error(errorMessage(e, 'That code did not work'))
   } finally {
     busy.value = false
   }

@@ -41,6 +41,7 @@
 </template>
 
 <script setup lang="ts">
+import { errorMessage } from '@/utils/errors'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/utils/supabase'
@@ -79,7 +80,7 @@ async function submit() {
     }
     await router.replace(authStore.needsOnboarding ? '/onboarding' : '/dashboard')
   } catch (e) {
-    notify.error(e instanceof Error ? e.message : 'Something went wrong')
+    notify.error(errorMessage(e, 'Something went wrong'))
   } finally {
     loading.value = false
   }

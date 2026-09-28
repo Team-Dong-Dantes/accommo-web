@@ -174,7 +174,7 @@ const groups = computed(() => groupByDay(visible.value))
 .center-row:hover { background: var(--c-surface-2); }
 /* Same highlight as the bell popover: a faint teal wash and an accent edge,
    kept light so a long unread run does not turn the whole card teal. */
-.center-row.is-unread { background: color-mix(in srgb, var(--c-primary-soft) 45%, transparent); box-shadow: inset 3px 0 0 var(--c-primary); }
+.center-row.is-unread { background: color-mix(in srgb, var(--c-primary-soft) 45%, transparent); }
 .center-row.is-unread:hover { background: var(--c-primary-soft); }
 .center-row:focus-visible { outline: 2px solid var(--c-primary); outline-offset: -2px; }
 

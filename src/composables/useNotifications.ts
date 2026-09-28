@@ -11,6 +11,7 @@
 // A factory, NOT a singleton (see ARCHITECTURE.md): each consumer gets its own
 // state and its own realtime channel.
 
+import { errorMessage } from '@/utils/errors'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -99,7 +100,7 @@ export function useNotifications({ limit, channel }: UseNotificationsOptions) {
       if (!userId) return
       notifications.value = (await fetchNotifications(userId, limit)).map(mapRow)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Check your connection, then try again.'
+      error.value = errorMessage(e, 'Check your connection, then try again.')
     } finally {
       loading.value = false
     }

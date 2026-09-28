@@ -3,9 +3,13 @@
 // which rendered with no click handler at all — can share it instead of
 // growing a second copy.
 
-function escapeCsv(value: unknown): string {
-  const s = value == null ? '' : String(value)
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+export function escapeCsv(value: unknown): string {
+  let s = value == null ? '' : String(value)
+  // Names, titles and reasons are typed by users. A cell starting with one of
+  // these is run as a formula by Excel/Sheets (=HYPERLINK(...) and worse), so
+  // it is prefixed with an apostrophe to keep it text.
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
 /**
@@ -16,7 +20,8 @@ export function downloadCsv(basename: string, headers: string[], rows: unknown[]
   const lines = [headers.map(escapeCsv).join(',')]
   for (const row of rows) lines.push(row.map(escapeCsv).join(','))
 
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  // The BOM tells Excel the file is UTF-8; without it "ñ" and "₱" arrive garbled.
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

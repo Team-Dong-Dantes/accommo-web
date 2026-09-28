@@ -7,6 +7,7 @@ import {
 } from 'vue-router';
 import routes from './routes';
 import { supabase } from '@/utils/supabase';
+import { markActive } from '@/utils/activity';
 import { useAuthStore, type AppUser } from '@/stores/auth';
 
 export default defineRouter(() => {
@@ -82,6 +83,9 @@ export default defineRouter(() => {
       authStore.clearCachedRole();
       return '/auth/login?suspended=true';
     }
+
+    // Opening the console counts as being active ("Last active" on Users).
+    markActive();
 
     // Second factor before anything else an admin can reach. The database
     // enforces the same rule (is_admin() needs aal2 once a factor exists), so

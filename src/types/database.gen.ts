@@ -975,6 +975,7 @@ export type Database = {
       }
       leases: {
         Row: {
+          added_by_landlord: boolean
           advance_paid: number | null
           decision_reason: string | null
           deposit_paid: number | null
@@ -990,6 +991,7 @@ export type Database = {
           student_id: string
         }
         Insert: {
+          added_by_landlord?: boolean
           advance_paid?: number | null
           decision_reason?: string | null
           deposit_paid?: number | null
@@ -1005,6 +1007,7 @@ export type Database = {
           student_id: string
         }
         Update: {
+          added_by_landlord?: boolean
           advance_paid?: number | null
           decision_reason?: string | null
           deposit_paid?: number | null
@@ -2026,6 +2029,14 @@ export type Database = {
       }
     }
     Functions: {
+      accept_added_student: {
+        Args: { p_code: string; p_lease: string }
+        Returns: undefined
+      }
+      add_student_to_room: {
+        Args: { p_room: string; p_start: string; p_student_no: string }
+        Returns: string
+      }
       admin_change_role: {
         Args: {
           p_reason: string
@@ -2060,6 +2071,7 @@ export type Database = {
       admin_sign_out_everywhere: { Args: { p_user: string }; Returns: number }
       announce_due: { Args: never; Returns: number }
       accept_policy: { Args: { p_id: string }; Returns: undefined }
+      touch_last_active: { Args: never; Returns: undefined }
       announcement_reach_all: {
         Args: never
         Returns: {

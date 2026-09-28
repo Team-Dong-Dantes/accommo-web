@@ -146,7 +146,7 @@ function viewAll() {
 .notification-line { display: flex; align-items: baseline; gap: var(--sp-2); }
 .notification-line .notification-title { flex: 1; min-width: 0; }
 /* Unread: the lit icon, the heavier title, this dot, and a faint teal wash
-   with an accent edge. The wash is kept light on purpose — a full
+   (no accent edge — it read as a stray outline). The wash is kept light on purpose — a full
    primary-soft fill, with several new items, turned the whole popover teal. */
 .is-unread .notification-title { font-weight: 800; }
 .unread-dot { flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--c-primary); align-self: center; }
@@ -157,7 +157,7 @@ function viewAll() {
 .retry-btn:focus-visible { outline: 3px solid var(--c-danger); outline-offset: -3px; }
 .notification-row { min-height: 60px; margin: 1px var(--sp-2); padding: var(--sp-2) var(--sp-2); border-radius: var(--radius-sm); transition: background var(--t-fast); }
 .notification-row:hover { background: var(--c-surface-2); }
-.notification-row.is-unread { background: color-mix(in srgb, var(--c-primary-soft) 45%, transparent); box-shadow: inset 3px 0 0 var(--c-primary); }
+.notification-row.is-unread { background: color-mix(in srgb, var(--c-primary-soft) 45%, transparent); }
 .notification-row.is-unread:hover { background: var(--c-primary-soft); }
 .notification-title { overflow: hidden; color: var(--c-ink); font-size: 12.5px; font-weight: 600; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .notification-message { overflow: hidden; margin-top: 2px; color: var(--c-muted); font-size: 11.5px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
