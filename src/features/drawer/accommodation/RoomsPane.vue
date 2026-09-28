@@ -78,7 +78,7 @@ function beds(rm: PreviewRoom): ('m' | 'f' | 'v')[] {
 }
 
 function state(rm: PreviewRoom): { label: string; tone: 'ok' | 'full' | 'warn' } {
-  if (String(rm.status ?? '').toLowerCase() === 'maintenance') return { label: 'Maintenance', tone: 'warn' }
+  if (String(rm.status ?? '').toLowerCase() === 'maintenance') return { label: 'Under maintenance', tone: 'warn' }
   const v = vacant(rm)
   return v > 0 ? { label: `${v} vacant`, tone: 'ok' } : { label: 'Full', tone: 'full' }
 }

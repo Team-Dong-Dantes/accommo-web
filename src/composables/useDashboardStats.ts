@@ -5,6 +5,7 @@
 
 import { ref, reactive } from 'vue'
 import type { DashboardStats } from '@/types/dashboard'
+import { ageInDays } from '@/utils/format'
 import {
   fetchAccommodationRows,
   fetchExpiringAccommodationAccreditations,
@@ -94,7 +95,7 @@ function emptyStats(): DashboardStats {
     expiringAccreditations: 0,
     recentTickets: [],
     landlordPayments: { pendingVerification: 0, overdue: 0 },
-    verificationQueue: { students: 0, landlords: 0, withDocs: 0, oldestDays: 0, oldestStudentDays: 0, studentsReadyForReview: 0, studentsPastSla: 0, oldest: [] },
+    verificationQueue: { students: 0, landlords: 0, withDocs: 0, oldestDays: 0, oldestStudentDays: 0, studentsReadyForReview: 0, studentsPastSla: 0, pastSla: 0, oldest: [] },
     accreditationQueue: { total: 0, withPermits: 0, ready: [] },
     ticketQueue: { open: 0, urgent: 0, unassigned: 0, oldestDays: 0, pastSla: 0, createdLast7Days: 0, createdPrevious7Days: 0, leadingOpenCategory: null, oldest: [] },
   }
@@ -258,13 +259,6 @@ function computeRegistrationTrend(
   })
 }
 
-function ageInDays(date: string | null): number {
-  if (!date) return 0
-  const timestamp = new Date(date).getTime()
-  if (Number.isNaN(timestamp)) return 0
-  return Math.max(0, Math.floor((Date.now() - timestamp) / 86_400_000))
-}
-
 /**
  * Bucket the verification queue by how long each account has waited.
  *
@@ -354,7 +348,8 @@ function computeOperationalQueues(
   tickets: Awaited<ReturnType<typeof fetchTicketSummaries>>,
   data: DashboardStats,
 ) {
-  const verificationOldest = pendingUsers.slice(0, 3).map((user) => ({
+  const verificationOldest = pendingUsers.slice(0, 6).map((user) => ({
+    id: user.id,
     name: user.full_name || 'Unknown user',
     role: user.role,
     ageDays: ageInDays(user.created_at),
@@ -373,6 +368,7 @@ function computeOperationalQueues(
     studentsPastSla: pendingUsers.filter((user) =>
       user.role === 'student' && ageInDays(user.created_at) > VERIFICATION_REVIEW_SLA_DAYS,
     ).length,
+    pastSla: pendingUsers.filter((user) => ageInDays(user.created_at) > VERIFICATION_REVIEW_SLA_DAYS).length,
     oldest: verificationOldest,
   }
 
@@ -384,7 +380,7 @@ function computeOperationalQueues(
       const uploaded = new Set(accommodationDocuments.get(accommodation.id) ?? [])
       return REQUIRED_ACCOMMODATION_PERMITS.every(({ type }) => uploaded.has(type))
     })
-    .map((accommodation) => accommodation.name || 'Unnamed accommodation')
+    .map((accommodation) => ({ id: accommodation.id, name: accommodation.name || 'Unnamed accommodation' }))
   // How complete each pending application is, 0–4 permits.
   const completenessTally = [0, 0, 0, 0, 0]
   for (const accommodation of pendingAccommodations) {
@@ -429,7 +425,7 @@ function computeOperationalQueues(
       return createdAt >= fourteenDaysAgo && createdAt < sevenDaysAgo
     }).length,
     leadingOpenCategory,
-    oldest: openTickets.slice(0, 3).map((ticket) => ({
+    oldest: openTickets.slice(0, 6).map((ticket) => ({
       id: ticket.id,
       subject: ticket.subject || 'Untitled ticket',
       priority: ticket.priority,

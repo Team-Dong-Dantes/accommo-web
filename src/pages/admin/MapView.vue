@@ -1,97 +1,104 @@
 <template>
-  <q-page class="users-page full-map-page relative-position">
+  <!-- Sized to exactly the space under the header, so the list and the panel
+       scroll inside themselves and the page never does. -->
+  <q-page class="map-page" :style-fn="fitViewport">
+    <div class="stage">
+      <MapList
+        v-model:search="search"
+        v-model:filters="filters"
+        :items="shown"
+        :total="items.length"
+        :selected-id="selectedId"
+        :hot-id="hotId"
+        @select="select"
+        @hover="hotId = $event"
+      />
 
-    <!-- MAPBOX CANVAS -->
-    <div ref="mapContainer" class="map-container"></div>
+      <div ref="mapWrap" class="map">
+        <div ref="mapContainer" class="map-canvas" />
 
-    <!-- SEARCH + FILTER + FLOATING PANEL (top-left): toolbar, then list ⇄ detail -->
-    <div class="map-toolbar" style="position: absolute; top: 32px; left: 32px; bottom: 32px; z-index: 10; width: 440px; display: flex; flex-direction: column;">
+        <div class="legend" aria-label="Legend">
+          <h2>Accreditation</h2>
+          <div v-for="(g, key) in STATUS_GROUPS" :key="key" class="l-row">
+            <span class="dot" :style="{ background: `var(${g.token})` }" />{{ g.label }}
+          </div>
+          <h2 class="l-gap">Beds taken</h2>
+          <div class="fills">
+            <span v-for="f in FILL_SAMPLES" :key="f.label">
+              <span class="glyph" :style="{ background: ringBackground('accredited', f.pct, 100) }"><i /></span>{{ f.label }}
+            </span>
+          </div>
+        </div>
 
-      <!-- Search + Filter (outside the table) -->
-      <div class="toolbar-row row no-wrap items-center q-mb-md non-shrink">
-        <q-input
-          v-model="search"
-          outlined
-          dense
-          bg-color="surface"
-          placeholder="Search accommodation, manager..."
-          class="search-input col"
-          clearable
-        >
-          <template v-slot:prepend>
-            <Icon icon="lucide:search" width="20" height="20" color="var(--c-muted)" />
-          </template>
-        </q-input>
+        <div class="seg" role="radiogroup" aria-label="Map style">
+          <button type="button" role="radio" :aria-checked="mapStyle === 'plain'" @click="mapStyle = 'plain'">
+            <Icon icon="lucide:map" width="15" height="15" aria-hidden="true" />Map
+          </button>
+          <button type="button" role="radio" :aria-checked="mapStyle === 'satellite'" @click="mapStyle = 'satellite'">
+            <Icon icon="lucide:satellite" width="15" height="15" aria-hidden="true" />Satellite
+          </button>
+        </div>
 
-        <FilterDropdown
-          class="filter-drop"
-          :filters="filters"
-          :active-filters="activeFilters"
-          @update:active-filters="activeFilters = $event"
-          @clear="clearFilters"
+        <button v-if="farItems.length" type="button" class="edge" @click="showFar">
+          <Icon icon="lucide:move-down-left" width="16" height="16" aria-hidden="true" />
+          <span><b>{{ farItems.length }} more than {{ FRAME_KM }} km away</b><br>Show them on the map</span>
+        </button>
+
+        <MapPinCard
+          v-if="selected && !detailOpen && selectedPoint"
+          :item="selected"
+          :x="selectedPoint.x"
+          :y="selectedPoint.y"
+          :map-width="mapSize.w"
+          :map-height="mapSize.h"
+          :walk="walk?.id === selected.id ? walk.text : ''"
+          :side="cardPlacement"
+          @close="selectedId = null"
+          @open="openDetail"
         />
-      </div>
 
-      <!-- LIST STATE -->
-      <div v-if="!selectedAccommodation" class="accommodation-panel bg-surface shadow-2">
-        <AccommodationList
-          :accommodations="filteredForList"
-          @select="onSelectAccommodation"
-        />
-      </div>
-
-      <!-- DETAIL STATE: the panel becomes the accommodation detail -->
-      <div v-else class="accommodation-panel bg-surface shadow-2">
-        <AccommodationDetail
-          :key="selectedAccommodation?.id"
-          :accommodation="selectedAccommodation"
-          @back="selectedAccommodation = null"
+        <MapDetailPanel
+          v-if="selected && detailOpen"
+          :item="selected"
+          :preview="accommodationPreview"
+          :loading="detailLoading"
+          @close="detailOpen = false"
+          @view-all="viewAll"
         />
       </div>
     </div>
 
-    <!-- MAP STYLE TOGGLE (top-right) -->
-    <div class="map-style-options" role="radiogroup" aria-label="Map style" style="position: absolute; top: 32px; right: 32px; z-index: 10;">
-      <q-btn
-        unelevated
-        no-caps
-        class="map-style-option"
-        :class="{ 'is-active': mapStyle === 'plain' }"
-        :aria-checked="mapStyle === 'plain'"
-        role="radio"
-        @click="setStyle('plain')"
-      >
-        <Icon icon="lucide:map" width="18" height="18" aria-hidden="true" />
-        <span>Map</span>
-      </q-btn>
-      <q-btn
-        unelevated
-        no-caps
-        class="map-style-option"
-        :class="{ 'is-active': mapStyle === 'satellite' }"
-        :aria-checked="mapStyle === 'satellite'"
-        role="radio"
-        @click="setStyle('satellite')"
-      >
-        <Icon icon="lucide:satellite" width="18" height="18" aria-hidden="true" />
-        <span>Satellite</span>
-      </q-btn>
-    </div>
-
+    <!-- "View all" opens the full record, the Accommodation Hub's drawer. -->
+    <DetailDrawer
+      v-model="drawerOpen"
+      size="full"
+      close-on-backdrop
+      :loading="detailLoading"
+      :preview="accommodationPreview"
+      :initial-tab="drawerTab"
+    />
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
+import { useQuasar } from 'quasar'
+import { Icon } from '@iconify/vue'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import AccommodationList from '@/components/properties/PropertyList.vue'
-import AccommodationDetail from '@/components/properties/PropertyDetail.vue'
-import FilterDropdown from '@/components/ui/FilterDropdown.vue'
+import DetailDrawer from '@/components/ui/DetailDrawer.vue'
+import MapList from '@/features/map/MapList.vue'
+import MapPinCard from '@/features/map/MapPinCard.vue'
+import MapDetailPanel from '@/features/map/MapDetailPanel.vue'
+import {
+  FRAME_KM, STATUS_GROUPS, circleRing, ringBackground, statusGroup, type MapItem,
+} from '@/features/map/mapPins'
+import { addCampusLayers, cardSide, frameWalk, useCampusWalk, type CardSide } from '@/features/map/campusRoute'
+import { CAMPUS, kmBetween } from '@/utils/geo'
 import { humanizeEnum } from '@/utils/format'
-import { CAMPUS } from '@/utils/geo'
 import { useAccommodations } from '@/composables/useAccommodations'
+import { useAccommodationRecord, toRecordRow } from '@/composables/useAccommodationRecord'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
 
@@ -102,293 +109,290 @@ try {
   Object.defineProperty(mapboxgl.config, 'EVENTS_URL', { get: () => null, configurable: true })
 } catch { /* mapbox telemetry opt-out is best-effort; an older build without EVENTS_URL is fine */ }
 
-const { accommodations, load: loadAccommodations } = useAccommodations()
-const route = useRoute()
+// QPage's default is a min-height; this page wants a fixed one.
+const fitViewport = (offset: number, height: number) => ({ height: `${height - offset}px` })
 
+const FILL_SAMPLES =[{ pct: 0, label: 'Empty' }, { pct: 50, label: 'Half' }, { pct: 100, label: 'Full' }]
+
+const $q = useQuasar()
+const route = useRoute()
+const { accommodations, load } = useAccommodations()
+const rows = computed(() => accommodations.value.map(toRecordRow))
+const { detailLoading, openAccommodation, accommodationPreview } = useAccommodationRecord(rows)
+
+// An accommodation without coordinates is left off the map and the list: the
+// honest rendering of an unknown location is no pin at all (mobile requires one).
+const items = computed<MapItem[]>(() =>
+  rows.value
+    .filter((r) => r.lat != null && r.lng != null)
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      type: humanizeEnum(r.type),
+      statusLabel: r.statusLabel,
+      group: statusGroup(r.status),
+      taken: Math.min(r.totalStudents ?? 0, r.totalCapacity ?? 0),
+      beds: r.totalCapacity ?? 0,
+      km: kmBetween(CAMPUS.lat, CAMPUS.lng, r.lat as number, r.lng as number),
+      lat: r.lat as number,
+      lng: r.lng as number,
+      landlord: r.landlord,
+      address: r.address && r.address !== '—' ? r.address : '',
+      row: r,
+    })),
+)
+
+// Search and chips drive the list and the pins together.
+const search = ref('')
+const filters = ref<string[]>([])
+const shown = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  const groups = filters.value.filter((f) => f !== 'free')
+  return items.value.filter((i) => {
+    if (q && !`${i.name} ${i.landlord} ${i.address}`.toLowerCase().includes(q)) return false
+    if (groups.length && !groups.includes(i.group)) return false
+    if (filters.value.includes('free') && i.taken >= i.beds) return false
+    return true
+  })
+})
+const farItems = computed(() => shown.value.filter((i) => i.km > FRAME_KM))
+
+const selectedId = ref<string | null>(null)
+const hotId = ref<string | null>(null)
+const detailOpen = ref(false)
+const selected = computed(() => shown.value.find((i) => i.id === selectedId.value) ?? null)
+
+const drawerOpen = ref(false)
+const drawerTab = ref('rooms')
+
+// ── the map ──
+const mapWrap = ref<HTMLElement | null>(null)
 const mapContainer = ref<HTMLElement | null>(null)
 let map: mapboxgl.Map | null = null
-let markers: mapboxgl.Marker[] = []
+const pins = new Map<string, { marker: mapboxgl.Marker; el: HTMLButtonElement; wrap: HTMLDivElement }>()
+let campusMarker: mapboxgl.Marker | null = null
 
-const selectedAccommodation = ref<any>(null)
-const search = ref('')
-const activeFilters = ref<Record<string, any[]>>({})
-
-// Filters (accommodation type / room type / status) — applied by MapView, so the
-// search + filter toolbar can sit OUTSIDE the AccommodationList table.
-// Type options come from the loaded rows, not a hardcoded list: the fixed one
-// offered 'Dormitory' / 'Apartment' / 'Boarding House' against row values built
-// from the accommodation_type enum, and matched nothing. Derived options also
-// track whatever the column actually holds.
-const filters = computed(() => {
-  const distinct = (key: 'accommodationType' | 'roomType') =>
-    [...new Set(accommodations.value.map((p) => String(p[key] ?? '')).filter((v) => v && v !== '—'))]
-      .sort()
-      .map((v) => ({ label: humanizeEnum(v), value: v }))
-
-  return [
-    { key: 'accommodationType', label: 'Accommodation Type', options: distinct('accommodationType') },
-    { key: 'roomType', label: 'Room Type', options: distinct('roomType') },
-    {
-      key: 'status',
-      label: 'Status',
-      options: [
-        { label: 'Verified', value: 'verified' },
-        { label: 'Pending', value: 'pending' },
-      ],
-    },
-  ]
-})
-
-function clearFilters() {
-  activeFilters.value = {}
-}
-
-// The left panel is a list ⇄ detail toggle. selectedAccommodation == null → list;
-// otherwise the panel shows AccommodationDetail for that accommodation.
-const filteredForList = computed(() => {
-  let list = accommodations.value.slice()
-
-  const q = search.value.trim().toLowerCase()
-  if (q) {
-    list = list.filter((p) =>
-      [p.name, p.landlord, p.type]
-        .filter(Boolean)
-        .some((f) => String(f).toLowerCase().includes(q))
-    )
-  }
-
-  for (const key of Object.keys(activeFilters.value)) {
-    const selected = activeFilters.value[key] as string[]
-    if (!selected || selected.length === 0) continue
-    list = list.filter((p) => {
-      const val = key === 'status'
-        ? (p.verified ? 'verified' : 'pending')
-        : String((p as any)[key] ?? '')
-      return selected.includes(val)
-    })
-  }
-
-  return list
-})
-
-// Watch the raw accommodation set (not the filtered list) so markers always match
-// the full dataset; the toolbar filters only control the side list.
-watch(accommodations, () => addMarkers())
-
-// 'plain' = light-v11 flat; 'satellite' = satellite-streets imagery
 const mapStyle = ref<'plain' | 'satellite'>('plain')
-const MAP_STYLES: Record<'plain' | 'satellite', string> = {
-  plain: 'mapbox://styles/mapbox/light-v11',
-  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
-}
+const styleUrl = computed(() =>
+  mapStyle.value === 'satellite'
+    ? 'mapbox://styles/mapbox/satellite-streets-v12'
+    : $q.dark.isActive ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11',
+)
+watch(styleUrl, (url) => map?.setStyle(url))
 
-// Selecting an accommodation swaps the panel to its DETAIL view and jumps the map to
-// that accommodation's location (its lat/lng — real coords when available, otherwise
-// the derived fallback used for markers).
-function onSelectAccommodation(accommodation: any) {
-  selectedAccommodation.value = accommodation
-  flyToAccommodation(accommodation)
-}
+// The card follows its pin as the map pans and zooms.
+const mapSize = ref({ w: 0, h: 0 })
+const viewTick = ref(0)
+const selectedPoint = computed(() => {
+  void viewTick.value
+  if (!map || !selected.value) return null
+  const p = map.project([selected.value.lng, selected.value.lat])
+  return { x: p.x, y: p.y }
+})
 
-function flyToAccommodation(accommodation: any) {
-  if (!map) return
-  const { lat, lng } = accommodation
-  if (lat != null && lng != null) {
-    map.flyTo({ center: [lng, lat], zoom: 16, essential: true })
+function select(id: string) {
+  // With the detail panel open, picking another accommodation swaps it.
+  if (detailOpen.value) {
+    selectedId.value = id
+    openDetail()
+    return
   }
+  selectedId.value = selectedId.value === id ? null : id
+  const item = selected.value
+  if (item) flyToPin(item)
 }
 
-function setStyle(style: 'plain' | 'satellite') {
-  mapStyle.value = style
-  map?.setStyle(MAP_STYLES[style])
+/** Pans to a picked pin, below centre so the card has room. The zoom is left to
+ *  frameWalk once the route arrives, so the map does not zoom twice. */
+function flyToPin(item: MapItem) {
+  if (!map) return
+  const drop = Math.min(180, mapSize.value.h * 0.25)
+  map.flyTo({ center: [item.lng, item.lat], offset: [0, drop], essential: true })
+}
+
+function openDetail() {
+  if (!selected.value) return
+  openAccommodation(selected.value.row)
+  detailOpen.value = true
+}
+
+function viewAll(tab: string) {
+  drawerTab.value = tab
+  drawerOpen.value = true
 }
 
 /**
- * Draw a marker per accommodation that has a recorded location.
- *
- * An accommodation without coordinates is left off the map. This used to place
- * it on a circle around a hardcoded centre and cache the made-up position on
- * the row as `_fallbackLat`/`_fallbackLng` — so an admin saw a pin at a
- * location nobody had entered, indistinguishable from a real one. Mobile
- * requires a pin before an accommodation can be created, so in practice there
- * is nothing to draw here; an unplaced row means bad data, and the honest
- * rendering of an unknown location is no pin at all.
+ * Mapbox positions a marker by writing `transform` on the element it is
+ * given, so the pin that grows on hover is a button inside that element, not
+ * the element itself — scaling the element would throw the pin off its spot.
  */
-function addMarkers() {
-  if (!map) return
-  markers.forEach(m => m.remove())
-  markers = []
-
-  const bounds = new mapboxgl.LngLatBounds()
-  let plotted = 0
-
-  accommodations.value.forEach((accommodation) => {
-    const { lat, lng } = accommodation
-    if (lat == null || lng == null) return
-
-    const marker = new mapboxgl.Marker()
-      .setLngLat([lng, lat])
-      .addTo(map!)
-
-    // Default Mapbox marker is a teal droplet whose bottom tip lands exactly on
-    // the location — no custom pin/rotation so it can't drift or look buried.
-
-    // Wire the default marker's underlying element to open the detail + fly.
-    if (marker.getElement()) {
-      marker.getElement().addEventListener('click', () => {
-        flyToAccommodation(accommodation)
-        onSelectAccommodation(accommodation)
-      })
-    }
-
-    markers.push(marker)
-    bounds.extend([lng, lat])
-    plotted++
-  })
-
-  // Open on the accommodations themselves rather than a fixed centre and zoom.
-  // They span two cities — the Echague cluster sits within a few km of campus,
-  // but the Santiago ones are 10-15 km out, so no single fixed view holds them.
-  if (plotted > 0) map.fitBounds(bounds, { padding: 64, maxZoom: 16, duration: 0 })
+function makePin(item: MapItem) {
+  const wrap = document.createElement('div')
+  const el = document.createElement('button')
+  el.type = 'button'
+  el.className = 'map-pin'
+  el.innerHTML = '<span class="map-pin-ring"></span><span class="map-pin-core"></span>'
+  el.addEventListener('click', (e) => { e.stopPropagation(); select(item.id) })
+  el.addEventListener('mouseenter', () => { hotId.value = item.id })
+  el.addEventListener('mouseleave', () => { if (hotId.value === item.id) hotId.value = null })
+  wrap.appendChild(el)
+  return { wrap, el }
 }
 
+/** Rebuild the pins for what is shown; cheap at this scale (tens of houses). */
+function syncPins() {
+  if (!map) return
+  const keep = new Set(shown.value.map((i) => i.id))
+  for (const [id, pin] of pins) {
+    if (!keep.has(id)) { pin.marker.remove(); pins.delete(id) }
+  }
+  for (const item of shown.value) {
+    let pin = pins.get(item.id)
+    if (!pin) {
+      const { wrap, el } = makePin(item)
+      pin = { el, wrap, marker: new mapboxgl.Marker({ element: wrap }).setLngLat([item.lng, item.lat]).addTo(map) }
+      pins.set(item.id, pin)
+    }
+    // The selected and hovered pins sit above their neighbours.
+    pin.wrap.style.zIndex = item.id === selectedId.value ? '4' : item.id === hotId.value ? '3' : ''
+    const ring = pin.el.firstElementChild as HTMLElement
+    ring.style.background = ringBackground(item.group, item.taken, item.beds)
+    ring.style.borderColor = `var(${STATUS_GROUPS[item.group].token})`
+    pin.el.setAttribute('aria-label', `${item.name}, ${item.statusLabel}, ${item.taken} of ${item.beds} beds taken`)
+    pin.el.classList.toggle('is-sel', item.id === selectedId.value)
+    pin.el.classList.toggle('is-hot', item.id === hotId.value)
+  }
+}
+watch([shown, selectedId, hotId], syncPins)
+
+// The walk to campus along the roads, as accommo-mobile draws it.
+const { walk, show: showWalk, dispose: disposeWalk } = useCampusWalk(() => map)
+watch(selectedId, () => { void showWalk(selected.value) })
+
+// Once the route is known the card moves off it, and the map eases to show the
+// whole walk with room kept clear on the card's side of the pin.
+const cardPlacement = computed<CardSide>(() =>
+  selected.value && walk.value?.id === selected.value.id ? cardSide(selected.value, walk.value.coords) : 'above')
+watch(walk, (w) => {
+  const item = selected.value
+  if (map && w && item && w.id === item.id && !detailOpen.value) frameWalk(map, item, w.coords, cardPlacement.value)
+})
+
+function frameCampus(duration = 0) {
+  const ring = circleRing(CAMPUS, FRAME_KM, 16)
+  const bounds = ring.reduce((b, p) => b.extend(p), new mapboxgl.LngLatBounds(ring[0], ring[0]))
+  map?.fitBounds(bounds, { padding: 24, duration })
+}
+
+function showFar() {
+  if (!map || !farItems.value.length) return
+  const first = farItems.value[0]!
+  const bounds = farItems.value.reduce((b, i) => b.extend([i.lng, i.lat]), new mapboxgl.LngLatBounds([first.lng, first.lat], [first.lng, first.lat]))
+  map.fitBounds(bounds, { padding: 120, maxZoom: 15 })
+}
+
+function onKey(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || drawerOpen.value) return
+  if (detailOpen.value) detailOpen.value = false
+  else selectedId.value = null
+}
+let resizeObs: ResizeObserver | null = null
+
 onMounted(async () => {
-  await loadAccommodations()
+  window.addEventListener('keydown', onKey)
+  await load()
   await nextTick()
   if (!mapContainer.value) return
 
-  // Campus is only the opening frame for an empty map — addMarkers() fits the
-  // view to the accommodations as soon as there are any.
-  map = new mapboxgl.Map({
-    container: mapContainer.value,
-    style: MAP_STYLES[mapStyle.value],
-    center: [CAMPUS.lng, CAMPUS.lat],
-    zoom: 14,
+  map = new mapboxgl.Map({ container: mapContainer.value, style: styleUrl.value, center: [CAMPUS.lng, CAMPUS.lat], zoom: 12.5 })
+  // A style switch drops custom layers: put the rings back and redraw the walk.
+  map.on('style.load', () => {
+    if (!map) return
+    addCampusLayers(map, mapStyle.value === 'satellite')
+    void showWalk(selected.value)
   })
+  map.on('move', () => { viewTick.value++ })
+  map.on('click', () => { if (!detailOpen.value) selectedId.value = null })
 
-  const onReady = () => {
-    addMarkers()
-    // Deep-link support: ?accommodation=<id> focuses the accommodation on load.
-    const targetId = route.query.accommodation
-    if (typeof targetId === 'string' && targetId) {
-      const target = accommodations.value.find((p) => p.id === targetId)
-      if (target) {
-        selectedAccommodation.value = target
-        flyToAccommodation(target)
-      }
+  const campusEl = document.createElement('div')
+  campusEl.className = 'map-campus'
+  campusEl.innerHTML = '<i></i>ISU Echague campus'
+  campusMarker = new mapboxgl.Marker({ element: campusEl, anchor: 'top', offset: [0, 10] }).setLngLat([CAMPUS.lng, CAMPUS.lat]).addTo(map)
+
+  resizeObs = new ResizeObserver(() => {
+    if (!mapWrap.value) return
+    mapSize.value = { w: mapWrap.value.clientWidth, h: mapWrap.value.clientHeight }
+    map?.resize()
+    viewTick.value++
+  })
+  if (mapWrap.value) resizeObs.observe(mapWrap.value)
+
+  map.on('load', () => {
+    frameCampus()
+    syncPins()
+    // Deep link: ?accommodation=<id> selects it and brings it into view.
+    const target = route.query.accommodation
+    const item = typeof target === 'string' ? items.value.find((i) => i.id === target) : undefined
+    if (item) {
+      selectedId.value = item.id
+      flyToPin(item)
     }
-  }
-  if (map.loaded()) onReady()
-  else map.on('load', onReady)
+  })
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey)
+  resizeObs?.disconnect()
+  pins.forEach((p) => p.marker.remove())
+  pins.clear()
+  campusMarker?.remove()
+  disposeWalk()
   map?.remove()
   map = null
 })
 </script>
 
 <style scoped>
-.users-page {
-  overflow: hidden !important;
-  height: 100% !important;
-  padding: 0 !important;
-}
+.map-page { display: flex; padding: 16px; overflow: hidden !important; background: var(--c-bg); }
+.stage { display: grid; flex: 1; grid-template-columns: 340px minmax(0, 1fr); min-height: 0; overflow: hidden; border: 1px solid var(--c-border); border-radius: 16px; background: var(--c-surface); }
+.map { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.map-canvas { position: absolute; inset: 0; }
 
-.full-map-page { position: relative; }
+.legend { position: absolute; top: 14px; left: 14px; z-index: 2; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); box-shadow: var(--shadow); color: var(--c-text); font-size: 11.5px; }
+.legend h2 { margin: 0 0 2px; color: var(--c-muted); font-size: 11.5px; font-weight: 700; line-height: 1.3; }
+.legend .l-gap { margin-top: 4px; }
+.l-row { display: flex; align-items: center; gap: 8px; }
+.dot { width: 9px; height: 9px; flex: none; border-radius: 50%; }
+.fills { display: flex; gap: 10px; }
+.fills > span { display: inline-flex; align-items: center; gap: 5px; }
+.glyph { position: relative; width: 16px; height: 16px; border: 2px solid var(--c-primary); border-radius: 50%; box-sizing: border-box; }
+.glyph i { position: absolute; inset: 3px; border-radius: 50%; background: var(--c-surface); }
 
-.map-container {
-  position: absolute;
-  inset: 16px;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid var(--c-border-strong, #e6e8eb);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-}
+.seg { position: absolute; top: 14px; right: 14px; z-index: 2; display: flex; gap: 3px; padding: 3px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); box-shadow: var(--shadow); }
+.seg button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--c-muted); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.seg button[aria-checked='true'] { background: var(--c-primary-soft); color: var(--c-primary); }
 
-.accommodation-panel {
-  flex: 1 1 auto;
-  min-height: 0;
-  border-radius: 16px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Toolbar search + filter spacing (outside the side table) */
-.map-toolbar .toolbar-row {
-  gap: 10px;
-}
-.map-toolbar .search-input :deep(.q-field__control) {
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-.map-toolbar .filter-drop { margin-left: auto; }
-.map-toolbar .filter-drop :deep(.q-btn) {
-  border-radius: 12px;
-  height: 40px;
-  padding: 0 16px;
-  border: 1px solid var(--c-border-strong, #cbcbcb);
-  background: var(--c-surface);
-}
-.map-toolbar .search-input :deep(.q-field__control),
-.map-toolbar .filter-drop :deep(.q-btn) {
-  background: #fff;
-}
-
-.map-style-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 5px;
-  border: 1px solid color-mix(in srgb, var(--c-border-strong) 88%, transparent);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--c-surface-2) 92%, transparent);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-}
-.map-style-option {
-  min-height: 38px;
-  gap: 7px;
-  border: 1px solid transparent;
-  border-radius: 8px !important;
-  color: var(--c-muted);
-  font-size: 12px;
-  font-weight: 700;
-  transition: background var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast), color var(--t-fast), transform 80ms ease-out;
-}
-.map-style-option:hover {
-  color: var(--c-primary-ink);
-}
-.map-style-option:active {
-  transform: scale(.97);
-}
-.map-style-option:focus-visible {
-  outline: 3px solid var(--c-primary);
-  outline-offset: 2px;
-}
-.map-style-option.is-active {
-  border-color: color-mix(in srgb, var(--c-primary) 30%, transparent);
-  background: var(--c-surface);
-  box-shadow: var(--shadow-sm);
-  color: var(--c-primary-ink);
-}
-.map-style-option.is-active :deep(.iconify) {
-  color: var(--c-primary);
-}
-
-@media (max-width: 600px) {
-  .map-style-options {
-    right: 16px !important;
-    top: 16px !important;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .map-style-option {
-    transition: none;
-  }
-}
+.edge { position: absolute; bottom: 14px; left: 14px; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); box-shadow: var(--shadow); color: var(--c-text); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.edge b { color: var(--c-ink); }
+.edge:hover { border-color: var(--c-primary); }
+.seg button:focus-visible, .edge:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
 
 :deep(.mapboxgl-ctrl-attrib) { font-size: 10px; }
+</style>
+
+<style>
+/* Pin and campus markers are built outside Vue's template, so their styles
+   cannot be scoped. */
+.map-pin { position: relative; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; transition: transform 0.15s ease; }
+.map-pin-ring { position: absolute; inset: 0; border: 2px solid; border-radius: 50%; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); }
+.map-pin-core { position: absolute; inset: 5px; border-radius: 50%; background: var(--c-surface); }
+.map-pin:hover, .map-pin.is-hot { z-index: 3; transform: scale(1.3); }
+.map-pin.is-sel { z-index: 4; transform: scale(1.35); }
+.map-pin.is-sel .map-pin-ring { box-shadow: 0 0 0 3px var(--c-surface), 0 0 0 5px var(--c-ink); }
+.map-pin:focus-visible { outline: 2px solid var(--c-ink); outline-offset: 3px; }
+.map-campus { display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border-radius: 999px; background: var(--c-ink); box-shadow: var(--shadow); color: var(--c-surface); font-family: var(--font-body); font-size: 12px; font-weight: 700; white-space: nowrap; pointer-events: none; }
+.map-campus i { width: 12px; height: 12px; border: 3px solid var(--c-surface); border-radius: 50%; background: var(--c-primary); }
+/* The walk parked half way along the route, as on mobile. */
+.map-walk-label { padding: 3px 9px; border: 1px solid var(--c-border); border-radius: 999px; background: color-mix(in srgb, var(--c-surface) 92%, transparent); backdrop-filter: blur(10px) saturate(160%); color: var(--c-primary); font-family: var(--font-body); font-size: 11.5px; font-weight: 700; white-space: nowrap; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .map-pin { transition: none; } }
 </style>

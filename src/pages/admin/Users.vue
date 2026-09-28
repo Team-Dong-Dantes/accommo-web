@@ -78,9 +78,18 @@
                   </q-td>
                   <q-td key="title" :props="props" class="text-ink">{{ props.row.roleTitle }}</q-td>
                   <q-td key="accommodations" :props="props">
-                    <div v-if="props.row.portfolio.count" class="us-stack">
-                      <div class="text-ink">{{ props.row.portfolio.count }}</div>
-                      <div class="text-muted us-sub">{{ props.row.portfolio.accredited }} accredited</div>
+                    <div v-if="props.row.portfolio.count" class="row items-center no-wrap q-gutter-x-sm">
+                      <!-- One pip per accommodation, filled when accredited; capped at 5 with a "+n". -->
+                      <span class="us-pips" aria-hidden="true">
+                        <i
+                          v-for="n in Math.min(props.row.portfolio.count, 5)"
+                          :key="n"
+                          :class="{ 'is-on': n <= props.row.portfolio.accredited }"
+                        />
+                        <span v-if="props.row.portfolio.count > 5" class="text-muted us-more">+{{ props.row.portfolio.count - 5 }}</span>
+                      </span>
+                      <span class="text-ink text-weight-medium us-num">{{ props.row.portfolio.count }}</span>
+                      <q-tooltip>{{ props.row.portfolio.accredited }} of {{ props.row.portfolio.count }} accredited</q-tooltip>
                     </div>
                     <span v-else class="text-muted us-none">None yet</span>
                   </q-td>
@@ -565,5 +574,15 @@ async function onProfileSaved(p: EditableProfile) {
 /* The italic's last glyph leans past the box; the cell would clip it. */
 .us-none { font-style: italic; padding-right: 2px; }
 .us-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.us-pips { display: inline-flex; align-items: center; gap: 3px; }
+.us-pips i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--c-primary);
+  box-sizing: border-box;
+}
+.us-pips i.is-on { background: var(--c-primary); }
+.us-more { font-size: 11px; margin-left: 2px; }
 .us-warn { color: var(--c-warning); font-weight: 600; }
 </style>

@@ -1,25 +1,35 @@
 <template>
   <q-page class="support-tickets-page column no-wrap" style="background-color: var(--c-bg)">
     <div class="row justify-between items-end non-shrink tickets-bar" :class="{ 'is-board': view === 'board' }">
-      <!-- The board's columns are the statuses, so it swaps the status tabs for
-           the search the table otherwise carries in its own toolbar. -->
-      <TabNav v-if="view === 'table'" v-model="statusFilter" :tabs="tabs" />
+      <!-- The table's tabs are the board's columns; the board shows them all at
+           once, so it carries the search the table keeps in its own toolbar. -->
+      <TabNav v-if="view === 'table'" v-model="laneTab" :tabs="tabs" />
       <SearchInput v-else v-model="search" placeholder="Search tickets..." />
       <div class="view-toggle">
         <SegmentedToggle v-model="view" :options="VIEW_OPTS" />
       </div>
     </div>
 
-    <div v-if="view === 'board'" class="support-tickets-body">
-      <TicketBoard :groups="groups" :selected-id="selectedId" @select="selectTicket" />
-    </div>
-
-    <div v-else class="support-tickets-body">
+    <div class="support-tickets-body" :class="{ 'is-board': view === 'board' }">
+      <template v-if="view === 'board'">
+        <BoardViews v-model:view="boardView" v-model:category="boardCategory" :views="viewCounts" :categories="categoryCounts" />
+        <TicketBoard
+          :tickets="boardRows"
+          :selected-id="selectedId"
+          @select="selectTicket"
+          @claim="claim"
+          @resolve="(g) => (resolving = g)"
+          @reopen="(ids) => setStatus(ids, 'open')"
+        />
+      </template>
       <TicketTable
+        v-else
         v-model:search="search"
         v-model:page="page"
-        :rows="paginatedGroups"
-        :total-items="groups.length"
+        v-model:active-filters="tableFilters"
+        :filters="filterConfig"
+        :rows="paginatedRows"
+        :total-items="tableRows.length"
         :total-label="totalLabel"
         :loading="loading"
         :error="error"
@@ -28,25 +38,33 @@
         @select="selectTicket"
         @refresh="fetch"
       />
-          </div>
 
-    <TicketWindow
-      :ticket="selectedTicket"
-      :reports="selectedReports"
-      :groups="messageGroups"
-      :sending="sending"
-      :drill="drill"
-      @close="closeWindow"
-      @select-report="selectTicket"
-      @update:status="updateStatus"
-      @update:priority="updatePriority"
-      @resolve="updateStatus('resolved')"
-      @send="onSend"
-      @open-drill="(k) => (drill = { kind: k })"
-      @view-entity="viewEntity"
-      @back-drill="drill = null"
+      <!-- A right-hand detail drawer over the board or table. -->
+      <TicketWindow
+        :ticket="selectedTicket"
+        :groups="messageGroups"
+        :sending="sending"
+        :drill="drill"
+        :agents="agents"
+        :me-id="currentUserId"
+        @close="closeWindow"
+        @update:status="onStatusPick"
+        @update:priority="updatePriority"
+        @update:assignee="assignTo"
+        @resolve="askResolveSelected"
+        @send="onSend"
+        @open-drill="(k) => (drill = { kind: k })"
+        @view-entity="viewEntity"
+        @back-drill="drill = null"
+      />
+    </div>
+
+    <ResolveDialog
+      :ticket="resolving"
+      :busy="resolvingBusy"
+      @resolve="confirmResolve"
+      @cancel="resolving = null"
     />
-
   </q-page>
 </template>
 
@@ -54,21 +72,25 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useTickets } from '@/composables/useTickets'
-import { groupReports, sortGroups } from '@/utils/ticketTriage'
+import { sortTickets, isOverdue, boardLane, type BoardLane } from '@/utils/ticketTriage'
+import type { Ticket } from '@/composables/useTickets'
 import TabNav from '@/components/ui/TabNav.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import SegmentedToggle from '@/components/ui/SegmentedToggle.vue'
 import TicketBoard from '@/features/tickets/TicketBoard.vue'
+import BoardViews, { type BoardView } from '@/features/tickets/BoardViews.vue'
+import ResolveDialog from '@/features/tickets/ResolveDialog.vue'
 import TicketTable from '@/features/tickets/TicketTable.vue'
 import TicketWindow from '@/features/tickets/TicketWindow.vue'
-import type { MsgGroup } from '@/features/tickets/types'
+import { PRIORITY_OPTS, type MsgGroup } from '@/features/tickets/types'
+import { capitalize } from '@/utils/format'
 import type { DrillKind } from '@/features/tickets/TicketWindow.vue'
 
 const {
-  loading, error, search, statusFilter, tickets, counts,
+  loading, error, search, tickets,
   selectedTicket, selectedId, selectTicket, allTickets,
-  fetch,
-  sendMessage, updateStatus, updatePriority,
+  fetch, agents, currentUserId,
+  sendMessage, updateStatus, updatePriority, setStatus, assignTo, claim,
 } = useTickets()
 
 // Deep-link from a notification: ?focus=ticket:<id> opens the TicketWindow,
@@ -85,7 +107,8 @@ async function applyFocus() {
   if (type === 'ticket') {
     const t = allTickets.value.find((x) => x.id === id)
     if (t) {
-      statusFilter.value = 'all'
+      laneTab.value = 'all'
+      tableFilters.value = {}
       search.value = ''
       await nextTick()
       selectTicket(id)
@@ -118,45 +141,116 @@ function storedView(): 'table' | 'board' {
 const view = ref<string>(storedView())
 watch(view, (v) => {
   try { localStorage.setItem(VIEW_KEY, v) } catch { /* non-fatal: just not remembered */ }
-  // The board lays every status out side by side; a status tab left on from the
-  // table would empty two of its three columns.
-  if (v === 'board') statusFilter.value = 'all'
-}, { immediate: true })
+})
 
-// One row per incident, in queue order (utils/ticketTriage.ts). Both views
-// read this, so the board and the table always agree on what a row is.
-const groups = computed(() => sortGroups(groupReports(tickets.value)))
+// One row per ticket, in queue order (utils/ticketTriage.ts). Both views read
+// this, so the board and the table always agree.
+const rows = computed(() => sortTickets(tickets.value))
+
+/* ---- Board: saved views and category ---- */
+const boardView = ref<BoardView>('all')
+const boardCategory = ref('')
+const inView = (t: Ticket, v: BoardView) =>
+  v === 'mine' ? t.assigneeId === currentUserId.value
+  : v === 'unassigned' ? !t.assigneeId && t.status !== 'resolved'
+  : v === 'overdue' ? isOverdue(t.waitingSince)
+  : true
+const inCategory = (t: Ticket) => !boardCategory.value || t.category === boardCategory.value
+const boardRows = computed(() => rows.value.filter((t) => inView(t, boardView.value) && inCategory(t)))
+const viewCounts = computed(() => {
+  const base = rows.value.filter(inCategory)
+  const n = (v: BoardView) => base.filter((t) => inView(t, v)).length
+  return [
+    { value: 'all' as const, label: 'All tickets', icon: 'lucide:inbox', count: n('all') },
+    { value: 'mine' as const, label: 'Assigned to me', icon: 'lucide:user-round-check', count: n('mine') },
+    { value: 'unassigned' as const, label: 'Unassigned', icon: 'lucide:user-round-x', count: n('unassigned') },
+    { value: 'overdue' as const, label: 'Overdue', icon: 'lucide:alarm-clock', count: n('overdue') },
+  ]
+})
+const categoryCounts = computed(() => {
+  const by = new Map<string, number>()
+  for (const t of rows.value) if (inView(t, boardView.value)) by.set(t.category, (by.get(t.category) ?? 0) + 1)
+  return [...by].map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count)
+})
+
+/* ---- Resolve: always through the prompt, since it notifies the requester ---- */
+const resolving = ref<Ticket | null>(null)
+const resolvingBusy = ref(false)
+function askResolveSelected() {
+  resolving.value = selectedTicket.value
+}
+function onStatusPick(status: string) {
+  if (status === 'resolved') askResolveSelected()
+  else void updateStatus(status)
+}
+async function confirmResolve(note: string) {
+  const t = resolving.value
+  if (!t || resolvingBusy.value) return
+  resolvingBusy.value = true
+  try {
+    if (note) await sendMessage(note, { ticketId: t.id })
+    if (await setStatus([t.id], 'resolved')) resolving.value = null
+  } finally {
+    resolvingBusy.value = false
+  }
+}
+
+/* ---- Table: lane tabs, the Filter menu, pagination ---- */
+const laneTab = ref<'all' | BoardLane>('all')
+const tableFilters = ref<Record<string, string[]>>({})
+
+const tabs = computed(() => {
+  const n = (lane: BoardLane) => rows.value.filter((t) => boardLane(t) === lane).length
+  return [
+    { name: 'all', label: `All (${rows.value.length})` },
+    { name: 'new', label: `New (${n('new')})` },
+    { name: 'needs_reply', label: `Needs reply (${n('needs_reply')})` },
+    { name: 'waiting', label: `Waiting (${n('waiting')})` },
+    { name: 'resolved', label: `Resolved (${n('resolved')})` },
+  ]
+})
+
+const filterConfig = computed(() => [
+  { key: 'show', label: 'Show', options: [
+    { label: 'Assigned to me', value: 'mine' },
+    { label: 'Unassigned', value: 'unassigned' },
+    { label: 'Overdue', value: 'overdue' },
+  ] },
+  { key: 'category', label: 'Category', options: [...new Set(rows.value.map((t) => t.category))].sort().map((c) => ({ label: capitalize(c), value: c })) },
+  { key: 'priority', label: 'Priority', options: PRIORITY_OPTS.map((o) => ({ label: o.label, value: o.value })) },
+])
+
+/** Any ticked option within a group, every group that has one ticked. */
+const tableRows = computed(() => {
+  const { show = [], category = [], priority = [] } = tableFilters.value
+  return rows.value.filter((t) =>
+    (laneTab.value === 'all' || boardLane(t) === laneTab.value) &&
+    (!show.length || show.some((v) => inView(t, v as BoardView))) &&
+    (!category.length || category.includes(t.category)) &&
+    (!priority.length || priority.includes(t.priority)))
+})
 
 const totalLabel = computed(() => {
-  const n = tickets.value.length
-  const rows = groups.value.length
-  return `${n} ${n === 1 ? 'ticket' : 'tickets'}` + (rows < n ? ` · ${rows} issues` : '')
+  const n = tableRows.value.length
+  return `${n} ${n === 1 ? 'ticket' : 'tickets'}`
 })
 
 /**
  * Slice like every other table does — the table was once handed the whole list
  * while still rendering a pager, which then changed a `page` nothing read.
  */
-const paginatedGroups = computed(() => {
+const paginatedRows = computed(() => {
   const start = (page.value - 1) * 10
-  return groups.value.slice(start, start + 10)
+  return tableRows.value.slice(start, start + 10)
 })
 
-// The other reports of the open ticket's incident, for the drawer's switcher.
-const selectedReports = computed(() =>
-  groups.value.find((g) => g.reports.some((r) => r.id === selectedId.value))?.reports ?? [],
-)
-
-// Filtering or switching tabs can leave the view past the end of a now-shorter
-// list, which would render an empty page with the pager showing a valid number.
-watch(tickets, () => { page.value = 1 })
-
-const tabs = computed(() => [
-  { name: 'all', label: `All (${counts.value.all})` },
-  { name: 'open', label: `Open (${counts.value.open})` },
-  { name: 'in_progress', label: `In progress (${counts.value.in_progress})` },
-  { name: 'resolved', label: `Resolved (${counts.value.resolved})` },
-])
+// A new tab, filter or search starts at the first page. A live refetch must
+// not (it used to reset on every change to `tickets`); it only pulls the page
+// back if the list shrank past it.
+watch([laneTab, tableFilters, search], () => { page.value = 1 })
+watch(() => tableRows.value.length, (n) => {
+  page.value = Math.min(page.value, Math.max(1, Math.ceil(n / 10)))
+})
 
 /* ---- Ticket window wiring (state lives in the page, view in features/) -- */
 
@@ -170,11 +264,10 @@ const messageGroups = computed<MsgGroup[]>(() => {
     if (!byDay.has(key)) byDay.set(key, [])
     byDay.get(key)!.push(m)
   }
-  const groups: MsgGroup[] = []
-  for (const [day] of byDay.entries()) {
-    const [y, mo, d] = day.split('-').map(Number)
-    groups.push({ day: `${y}-${mo}-${d}`, items: byDay.get(day)! })
-  }
+  // Each day is labelled by its first message's own timestamp. It used to be
+  // rebuilt from the key, whose month is getMonth()'s zero-based one, so every
+  // date rule read a month early ("Aug 15" above a Sep 15 message).
+  const groups: MsgGroup[] = [...byDay.values()].map((items) => ({ day: items[0].createdAt, items }))
   groups.sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime())
   return groups
 })
@@ -245,5 +338,7 @@ watch(() => selectedTicket.value?.id, () => { drill.value = null })
   display: flex;
   flex-direction: column;
 }
+/* Views rail | lanes, side by side. */
+.support-tickets-body.is-board { flex-direction: row; gap: var(--sp-3); }
 
 </style>

@@ -5,6 +5,7 @@
 // no caller can do half of it.
 
 import { supabase } from '@/utils/supabase'
+import { callEdgeFunction } from '@/utils/edgeFunction'
 import type { Database } from '@/types/database.gen'
 
 export type AccountStatus = Database['public']['Enums']['user_status']
@@ -158,16 +159,8 @@ export async function disconnectGoogle(userId: string): Promise<void> {
 }
 
 /** The manage-user edge function: what only auth's admin API can do. */
-async function manageUser<T>(body: Record<string, unknown>): Promise<T> {
-  const { data: sess } = await supabase.auth.getSession()
-  const token = sess.session?.access_token
-  const { data, error } = await supabase.functions.invoke('manage-user', {
-    body,
-    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
-  })
-  if (error) throw error
-  if (!data?.ok) throw new Error(data?.error || 'That did not go through.')
-  return data as T
+function manageUser<T>(body: Record<string, unknown>): Promise<T> {
+  return callEdgeFunction<T>('manage-user', body)
 }
 
 export async function changeSignInEmail(userId: string, email: string): Promise<void> {

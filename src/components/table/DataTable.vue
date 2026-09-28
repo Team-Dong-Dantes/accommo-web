@@ -418,6 +418,12 @@ const paddedRows = computed(() => {
 .custom-data-table :deep(thead th.col-type),
 .custom-data-table :deep(tbody td.col-type) { flex: 0 1 190px !important; }
 
+/* A checklist of short ✓/✗ chips: two requirements, or four permits. */
+.custom-data-table :deep(thead th.col-reqs),
+.custom-data-table :deep(tbody td.col-reqs) { flex: 0 1 260px !important; }
+.custom-data-table :deep(thead th.col-reqs-wide),
+.custom-data-table :deep(tbody td.col-reqs-wide) { flex: 0 1 340px !important; }
+
 /* A short date or relative time ("3 days ago", "Sep 22, 2026"). */
 .custom-data-table :deep(thead th.col-date),
 .custom-data-table :deep(tbody td.col-date) { flex: 0 1 100px !important; }

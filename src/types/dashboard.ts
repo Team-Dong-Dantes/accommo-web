@@ -75,13 +75,15 @@ export interface DashboardStats {
     oldestStudentDays: number
     studentsReadyForReview: number
     studentsPastSla: number
-    oldest: { name: string; role: string; ageDays: number; hasDocs: boolean }[]
+    /** Every pending account, students and landlords/landladies, past the review window. */
+    pastSla: number
+    oldest: { id: string; name: string; role: string; ageDays: number; hasDocs: boolean }[]
   }
   accreditationQueue: {
     total: number
     withPermits: number
     /** Pending applications with a complete permit set, by name. */
-    ready: string[]
+    ready: { id: string; name: string }[]
   }
   ticketQueue: {
     open: number

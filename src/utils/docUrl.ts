@@ -1,6 +1,9 @@
-import { supabase } from '@/utils/supabase'
+import { callEdgeFunction } from '@/utils/edgeFunction'
 
 export type DocumentTable = 'verification_documents' | 'accommodation_documents'
+
+/** Tables whose file column holds private `cld:` references; mirrors doc-access. */
+export type PrivateFileTable = DocumentTable | 'payments' | 'messages' | 'concerns' | 'tickets' | 'ticket_messages'
 
 /**
  * Short-lived signed URL for a verification document or accommodation permit.
@@ -29,19 +32,34 @@ export interface SignedDoc {
  * permissions problem, and a missing row is bad data.
  */
 export async function signDocUrl(
-  table: DocumentTable,
+  table: PrivateFileTable,
   id: string | null | undefined,
+  ref?: string,
 ): Promise<SignedDoc> {
   if (!id) return { url: '', error: 'This document has no stored reference.' }
-  const { data, error } = await supabase.functions.invoke('doc-access', {
-    body: { action: 'view', table, id },
-  })
-  if (error) {
-    console.warn('Could not sign document URL:', error.message)
-    return { url: '', error: `Could not open this document — ${error.message}` }
+  try {
+    const { url } = await callEdgeFunction<{ url?: string }>('doc-access', { action: 'view', table, id, ref })
+    return url ? { url, error: null } : { url: '', error: 'The document service returned no link for this file.' }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    console.warn('Could not sign document URL:', message)
+    return { url: '', error: `Could not open this document — ${message}` }
   }
-  const payload = data as { url?: string; error?: string } | null
-  if (payload?.error) return { url: '', error: `Could not open this document — ${payload.error}` }
-  const url = payload?.url ?? ''
-  return url ? { url, error: null } : { url: '', error: 'The document service returned no link for this file.' }
+}
+
+/**
+ * Swaps each row's private `cld:` reference in `column` for a signed link, in
+ * place. Plain URLs (rows written before files went private) are left alone.
+ */
+export async function signRows<R extends { id: string }>(
+  table: PrivateFileTable,
+  rows: R[] | null | undefined,
+  column: keyof R & string,
+): Promise<void> {
+  await Promise.all((rows ?? []).map(async (row) => {
+    const value = row[column] as unknown
+    if (typeof value === 'string' && value.startsWith('cld:')) {
+      ;(row as Record<string, unknown>)[column] = (await signDocUrl(table, row.id, value)).url
+    }
+  }))
 }

@@ -93,6 +93,43 @@ export async function fetchPendingVerificationUsers(): Promise<PendingVerificati
   return (data ?? []) as unknown as PendingVerificationUser[]
 }
 
+/** What the verification queue shows to tell applicants apart, keyed by user id. */
+export interface ApplicantDetails {
+  phone: string | null
+  student_id: string | null
+  college: string | null
+  year_level: number | null
+}
+
+/**
+ * One batched read for the whole queue: the phone on `users` and, for students,
+ * the school record on `student_profiles`. `get_verification_queue()` carries
+ * neither, and fetching per row would be one round trip per applicant.
+ */
+export async function fetchApplicantDetails(userIds: string[]): Promise<Map<string, ApplicantDetails>> {
+  const details = new Map<string, ApplicantDetails>()
+  if (!userIds.length) return details
+  const [users, profiles] = await Promise.all([
+    supabase.from('users').select('id, phone').in('id', userIds),
+    supabase.from('student_profiles').select('user_id, student_id, college, year_level').in('user_id', userIds),
+  ])
+  if (users.error) throw users.error
+  if (profiles.error) throw profiles.error
+  for (const user of users.data ?? []) {
+    details.set(user.id, { phone: user.phone ?? null, student_id: null, college: null, year_level: null })
+  }
+  for (const profile of profiles.data ?? []) {
+    const entry = details.get(profile.user_id) ?? { phone: null, student_id: null, college: null, year_level: null }
+    details.set(profile.user_id, {
+      ...entry,
+      student_id: profile.student_id ?? null,
+      college: profile.college ?? null,
+      year_level: profile.year_level ?? null,
+    })
+  }
+  return details
+}
+
 /** Everything the review window shows about the account behind a request. */
 export interface ReviewProfile {
   phone: string | null

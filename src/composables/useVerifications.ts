@@ -2,10 +2,10 @@ import { ref, computed, watch, onUnmounted } from 'vue'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { getStatus } from '@/utils/status.config'
-import { getInitials, capitalize, getTimeAgo } from '@/utils/format'
+import { getInitials, capitalize, getTimeAgo, ageInDays, formatPhone, humanizeEnum } from '@/utils/format'
 import { secureDocUrl } from '@/utils/docUrl'
 import { fetchAccommodationExtras, type AccommodationExtras } from '@/api/accommodations'
-import { fetchReviewProfile, type ReviewProfile } from '@/api/users'
+import { fetchReviewProfile, fetchApplicantDetails, type ApplicantDetails, type ReviewProfile } from '@/api/users'
 import { useReviewPresence } from '@/composables/useReviewPresence'
 
 /**
@@ -52,15 +52,74 @@ export interface VerificationRequest {
   /** The applicant's profile photo. Empty for an accreditation request. */
   avatarUrl: string
   ownerId?: string
+  /** Each file the applicant must supply, and whether it is in. */
+  requirements: { label: string; ok: boolean }[]
+  /** Every requirement is in, so the request can be decided now. */
+  ready: boolean
+  /** Whole days since it arrived; null when the arrival time is unknown. */
+  ageDays: number | null
+  /** Past the review target. Accreditation has no target, so never late. */
+  late: boolean
+  /** A student whose e-mail is not the university's own domain. */
+  nonInstitutionalEmail: boolean
+  /** Student tab: the student number, empty when not given. */
+  studentNumber: string
+  /** Student tab: the college, empty when not recorded. */
+  college: string
+  /** Student tab: "3rd year", empty when not recorded. */
+  yearLevel: string
+  /** Landlord/Landlady tab: the contact number. */
+  phone: string
+  /** Accommodation tab: barangay and city. */
+  location: string
+  /** Accommodation tab: the kind of accommodation, in words. */
+  accommodationType: string
 }
 
 /**
- * Newest first. The queue is read top-down and the first page is the ten rows a
- * reviewer actually sees, so that page should be what just came in. Rows with no
- * timestamp sort last rather than jumping the line.
+ * OSAS's review target for account verifications, in days. Mirrors
+ * VERIFICATION_REVIEW_SLA_DAYS on the dashboard.
  */
-function byNewest(a: VerificationRequest, b: VerificationRequest) {
-  return (b.submittedAt ?? '').localeCompare(a.submittedAt ?? '')
+const REVIEW_TARGET_DAYS = 3
+
+/**
+ * The files each applicant role must supply, by the `doc_type` accommo-mobile
+ * uploads them as (see its stores/auth.ts). A request is ready to decide when
+ * all of them are in — a count of files, which is what this used to check,
+ * called a landlord/landlady with a business permit and no ID complete.
+ */
+export const APPLICANT_REQUIREMENTS: Record<'student' | 'landlord', { type: string; label: string }[]> = {
+  student: [
+    { type: 'school_id', label: 'School ID' },
+    { type: 'assessment_of_fees', label: 'Assessment of fees' },
+  ],
+  landlord: [
+    { type: 'government_id', label: 'Government ID' },
+    { type: 'business_permit', label: 'Business permit' },
+  ],
+}
+
+const INSTITUTIONAL_DOMAIN = '@isu.edu.ph'
+
+function checklist(required: { type: string; label: string }[], files: { type?: string }[]) {
+  const have = new Set(files.map((file) => file.type))
+  return required.map((item) => ({ label: item.label, ok: have.has(item.type) }))
+}
+
+function ordinalYear(year: number | null | undefined) {
+  if (!year) return ''
+  const suffix = year === 1 ? 'st' : year === 2 ? 'nd' : year === 3 ? 'rd' : 'th'
+  return `${year}${suffix} year`
+}
+
+/**
+ * Ready to decide first, then those still waiting on the applicant; oldest
+ * first inside each. A request that has waited longest is the one most overdue,
+ * so it leads its group instead of sinking to the last page.
+ */
+function byQueueOrder(a: VerificationRequest, b: VerificationRequest) {
+  if (a.ready !== b.ready) return a.ready ? -1 : 1
+  return (a.submittedAt ?? '9999').localeCompare(b.submittedAt ?? '9999')
 }
 
 /**
@@ -110,20 +169,22 @@ export function useVerifications() {
   const currentPage = ref(1)
   const selectedRequest = ref<VerificationRequest | null>(null)
 
-  const activeFilters = ref<{ status: string[] }>({ status: [] })
+  // Whether a request is still in review is on the row already (the lock note),
+  // so the one filter left worth having is whether it can be decided now.
+  const activeFilters = ref<{ readiness: string[] }>({ readiness: [] })
   const filterConfig = [
     {
-      label: 'Status',
-      key: 'status',
+      label: 'Readiness',
+      key: 'readiness',
       options: [
-        { label: 'Pending', value: 'Pending' },
-        { label: 'Reviewing', value: 'Reviewing' },
+        { label: 'Ready to decide', value: 'ready' },
+        { label: 'Waiting on the applicant', value: 'waiting' },
       ],
     },
   ]
 
   function clearFilters() {
-    activeFilters.value = { status: [] }
+    activeFilters.value = { readiness: [] }
   }
 
   const studentRequests = ref<VerificationRequest[]>([])
@@ -142,25 +203,38 @@ export function useVerifications() {
     return 'Search accommodation name...'
   })
 
+  // Each header names exactly what sits under it, in that tab's own words. Only
+  // `action` is left flexible: it holds either a chevron or a lock note with a
+  // reviewer's name and "Take over", which is genuinely variable-width.
   const columns = computed(() => {
-    const label =
-      activeTab.value === 'student' ? 'Student'
-        : activeTab.value === 'landlord' ? 'Landlord/Landlady'
-          : 'Accommodation'
-    // Same fixed-width-column approach as the Accommodation Hub: every cell
-    // defaults to an equal flex share regardless of `headerStyle`, so a plain
-    // 6-column table gave "Ref ID" the same width as the name+email column
-    // that actually needs it. Only `action` is left flexible — its content
-    // (a "Review" button, or a locked note plus a reviewer's name and a "Take
-    // over" link) is genuinely variable-width, so it is the one column that
-    // should grow rather than be given a guess.
+    const col = (name: string, label: string, headerClasses: string) =>
+      ({ name, label, align: 'left', field: name, headerClasses })
+    const action = { name: 'action', label: '', align: 'right', field: 'action' }
+    if (activeTab.value === 'student') {
+      return [
+        { ...col('entity', 'Student', 'col-title'), required: true },
+        col('studentNumber', 'Student number', 'col-ref'),
+        col('college', 'College and year', 'col-type'),
+        col('requirements', 'Requirements', 'col-reqs'),
+        col('waiting', 'Waiting', 'col-date'),
+        action,
+      ]
+    }
+    if (activeTab.value === 'landlord') {
+      return [
+        { ...col('entity', 'Landlord/Landlady', 'col-title'), required: true },
+        col('phone', 'Phone number', 'col-type'),
+        col('requirements', 'Requirements', 'col-reqs'),
+        col('waiting', 'Waiting', 'col-date'),
+        action,
+      ]
+    }
     return [
-      { name: 'entity', required: true, label, align: 'left', field: 'name', headerClasses: 'col-title' },
-      { name: 'id', label: 'Ref ID', align: 'left', field: 'id', headerClasses: 'col-ref' },
-      { name: 'type', label: 'Document', align: 'left', field: 'type', headerClasses: 'col-type' },
-      { name: 'status', label: 'Status', align: 'left', field: 'status', headerClasses: 'col-badge' },
-      { name: 'submitted', label: 'Received', align: 'left', field: 'submitted', headerClasses: 'col-date' },
-      { name: 'action', label: '', align: 'right', field: 'action' },
+      { ...col('entity', 'Accommodation', 'col-title'), required: true },
+      col('location', 'Location', 'col-type'),
+      col('requirements', 'Permits', 'col-reqs-wide'),
+      col('waiting', 'Waiting', 'col-date'),
+      action,
     ]
   })
 
@@ -202,42 +276,74 @@ export function useVerifications() {
           grouped.set(row.user_id, existing)
         }
 
-        const mapRequest = (user: any, manager: boolean) => ({
-          id: `REQ-${manager ? 'AM' : 'S'}${user.id.substring(0, 4).toUpperCase()}`,
-          rawId: user.id,
-          name: user.full_name || (manager ? 'Unknown Landlord/Landlady' : 'Unknown Student'),
-          email: user.email,
-          owner: '',
-          initials: getInitials(user.full_name),
-          type: manager ? 'Landlord/Landlady Identity' : 'Enrollment Form / COR',
-          files: user.documents.map((document: QueueDocumentRow) => ({
+        const queueUsers = Array.from(grouped.values())
+
+        // Phone and school record are not in the queue RPC. A failed read costs
+        // those columns, never the queue itself.
+        let details = new Map<string, ApplicantDetails>()
+        try {
+          details = await fetchApplicantDetails(queueUsers.map((user) => user.id))
+        } catch (err) {
+          console.warn('Could not fetch applicant details:', err)
+        }
+
+        const mapRequest = (user: any, manager: boolean): VerificationRequest => {
+          const files = user.documents.map((document: QueueDocumentRow) => ({
             id: document.id,
             name: document.filename || document.doc_type || 'Verification document',
+            // Kept so the row can say which requirement is in, not just how many.
+            type: document.doc_type ?? undefined,
             // Signed on demand in selectRequest — documents have no readable URL.
             url: '',
-          })),
-          status: capitalize(user.status),
-          statusStyle: getStatusStyle(user.status),
-          submitted: getTimeAgo(user.created_at),
-          submittedAt: user.created_at ?? null,
-          reviewingAt: user.reviewing_at ?? null,
-          avatarColor: manager ? 'teal-7' : 'blue-6',
-          avatarUrl: user.avatar_url || '',
-        })
+          }))
+          const requirements = checklist(APPLICANT_REQUIREMENTS[manager ? 'landlord' : 'student'], files)
+          const detail = details.get(user.id)
+          const ageDays = user.created_at ? ageInDays(user.created_at) : null
+          const email = String(user.email ?? '')
+          return {
+            // Row identity only; no longer shown — it was the uuid's first four
+            // characters, which two students could share.
+            id: `REQ-${manager ? 'AM' : 'S'}${user.id.substring(0, 4).toUpperCase()}`,
+            rawId: user.id,
+            name: user.full_name || (manager ? 'Unknown Landlord/Landlady' : 'Unknown Student'),
+            email,
+            owner: '',
+            initials: getInitials(user.full_name),
+            type: manager ? 'Landlord/Landlady Identity' : 'Enrollment Form / COR',
+            files,
+            status: capitalize(user.status),
+            statusStyle: getStatusStyle(user.status),
+            submitted: getTimeAgo(user.created_at),
+            submittedAt: user.created_at ?? null,
+            reviewingAt: user.reviewing_at ?? null,
+            avatarColor: manager ? 'teal-7' : 'blue-6',
+            avatarUrl: user.avatar_url || '',
+            requirements,
+            ready: requirements.every((item) => item.ok),
+            ageDays,
+            late: ageDays !== null && ageDays > REVIEW_TARGET_DAYS,
+            nonInstitutionalEmail: !manager && !!email && !email.toLowerCase().endsWith(INSTITUTIONAL_DOMAIN),
+            studentNumber: detail?.student_id ?? '',
+            college: detail?.college ?? '',
+            yearLevel: ordinalYear(detail?.year_level),
+            phone: detail?.phone ? formatPhone(detail.phone) : '',
+            location: '',
+            accommodationType: '',
+          }
+        }
 
         // Split on the account's own role. The old document-type heuristic put a
         // landlord/landlady who uploaded an `id_card` into the Student tab, and it still
         // matched the retired `landlord` role label.
-        const queueUsers = Array.from(grouped.values())
         const roleOf = (user: any) => String(user.role).toLowerCase().trim()
         studentRequests.value = queueUsers
           .filter((user) => roleOf(user) === 'student')
           .map((user) => mapRequest(user, false))
-          .sort(byNewest)
+          .sort(byQueueOrder)
         landlordRequests.value = queueUsers
           .filter((user) => roleOf(user) === 'landlord')
           .map((user) => mapRequest(user, true))
-          .sort(byNewest)
+          .sort(byQueueOrder)
       }
 
       const { data: accommodations, error: accommodationError } = await supabase
@@ -286,7 +392,25 @@ export function useVerifications() {
             // Signed on demand in selectRequest — permits have no readable URL.
             url: '',
           }))
+          // Short names: four chips have to share one cell.
+          const requirements = checklist(
+            ACCOMMODATION_PERMITS.map((permit) => ({ ...permit, label: permit.label.replace(/ permit$/, '') })),
+            files,
+          )
+          const ageDays = submittedAt ? ageInDays(submittedAt) : null
           return {
+            requirements,
+            ready: requirements.every((item) => item.ok),
+            ageDays,
+            // No review target exists for accreditation, so nothing reads as late.
+            late: false,
+            nonInstitutionalEmail: false,
+            studentNumber: '',
+            college: '',
+            yearLevel: '',
+            phone: '',
+            location: [p.barangay, p.city].filter(Boolean).join(', '),
+            accommodationType: p.accommodation_type ? humanizeEnum(p.accommodation_type) : '',
             id: `REQ-AC${p.id.substring(0, 4).toUpperCase()}`,
             rawId: p.id,
             name: p.name || 'Unnamed Accommodation',
@@ -317,7 +441,7 @@ export function useVerifications() {
               landlord_status: landlordRow?.status ?? null,
             },
           }
-        }).sort(byNewest)
+        }).sort(byQueueOrder)
       }
     } catch (err) {
       console.error('Unexpected error fetching verifications:', err)
@@ -350,11 +474,9 @@ export function useVerifications() {
         Object.values(row).some((val) => String(val).toLowerCase().includes(needle)),
       )
     }
-    const activeStatus = activeFilters.value.status
-    if (activeStatus && activeStatus.length) {
-      result = result.filter((row) =>
-        activeStatus.some((v) => String(v).toLowerCase() === String(row.status).toLowerCase()),
-      )
+    const readiness = activeFilters.value.readiness
+    if (readiness && readiness.length) {
+      result = result.filter((row) => readiness.includes(row.ready ? 'ready' : 'waiting'))
     }
     return result
   }
@@ -371,9 +493,11 @@ export function useVerifications() {
   const landlordPaginated = computed(() => paginateArr(landlordFiltered.value))
   const accommodationPaginated = computed(() => paginateArr(accommodationFiltered.value))
 
-  const totalLabel = computed(
-    () => `${filteredRows.value.length} total ${filteredRows.value.length === 1 ? 'request' : 'requests'}`,
-  )
+  const totalLabel = computed(() => {
+    const ready = filteredRows.value.filter((row) => row.ready).length
+    const waiting = filteredRows.value.length - ready
+    return `${ready} ready to decide, ${waiting} waiting`
+  })
 
   const emptyTitle = computed(() => {
     if (activeTab.value === 'student') return 'All caught up!'

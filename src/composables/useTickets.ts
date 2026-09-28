@@ -1,8 +1,9 @@
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { getInitials, getTimeAgo, capitalize } from '@/utils/format'
 import { ticketRef, waitingSince } from '@/utils/ticketTriage'
+import type { TablesUpdate } from '@/types/database.gen'
 
 export interface TicketMessage {
   id: string
@@ -39,6 +40,7 @@ export interface Ticket {
   avatarUrl: string
   reportedAt: string
   updatedAt: string
+  resolvedAt: string | null
   photoUrls: string[]
   messages: TicketMessage[]
   lastPreview: string
@@ -157,6 +159,7 @@ function mapTicket(r: any, seenRequesterMessageIds: Set<string> = new Set()): Ti
     avatarUrl: reporter.avatar_url || student.avatar_url || '',
     reportedAt: r.reported_at,
     updatedAt: r.updated_at || r.reported_at,
+    resolvedAt: r.resolved_at || null,
     photoUrls: Array.isArray(r.photo_urls) ? r.photo_urls : [],
     messages,
     lastPreview,
@@ -173,7 +176,6 @@ export function useTickets() {
   const notify = useNotify()
 
   const search = ref('')
-  const statusFilter = ref<'open' | 'in_progress' | 'resolved' | 'all' | 'unread'>('all')
   const selectedId = ref<string | null>(null)
   const tickets = ref<Ticket[]>([])
   const agents = ref<{ id: string; full_name: string }[]>([])
@@ -181,22 +183,10 @@ export function useTickets() {
 
   const currentUserId = ref<string | null>(null)
 
-  const counts = computed(() => {
-    const c = { open: 0, in_progress: 0, resolved: 0, unread: 0, all: tickets.value.length }
-    for (const t of tickets.value) {
-      if (t.status === 'open') c.open++
-      else if (t.status === 'in_progress') c.in_progress++
-      else if (t.status === 'resolved') c.resolved++
-      if (t.unread > 0) c.unread++
-    }
-    return c
-  })
-
+  // Search only; which lane or tab a ticket falls in is the page's call
+  // (utils/ticketTriage boardLane), shared by the board and the table.
   const filtered = computed(() => {
     let list = tickets.value
-    if (statusFilter.value === 'unread') list = list.filter((t) => t.unread > 0)
-    else if (statusFilter.value !== 'all') list = list.filter((t) => t.status === statusFilter.value)
-
     const q = search.value.trim().toLowerCase()
     if (q) {
       list = list.filter((t) =>
@@ -230,8 +220,9 @@ export function useTickets() {
     }
   }
 
-  async function fetch() {
-    loading.value = true
+  /** `quiet` refreshes in place — a live update must not flash the loading state. */
+  async function fetch(quiet = false) {
+    if (!quiet) loading.value = true
     error.value = null
     await ensureUser()
     await fetchAgents()
@@ -248,8 +239,11 @@ export function useTickets() {
     loading.value = false
   }
 
-  async function sendMessage(body: string, opts: { isInternal?: boolean; thenStatus?: string } = {}): Promise<boolean> {
-    const ticket = selectedTicket.value
+  async function sendMessage(
+    body: string,
+    opts: { isInternal?: boolean; thenStatus?: string; ticketId?: string } = {},
+  ): Promise<boolean> {
+    const ticket = opts.ticketId ? tickets.value.find((t) => t.id === opts.ticketId) : selectedTicket.value
     if (!ticket || !body.trim()) return false
     await ensureUser()
     try {
@@ -265,9 +259,9 @@ export function useTickets() {
         return false
       }
       if (opts.thenStatus && opts.thenStatus !== ticket.status) {
-        await updateStatus(opts.thenStatus)
+        return await setStatus([ticket.id], opts.thenStatus)
       }
-      await fetch()
+      await fetch(true)
       return true
     } catch (e) {
       notify.error('Failed to send', e instanceof Error ? e.message : '')
@@ -283,10 +277,38 @@ export function useTickets() {
     else await fetch()
   }
 
-  async function setStatus(id: string, status: string) {
-    const { error: e } = await supabase.from('tickets').update({ status }).eq('id', id)
-    if (e) notify.error('Could not update status', e.message)
-    else await fetch()
+  /**
+   * Patches several tickets at once — a board card is every report of one
+   * incident. The rows change locally first so a dropped card lands where it
+   * was dropped; a failed write puts them back.
+   */
+  async function patchTickets(ids: string[], local: Partial<Ticket>, row: TablesUpdate<'tickets'>, what: string) {
+    const before = tickets.value.filter((t) => ids.includes(t.id)).map((t) => ({ ...t }))
+    tickets.value = tickets.value.map((t) => (ids.includes(t.id) ? { ...t, ...local } : t))
+    const { error: e } = await supabase.from('tickets').update(row).in('id', ids)
+    if (e) {
+      tickets.value = tickets.value.map((t) => before.find((b) => b.id === t.id) ?? t)
+      notify.error(`Could not ${what}`, e.message)
+      return false
+    }
+    await fetch(true)
+    return true
+  }
+
+  function setStatus(ids: string[], status: string) {
+    return patchTickets(ids, { status }, { status }, 'update status')
+  }
+
+  /** Take tickets on: assigned to the current admin and marked in progress. */
+  async function claim(ids: string[]) {
+    await ensureUser()
+    const me = agents.value.find((a) => a.id === currentUserId.value)
+    return patchTickets(
+      ids,
+      { assigneeId: currentUserId.value, assignee: me?.full_name ?? 'You', status: 'in_progress' },
+      { assignee_id: currentUserId.value, status: 'in_progress' },
+      'claim',
+    )
   }
 
   async function updatePriority(priority: string) {
@@ -304,6 +326,23 @@ export function useTickets() {
     if (e) notify.error('Could not assign', e.message)
     else await fetch()
   }
+
+  // Live: new tickets, requester replies and other staff's moves arrive without
+  // a reload. Bursts (a reply also touches its ticket) collapse into one refetch.
+  let refetchTimer: ReturnType<typeof setTimeout> | undefined
+  function queueRefetch() {
+    clearTimeout(refetchTimer)
+    refetchTimer = setTimeout(() => void fetch(true), 800)
+  }
+  const live = supabase
+    .channel('support-tickets')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, queueRefetch)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_messages' }, queueRefetch)
+    .subscribe()
+  onUnmounted(() => {
+    clearTimeout(refetchTimer)
+    void supabase.removeChannel(live)
+  })
 
   function selectTicket(id: string) {
     const ticket = tickets.value.find((item) => item.id === id)
@@ -326,12 +365,10 @@ export function useTickets() {
     loading,
     error,
     search,
-    statusFilter,
     currentUserId,
     agents,
     tickets: filtered,
     allTickets: tickets,
-    counts,
     selectedTicket,
     selectedId,
     capitalize,
@@ -340,6 +377,7 @@ export function useTickets() {
     sendMessage,
     updateStatus,
     setStatus,
+    claim,
     updatePriority,
     assignTo,
     selectTicket,

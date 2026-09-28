@@ -71,6 +71,17 @@
 
           <template v-if="kind === 'announcements'">
             <q-input
+              v-model="form.summary"
+              class="q-mt-md"
+              outlined
+              label="Summary"
+              maxlength="200"
+              counter
+              placeholder="One line people see in their notification and at the top of the notice."
+              hint="Optional. Without it, the notification shows the start of the message."
+              persistent-hint
+            />
+            <q-input
               v-model="form.body"
               class="q-mt-md"
               outlined
@@ -88,14 +99,25 @@
           </template>
 
           <template v-else>
+            <div v-if="editingLive" class="new-version q-mt-md">
+              <q-toggle v-model="form.newVersion" color="primary" label="Publish as a new version" />
+              <div class="panel-copy">
+                {{ form.newVersion
+                  ? 'Everyone is notified and must accept this policy again. The current text is kept in its version history.'
+                  : 'Off: a correction such as a typo fix. Nobody is notified and existing acceptances stay valid.' }}
+              </div>
+            </div>
             <q-input
               v-model="form.version"
               class="q-mt-md"
               outlined
               label="Version"
               placeholder="e.g. v1.0"
-              hint="Optional. Add a version when this updates an existing policy."
+              :error="Boolean(errors.version)"
+              :error-message="errors.version"
+              :hint="form.newVersion ? 'Required. Give the new version its own label.' : 'Optional. A label such as v1.0.'"
               persistent-hint
+              @update:model-value="errors.version = ''"
             />
           </template>
         </section>
@@ -126,6 +148,9 @@
               hint="Optional. Leave blank to keep the announcement visible until it is archived."
               persistent-hint
             />
+
+            <q-separator class="q-my-lg" />
+            <AnnouncementDetailsFields v-model="form.details" />
           </template>
 
           <template v-else>
@@ -150,7 +175,7 @@
               outlined
               type="date"
               label="Effective date"
-              hint="Optional. A future date keeps the policy in draft status until it takes effect."
+              hint="A future date schedules the policy; nobody sees it until that day."
               persistent-hint
             />
           </template>
@@ -177,6 +202,26 @@
               <dt>Expiry</dt>
               <dd>{{ form.expiresAt ? fmtDate(dateToIso(form.expiresAt)) : 'No expiry date' }}</dd>
             </div>
+            <div v-if="kind === 'announcements' && form.summary.trim()" class="review-row">
+              <dt>Summary</dt>
+              <dd>{{ form.summary }}</dd>
+            </div>
+            <div v-if="kind === 'announcements' && form.details.eventAt" class="review-row">
+              <dt>Event</dt>
+              <dd>{{ formatDateTime(dateToIso(form.details.eventAt)!) }}{{ form.details.eventEnd ? ' – ' + formatDateTime(dateToIso(form.details.eventEnd)!) : '' }}</dd>
+            </div>
+            <div v-if="kind === 'announcements' && form.details.deadlineAt" class="review-row">
+              <dt>Deadline</dt>
+              <dd>{{ formatDateTime(dateToIso(form.details.deadlineAt)!) }}</dd>
+            </div>
+            <div v-if="kind === 'announcements' && form.details.location.trim()" class="review-row">
+              <dt>Location</dt>
+              <dd>{{ form.details.location }}</dd>
+            </div>
+            <div v-if="kind === 'announcements' && form.details.imageUrl" class="review-row">
+              <dt>Poster</dt>
+              <dd><img :src="form.details.imageUrl" alt="" class="review-poster" /></dd>
+            </div>
             <div v-if="kind === 'policies'" class="review-row">
               <dt>Version</dt>
               <dd>{{ form.version.trim() || 'No version' }}</dd>
@@ -186,6 +231,23 @@
               <dd>{{ form.effectiveDate ? fmtDate(dateToIso(form.effectiveDate)) : 'Not specified' }}</dd>
             </div>
           </dl>
+
+          <div v-if="kind === 'announcements' && !editingLive" class="publish-choice q-mt-md">
+            <div class="panel-title">When should it go out?</div>
+            <q-option-group v-model="form.publishMode" :options="publishOptions" color="primary" inline />
+            <q-input
+              v-if="form.publishMode === 'schedule'"
+              v-model="form.publishAt"
+              class="q-mt-sm"
+              outlined
+              type="datetime-local"
+              label="Publish at"
+              stack-label
+              :error="Boolean(errors.publishAt)"
+              :error-message="errors.publishAt"
+              @update:model-value="errors.publishAt = ''"
+            />
+          </div>
 
           <div class="save-note">
             <Icon :icon="noteIcon" width="19" height="19" aria-hidden="true" />
@@ -237,7 +299,9 @@ import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
-import { dateInput, dateToIso, fmtDate } from './shared'
+import { formatDateTime } from '@/utils/format'
+import AnnouncementDetailsFields, { type AnnouncementDetails } from './AnnouncementDetailsFields.vue'
+import { announcementStatus, dateInput, dateTimeInput, dateToIso, fmtDate, policyStatus } from './shared'
 
 export type AnnouncementKind = 'announcements' | 'policies'
 
@@ -265,6 +329,12 @@ type ComposerForm = {
   expiresAt: string | null
   version: string
   effectiveDate: string | null
+  summary: string
+  details: AnnouncementDetails
+  publishMode: 'draft' | 'now' | 'schedule'
+  publishAt: string | null
+  /** Policies: bump the revision so everyone must accept again. */
+  newVersion: boolean
 }
 
 type FormStep = {
@@ -282,9 +352,27 @@ const editingId = ref<string | null>(null)
 const saving = ref(false)
 const step = ref(1)
 const stepError = ref('')
-const errors = ref({ title: '', body: '' })
+const errors = ref({ title: '', body: '', version: '', publishAt: '' })
 
 const form = ref<ComposerForm>(emptyForm())
+/** The row as it was when editing began (null when creating). */
+const original = ref<any | null>(null)
+
+/**
+ * Editing something readers can already see. A live announcement keeps its
+ * publish state (unpublish from the list); an in-effect policy offers a new version.
+ */
+const editingLive = computed(() => {
+  const row = original.value
+  if (!row) return false
+  return props.kind === 'announcements' ? announcementStatus(row) === 'live' : policyStatus(row) === 'in_effect'
+})
+
+const publishOptions = [
+  { label: 'Save as draft', value: 'draft' },
+  { label: 'Publish now', value: 'now' },
+  { label: 'Schedule', value: 'schedule' },
+]
 
 const audienceOptions = [
   { label: 'All users', value: 'all' },
@@ -295,8 +383,8 @@ const audienceOptions = [
 const steps = computed<FormStep[]>(() => props.kind === 'announcements'
   ? [
       { label: 'Message', heading: 'Write the announcement', description: 'Start with the message people need to receive.', guidance: 'Keep it specific and easy to act on.' },
-      { label: 'Audience', heading: 'Set the audience', description: 'Decide who will receive it and how long it remains relevant.', guidance: 'Choose the narrowest group that needs this update.' },
-      { label: 'Review', heading: 'Review the announcement', description: 'Confirm the details before saving your draft.', guidance: 'You can return to any previous step before saving.' },
+      { label: 'Audience & details', heading: 'Audience and details', description: 'Decide who receives it, and add any date, deadline, place or poster.', guidance: 'Choose the narrowest group that needs this update.' },
+      { label: 'Publish', heading: 'Review and publish', description: 'Confirm the details and choose when it goes out.', guidance: 'You can return to any previous step before saving.' },
     ]
   : [
       { label: 'Details', heading: 'Name the policy', description: 'Give this policy a clear name and optional version.', guidance: 'Use a name staff and residents will recognize later.' },
@@ -310,19 +398,24 @@ const dialogTitle = computed(() => `${mode.value === 'create' ? 'Create' : 'Edit
 const currentStep = computed<FormStep>(() => steps.value[step.value - 1] ?? steps.value[0]!)
 const noteIcon = computed(() => props.kind === 'announcements' ? 'lucide:file-pen' : 'lucide:calendar-check')
 const saveLabel = computed(() => {
-  if (mode.value === 'edit') return 'Save changes'
-  return props.kind === 'announcements' ? 'Save draft' : 'Create policy'
+  if (props.kind === 'announcements' && !editingLive.value) {
+    if (form.value.publishMode === 'now') return 'Publish now'
+    if (form.value.publishMode === 'schedule') return 'Schedule'
+    return mode.value === 'edit' ? 'Save changes' : 'Save draft'
+  }
+  if (form.value.newVersion) return 'Publish new version'
+  return mode.value === 'edit' ? 'Save changes' : 'Create policy'
 })
 const saveNote = computed(() => {
   if (props.kind === 'announcements') {
-    return mode.value === 'create'
-      ? 'This announcement will be saved as a draft. You can publish it from the announcements list.'
-      : 'Saving updates this announcement without changing its current publish status.'
+    if (editingLive.value) return 'This announcement is live. Changes show immediately; readers are not notified again.'
+    if (form.value.publishMode === 'now') return 'Everyone in the audience is notified as soon as you publish.'
+    if (form.value.publishMode === 'schedule') return 'It stays hidden until the scheduled time, then the audience is notified.'
+    return 'Saved as a draft. Nobody sees it until you publish it.'
   }
-
-  return mode.value === 'create'
-    ? 'The policy status will reflect its effective date after it is created.'
-    : 'Saving updates this policy without changing its effective date.'
+  if (form.value.newVersion) return 'Everyone is notified and must accept the new version. The current text moves to version history.'
+  if (editingLive.value) return 'A correction: nobody is notified and existing acceptances stay valid.'
+  return 'Students and landlords/landladies are notified and asked to accept it on its effective date.'
 })
 
 function emptyForm(): ComposerForm {
@@ -333,13 +426,18 @@ function emptyForm(): ComposerForm {
     expiresAt: null,
     version: '',
     effectiveDate: dateInput(new Date().toISOString()),
+    summary: '',
+    details: { eventAt: null, eventEnd: null, deadlineAt: null, location: '', imageUrl: '' },
+    publishMode: 'draft',
+    publishAt: null,
+    newVersion: false,
   }
 }
 
 function resetProgress() {
   step.value = 1
   stepError.value = ''
-  errors.value = { title: '', body: '' }
+  errors.value = { title: '', body: '', version: '', publishAt: '' }
 }
 
 function clearFieldError(field: 'title' | 'body') {
@@ -352,11 +450,17 @@ function audienceLabel(audience: ComposerForm['audience']) {
 }
 
 function validateCurrentStep(): boolean {
-  errors.value = { title: '', body: '' }
+  errors.value = { title: '', body: '', version: '', publishAt: '' }
   stepError.value = ''
 
   if (step.value === 1 && !form.value.title.trim()) {
     errors.value.title = 'Enter a title before continuing.'
+  }
+  if (step.value === 1 && form.value.newVersion) {
+    const label = form.value.version.trim()
+    if (!label || label === (original.value?.version ?? '').trim()) {
+      errors.value.version = 'Give the new version a label different from the current one.'
+    }
   }
   if ((props.kind === 'announcements' && step.value === 1 || props.kind === 'policies' && step.value === 2) && !form.value.body.trim()) {
     errors.value.body = props.kind === 'announcements'
@@ -364,7 +468,7 @@ function validateCurrentStep(): boolean {
       : 'Add the policy content before continuing.'
   }
 
-  if (errors.value.title || errors.value.body) {
+  if (errors.value.title || errors.value.body || errors.value.version) {
     stepError.value = 'Complete the required fields before continuing.'
     return false
   }
@@ -394,6 +498,7 @@ watch(
     if (props.createToken === 0) return
     mode.value = 'create'
     editingId.value = null
+    original.value = null
     form.value = emptyForm()
     resetProgress()
     dialogOpen.value = true
@@ -407,21 +512,32 @@ watch(
     if (!row) return
     mode.value = 'edit'
     editingId.value = row.id
+    original.value = row
+    const base = emptyForm()
     if (props.kind === 'announcements') {
+      const status = announcementStatus(row)
       form.value = {
+        ...base,
         title: row.title,
         body: row.body,
         audience: row.audience ?? 'all',
         expiresAt: dateInput(row.expires_at),
-        version: '',
-        effectiveDate: null,
+        summary: row.summary ?? '',
+        details: {
+          eventAt: dateTimeInput(row.event_at),
+          eventEnd: dateTimeInput(row.event_end),
+          deadlineAt: dateTimeInput(row.deadline_at),
+          location: row.location ?? '',
+          imageUrl: row.image_url ?? '',
+        },
+        publishMode: status === 'scheduled' ? 'schedule' : 'draft',
+        publishAt: status === 'scheduled' ? dateTimeInput(row.published_at) : null,
       }
     } else {
       form.value = {
+        ...base,
         title: row.title,
         body: row.body,
-        audience: 'all',
-        expiresAt: null,
         version: row.version ?? '',
         effectiveDate: dateInput(row.effective_date),
       }
@@ -448,11 +564,32 @@ async function save() {
 
   try {
     if (props.kind === 'announcements') {
+      const d = form.value.details
       const payload: Record<string, any> = {
         title: form.value.title.trim(),
         body: form.value.body.trim(),
         audience: form.value.audience,
         expires_at: dateToIso(form.value.expiresAt),
+        summary: form.value.summary.trim() || null,
+        event_at: dateToIso(d.eventAt),
+        event_end: d.eventAt ? dateToIso(d.eventEnd) : null,
+        deadline_at: dateToIso(d.deadlineAt),
+        location: d.location.trim() || null,
+        image_url: d.imageUrl || null,
+      }
+      // A live announcement keeps its publish state; otherwise the choice decides it.
+      if (!editingLive.value) {
+        if (form.value.publishMode === 'schedule') {
+          const at = dateToIso(form.value.publishAt)
+          if (!at || new Date(at).getTime() <= Date.now()) {
+            errors.value.publishAt = 'Pick a time in the future.'
+            return
+          }
+          payload.published_at = at
+        } else {
+          payload.published_at = form.value.publishMode === 'now' ? new Date().toISOString() : null
+        }
+        if (payload.published_at && userId) payload.author_id = userId
       }
       let error: any = null
       if (mode.value === 'create') {
@@ -462,14 +599,22 @@ async function save() {
         ;({ error } = await supabase.from('announcements').update(payload as any).eq('id', editingId.value!))
       }
       if (error) throw error
-      notify.success(mode.value === 'create' ? 'Announcement created as draft.' : 'Announcement updated.')
+      notify.success(
+        editingLive.value ? 'Announcement updated.'
+          : form.value.publishMode === 'now' ? 'Announcement published.'
+          : form.value.publishMode === 'schedule' ? 'Announcement scheduled.'
+          : 'Draft saved.',
+      )
     } else {
       const payload: Record<string, any> = {
         title: form.value.title.trim(),
         body: form.value.body.trim(),
         version: form.value.version.trim() || null,
-        effective_date: dateToIso(form.value.effectiveDate),
+        // effective_date is a plain date column: send the day, not a UTC instant
+        // that would land on the previous day in Manila.
+        effective_date: form.value.effectiveDate,
       }
+      if (form.value.newVersion) payload.revision = (original.value?.revision ?? 1) + 1
       let error: any = null
       if (mode.value === 'create') {
         if (!userId) throw new Error('Not signed in')
@@ -478,7 +623,7 @@ async function save() {
         ;({ error } = await supabase.from('policies').update(payload as any).eq('id', editingId.value!))
       }
       if (error) throw error
-      notify.success(mode.value === 'create' ? 'Policy created.' : 'Policy updated.')
+      notify.success(form.value.newVersion ? 'New version published.' : mode.value === 'create' ? 'Policy created.' : 'Policy updated.')
     }
 
     dialogOpen.value = false
@@ -720,6 +865,24 @@ async function save() {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.new-version {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm, 10px);
+  padding: var(--sp-2, 8px) var(--sp-3, 12px);
+}
+
+.publish-choice {
+  border-top: 1px solid var(--c-border);
+  padding-top: var(--sp-3, 12px);
+}
+
+.review-poster {
+  max-width: 200px;
+  max-height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
 }
 
 @media (max-width: 599px) {

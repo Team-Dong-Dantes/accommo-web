@@ -20,6 +20,7 @@
               v-if="preview?.kind === 'accommodation'"
               :preview="preview"
               :loading="loading"
+              :initial-tab="initialTab"
               :management-actions="managementActions"
               @close="close"
               @manage="onManage"
@@ -169,8 +170,11 @@ const props = withDefaults(
     position?: 'left' | 'right'
     /** User-management actions shown in the 3-dots menu (e.g. Suspend, Ban). */
     managementActions?: { label: string; action: string; danger?: boolean }[]
+    /** The tab an accommodation record opens on; the Map View's "View all" names one. */
+    initialTab?: string
   }>(),
   {
+    initialTab: 'rooms',
     width: '620px',
     size: 'panel',
     loading: false,

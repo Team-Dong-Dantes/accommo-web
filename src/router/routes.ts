@@ -20,6 +20,16 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
+    // The second sign-in step, and where the e-mailed reset link lands.
+    // Both need a session; the router guard decides which one applies.
+    path: '/auth',
+    component: () => import('@/layouts/AuthLayout.vue'),
+    children: [
+      { path: 'mfa', component: () => import('@/pages/auth/AuthStepPage.vue') },
+      { path: 'reset-password', component: () => import('@/pages/auth/AuthStepPage.vue') },
+    ],
+  },
+  {
     path: '/onboarding',
     component: () => import('@/layouts/AuthLayout.vue'),
     meta: { requiresAuth: true, role: 'admin' },

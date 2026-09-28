@@ -1,6 +1,7 @@
 // Data access for leases — pure fetchers, no reactive state.
 
 import { supabase } from '@/utils/supabase'
+import { signRows } from '@/utils/docUrl'
 
 export interface LeaseExpiryRow {
   id: string
@@ -151,7 +152,10 @@ export async function fetchPaymentsForLeases(leaseIds: string[]): Promise<LeaseP
     .order('month', { ascending: false })
 
   if (error) throw error
-  return (data ?? []) as LeasePaymentRow[]
+  const rows = (data ?? []) as LeasePaymentRow[]
+  // Proofs are private: swap each stored reference for a short-lived link.
+  await signRows('payments', rows, 'proof_url')
+  return rows
 }
 
 /**

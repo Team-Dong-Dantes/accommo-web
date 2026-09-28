@@ -27,9 +27,8 @@
         </AuthInput>
       </label>
 
-      <!-- Recovery link belongs on this row once the reset flow exists; the row
-           is here so adding it later moves nothing else. -->
       <div class="signin-actions">
+        <button type="button" class="forgot" :disabled="resetting" @click="sendReset">Forgot password?</button>
         <AuthButton type="submit" :loading="loading">Sign in</AuthButton>
       </div>
     </q-form>
@@ -45,6 +44,8 @@ import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar, type QForm } from 'quasar';
 import { useAuthStore } from '@/stores/auth';
+import { supabase } from '@/utils/supabase';
+import { useNotify } from '@/utils/notify';
 
 import AuthInput from '@/components/auth/AuthInput.vue';
 import AuthButton from '@/components/auth/AuthButton.vue';
@@ -60,7 +61,35 @@ onMounted(() => {
   if (route.query.suspended === 'true') {
     $q.notify({ message: 'This account has been suspended.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' });
   }
+  if (route.query.reset === 'expired') {
+    notify.error('That reset link has expired or was already used. Request a new one.');
+  }
 });
+
+const notify = useNotify();
+const resetting = ref(false);
+
+// Uses whatever is in the e-mail field, like the mobile app. Supabase only
+// sends if the address has an account, but the reply is the same either way so
+// the form can't be used to find out who has one.
+async function sendReset() {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
+    notify.error('Enter your e-mail address first, then choose Forgot password.');
+    return;
+  }
+  resetting.value = true;
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.value, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+    if (error) throw error;
+    notify.success('If that address has an account, a reset link is on its way.');
+  } catch (e) {
+    notify.error(e instanceof Error ? e.message : 'Could not send the reset e-mail.');
+  } finally {
+    resetting.value = false;
+  }
+}
 
 const email = ref('');
 const password = ref('');
@@ -146,7 +175,20 @@ async function handleLogin() {
 .reveal:hover { color: #ffffff; }
 .reveal:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.85); outline-offset: 1px; }
 
-.signin-actions { margin-top: 10px; }
+.signin-actions { margin-top: 10px; display: flex; flex-direction: column; gap: 14px; }
+.forgot {
+  align-self: flex-end;
+  order: -1;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.forgot:hover { color: #ffffff; text-decoration: underline; }
+.forgot:disabled { opacity: 0.6; cursor: default; }
 
 .signin-foot {
   margin: 26px 0 0;

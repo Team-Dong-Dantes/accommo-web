@@ -7,94 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
-      account_notes: {
-        Row: {
-          author_id: string | null
-          body: string
-          created_at: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          author_id?: string | null
-          body: string
-          created_at?: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          author_id?: string | null
-          body?: string
-          created_at?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "account_notes_author_id_fkey"
-            columns: ["author_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "account_notes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      account_standing: {
-        Row: {
-          reason: string | null
-          restrictions: string[]
-          suspended_until: string | null
-          updated_at: string
-          updated_by: string | null
-          user_id: string
-        }
-        Insert: {
-          reason?: string | null
-          restrictions?: string[]
-          suspended_until?: string | null
-          updated_at?: string
-          updated_by?: string | null
-          user_id: string
-        }
-        Update: {
-          reason?: string | null
-          restrictions?: string[]
-          suspended_until?: string | null
-          updated_at?: string
-          updated_by?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "account_standing_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "account_standing_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       accommodation_amenities: {
         Row: {
           accommodation_id: string
@@ -526,6 +440,87 @@ export type Database = {
             foreignKeyName: "accommodations_reviewing_by_fkey"
             columns: ["reviewing_by"]
             isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_notes: {
+        Row: {
+          author_id: string | null
+          body: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          author_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_standing: {
+        Row: {
+          reason: string | null
+          restrictions: string[]
+          suspended_until: string | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          reason?: string | null
+          restrictions?: string[]
+          suspended_until?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          reason?: string | null
+          restrictions?: string[]
+          suspended_until?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_standing_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_standing_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -1207,7 +1202,9 @@ export type Database = {
           created_by: string
           effective_date: string
           id: string
+          revision: number
           title: string
+          updated_at: string
           version: string | null
         }
         Insert: {
@@ -1216,7 +1213,9 @@ export type Database = {
           created_by: string
           effective_date: string
           id?: string
+          revision?: number
           title: string
+          updated_at?: string
           version?: string | null
         }
         Update: {
@@ -1225,7 +1224,9 @@ export type Database = {
           created_by?: string
           effective_date?: string
           id?: string
+          revision?: number
           title?: string
+          updated_at?: string
           version?: string | null
         }
         Relationships: [
@@ -1234,6 +1235,86 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_acceptances: {
+        Row: {
+          accepted_at: string
+          policy_id: string
+          revision: number
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          policy_id: string
+          revision: number
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          policy_id?: string
+          revision?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_acceptances_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_acceptances_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_versions: {
+        Row: {
+          body: string
+          created_by: string | null
+          effective_date: string
+          id: string
+          policy_id: string
+          revision: number
+          superseded_at: string
+          title: string
+          version: string | null
+        }
+        Insert: {
+          body: string
+          created_by?: string | null
+          effective_date: string
+          id?: string
+          policy_id: string
+          revision: number
+          superseded_at?: string
+          title: string
+          version?: string | null
+        }
+        Update: {
+          body?: string
+          created_by?: string | null
+          effective_date?: string
+          id?: string
+          policy_id?: string
+          revision?: number
+          superseded_at?: string
+          title?: string
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_versions_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
             referencedColumns: ["id"]
           },
         ]
@@ -1582,6 +1663,7 @@ export type Database = {
           status: string
           student_id: string | null
           subject: string | null
+          ticket_no: number
           updated_at: string
         }
         Insert: {
@@ -1600,6 +1682,7 @@ export type Database = {
           status?: string
           student_id?: string | null
           subject?: string | null
+          ticket_no?: number
           updated_at?: string
         }
         Update: {
@@ -1618,6 +1701,7 @@ export type Database = {
           status?: string
           student_id?: string | null
           subject?: string | null
+          ticket_no?: number
           updated_at?: string
         }
         Relationships: [
@@ -1704,6 +1788,7 @@ export type Database = {
           initials: string
           is_superadmin: boolean
           last_login_at: string | null
+          login_alerts: boolean
           notification_prefs: Json
           onboarding_complete: boolean
           phone: string
@@ -1730,6 +1815,7 @@ export type Database = {
           initials: string
           is_superadmin?: boolean
           last_login_at?: string | null
+          login_alerts?: boolean
           notification_prefs?: Json
           onboarding_complete?: boolean
           phone: string
@@ -1756,6 +1842,7 @@ export type Database = {
           initials?: string
           is_superadmin?: boolean
           last_login_at?: string | null
+          login_alerts?: boolean
           notification_prefs?: Json
           onboarding_complete?: boolean
           phone?: string
@@ -1972,6 +2059,32 @@ export type Database = {
       }
       admin_sign_out_everywhere: { Args: { p_user: string }; Returns: number }
       announce_due: { Args: never; Returns: number }
+      accept_policy: { Args: { p_id: string }; Returns: undefined }
+      announcement_reach_all: {
+        Args: never
+        Returns: {
+          announcement_id: string
+          seen: number
+          sent: number
+        }[]
+      }
+      policy_acceptance_stats: {
+        Args: never
+        Returns: {
+          accepted: number
+          eligible: number
+          policy_id: string
+        }[]
+      }
+      policy_pending_users: {
+        Args: { p_id: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          role: string
+        }[]
+      }
       announcement_reach: {
         Args: { p_id: string }
         Returns: {
@@ -1980,6 +2093,7 @@ export type Database = {
         }[]
       }
       archive_expired_announcements: { Args: never; Returns: number }
+      assert_admin_over: { Args: { p_user: string }; Returns: undefined }
       can_notify: { Args: { target: string }; Returns: boolean }
       check_student_id_exists: {
         Args: { p_student_id: string }
@@ -2023,10 +2137,13 @@ export type Database = {
         Returns: undefined
       }
       is_admin: { Args: { p_uid: string }; Returns: boolean }
+      is_verified_landlord: { Args: { uid: string }; Returns: boolean }
+      lift_expired_suspensions: { Args: never; Returns: number }
       mark_conversation_read: {
         Args: { p_conversation: string }
         Returns: undefined
       }
+      mfa_ok: { Args: { p_uid: string }; Returns: boolean }
       my_accommodation_ids: {
         Args: never
         Returns: {
@@ -2309,3 +2426,4 @@ export const Constants = {
     },
   },
 } as const
+

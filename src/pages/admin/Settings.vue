@@ -62,23 +62,15 @@
         <q-card flat class="section-card" v-show="active === 'security'">
           <PanelHeader title="Security" subtitle="Protect your account and review access." />
 
+          <TwoFactorSetting />
           <q-list class="toggle-list q-mb-md">
             <q-item class="toggle-item">
               <q-item-section>
-                <div class="text-weight-medium text-ink" style="font-size: 14px">Two-factor authentication</div>
-                <div class="text-muted" style="font-size: 12px">Require a verification code at sign-in.</div>
+                <div class="text-weight-medium text-ink" style="font-size: 14px">New sign-in alerts</div>
+                <div class="text-muted" style="font-size: 12px">Notify me whenever someone signs in to this account.</div>
               </q-item-section>
               <q-item-section side>
-                <q-toggle v-model="security.twoFactor" color="primary" />
-              </q-item-section>
-            </q-item>
-            <q-item class="toggle-item">
-              <q-item-section>
-                <div class="text-weight-medium text-ink" style="font-size: 14px">New login alerts</div>
-                <div class="text-muted" style="font-size: 12px">Email me when a new device signs in.</div>
-              </q-item-section>
-              <q-item-section side>
-                <q-toggle v-model="security.loginAlerts" color="primary" />
+                <q-toggle :model-value="loginAlerts" color="primary" :disable="loginAlerts === null" @update:model-value="setLoginAlerts" />
               </q-item-section>
             </q-item>
           </q-list>
@@ -128,6 +120,7 @@ import { supabase } from '@/utils/supabase'
 import { type StatusTone } from '@/utils/status.config'
 import AdministratorsSection from '@/features/settings/AdministratorsSection.vue'
 import ReportSettingsSection from '@/features/settings/ReportSettingsSection.vue'
+import TwoFactorSetting from '@/features/settings/TwoFactorSetting.vue'
 import { useRoute } from 'vue-router'
 
 const notify = useNotify()
@@ -186,10 +179,16 @@ const notificationOptions: { key: keyof typeof notifications; label: string; des
   { key: 'grievanceAlerts', label: 'Support ticket alerts', desc: 'Notify me about new student support tickets.' },
 ]
 
-const security = reactive({
-  twoFactor: false,
-  loginAlerts: true,
-})
+// Saved on toggle, straight to users.login_alerts — read by the sign-in trigger.
+const loginAlerts = ref<boolean | null>(null)
+
+async function setLoginAlerts(on: boolean) {
+  const id = authStore.user?.id
+  if (!id) return
+  const { error } = await supabase.from('users').update({ login_alerts: on }).eq('id', id)
+  if (error) return notify.error(error.message)
+  loginAlerts.value = on
+}
 
 const password = reactive({
   current: '',
@@ -233,7 +232,6 @@ function cancel() {
   if (!snap) return
   Object.assign(form, snap.form)
   Object.assign(notifications, snap.notifications)
-  Object.assign(security, snap.security)
   password.current = ''
   password.next = ''
   password.confirm = ''
@@ -243,7 +241,6 @@ function snapshot() {
   return JSON.stringify({
     form: { ...form },
     notifications: { ...notifications },
-    security: { ...security },
   })
 }
 
@@ -266,10 +263,14 @@ onMounted(async () => {
       const p = JSON.parse(raw)
       // Profile fields are sourced from the real user record, not local storage.
       if (p.notifications) Object.assign(notifications, p.notifications)
-      if (p.security) Object.assign(security, p.security)
     } catch { /* ignore corrupt data */ }
   }
   saved.value = snapshot()
+
+  if (authStore.user) {
+    const { data } = await supabase.from('users').select('login_alerts').eq('id', authStore.user.id).maybeSingle()
+    loginAlerts.value = data?.login_alerts ?? true
+  }
 })
 
 async function savePassword() {

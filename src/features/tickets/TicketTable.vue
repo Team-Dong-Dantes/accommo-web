@@ -1,6 +1,7 @@
 <template>
-  <!-- The triage table: one row per incident (grouped reports), ordered by who
-       is waiting on OSAS. Status lives in the tabs above, not on the rows. -->
+  <!-- The triage table: one row per ticket, one fact per column, ordered by who
+       is waiting on OSAS. Which lane it sits in (New / Needs reply / …) lives
+       in the tabs above, the same lanes as the board. -->
   <TableCard
     :search="search"
     :page="page"
@@ -8,13 +9,17 @@
     :total-label="totalLabel"
     :rows="rows"
     :columns="COLUMNS"
-    row-key="key"
+    row-key="id"
     :total-items="totalItems"
-    item-name="issues"
+    item-name="tickets"
     :row-class="rowClass"
+    :filters="filters"
+    :active-filters="activeFilters"
     @update:search="$emit('update:search', $event)"
     @update:page="$emit('update:page', $event)"
-    @row-click="(g: TicketGroup) => $emit('select', g.lead.id)"
+    @update:active-filters="$emit('update:activeFilters', $event)"
+    @clear-filters="$emit('update:activeFilters', {})"
+    @row-click="(t: Ticket) => $emit('select', t.id)"
     @refresh="$emit('refresh')"
   >
     <template #empty>
@@ -22,71 +27,76 @@
         <Icon icon="lucide:ticket" width="48" height="48" class="q-mb-md" />
         <div class="text-h6 text-weight-bold">No tickets found</div>
         <div v-if="error" class="text-caption q-mt-xs" style="color: var(--c-danger)">{{ error }}</div>
-        <div v-else>No support tickets match the current filter.</div>
+        <div v-else>No support tickets match the current tab and filters.</div>
       </div>
     </template>
 
     <template #body="{ props, rowNumber }">
       <!-- DataTable always draws the "#" header, so every body row carries the cell. -->
       <q-td class="row-num-cell">{{ rowNumber }}</q-td>
-      <q-td key="ticket" :props="props" class="tk-ticket tk-grow">
-        <div class="tk-subject" :title="props.row.lead.subject">
-          {{ props.row.lead.subject }}
-          <span v-if="props.row.reports.length > 1" class="tk-reports">{{ props.row.reports.length }} reports</span>
+
+      <!-- Two lines per cell at most: DataTable caps a row at 76px. -->
+      <q-td key="ticket" :props="props" class="tk-stack tk-grow">
+        <div class="tk-line tk-title" :title="props.row.subject">
+          <span v-if="props.row.unread" class="tk-unread" aria-label="Unread reply" />
+          <span class="tk-ref">{{ props.row.ref }}</span>
+          <span class="tk-subject">{{ props.row.subject }}</span>
         </div>
-        <!-- Two lines, not three: DataTable caps a row at 76px. -->
-        <div class="tk-meta" :title="props.row.lead.lastRequesterText">
-          <span class="tk-prio" :style="{ color: toneVar(getStatus(props.row.lead.priority).tone) }">{{ stLabel(props.row.lead.priority) }}</span>
-          · {{ capitalize(props.row.lead.category) }} · <span class="tk-ref">{{ props.row.lead.ref }}</span>
-          <span class="tk-said">— “{{ props.row.lead.lastRequesterText }}”</span>
+        <div v-if="boardLane(props.row) === 'waiting' && props.row.lastReplyAt" class="tk-line tk-sub">
+          You replied {{ getTimeAgo(props.row.lastReplyAt) }}
+        </div>
+        <div v-else class="tk-line tk-said" :title="props.row.lastRequesterText">“{{ props.row.lastRequesterText }}”</div>
+      </q-td>
+
+      <q-td key="requester" :props="props" class="tk-requester tk-wide">
+        <q-avatar size="26px" :color="props.row.avatarColor" text-color="white" class="tk-av">
+          <img v-if="props.row.avatarUrl" :src="props.row.avatarUrl" :alt="props.row.reporterName" />
+          <template v-else>{{ props.row.initials }}</template>
+        </q-avatar>
+        <div class="tk-stack">
+          <div class="tk-line tk-strong" :title="props.row.reporterName">{{ props.row.reporterName }}</div>
+          <div class="tk-line tk-sub">{{ roleLabel(props.row.reporterRole) }}</div>
         </div>
       </q-td>
 
-      <q-td key="where" :props="props" class="tk-where">
-        <template v-if="props.row.lead.accommodationName">
-          <div class="tk-place" :title="props.row.lead.accommodationName">{{ props.row.lead.accommodationName }}</div>
-          <div v-if="props.row.lead.room !== '—'" class="tk-sub">{{ props.row.lead.room }}</div>
+      <q-td key="place" :props="props" class="tk-stack">
+        <template v-if="props.row.accommodationName">
+          <div class="tk-line tk-strong" :title="props.row.accommodationName">{{ props.row.accommodationName }}</div>
+          <div v-if="props.row.room !== '—'" class="tk-line tk-sub">{{ props.row.room }}</div>
         </template>
         <span v-else class="tk-none">—</span>
       </q-td>
 
-      <q-td key="reporter" :props="props" class="tk-reporter">
-        <div class="tk-avatars">
-          <q-avatar
-            v-for="r in props.row.reports.slice(0, 3)"
-            :key="r.id"
-            size="26px"
-            :color="r.avatarColor"
-            text-color="white"
-            class="tk-av"
-          >
-            <img v-if="r.avatarUrl" :src="r.avatarUrl" :alt="r.reporterName" />
-            <template v-else>{{ r.initials }}</template>
-          </q-avatar>
-        </div>
-        <span class="tk-name" :title="props.row.reports.map((r: Ticket) => r.reporterName).join(', ')">
-          {{ props.row.lead.reporterName }}<template v-if="props.row.reports.length > 1"> +{{ props.row.reports.length - 1 }}</template>
-        </span>
+      <q-td key="category" :props="props" class="tk-plain tk-narrow">{{ capitalize(props.row.category) }}</q-td>
+
+      <q-td key="priority" :props="props" class="tk-narrow">
+        <BadgePill :tone="getStatus(props.row.priority).tone" :icon="getStatus(props.row.priority).icon ?? ''" :label="stLabel(props.row.priority)" />
       </q-td>
 
-      <q-td key="waiting" :props="props" class="tk-waiting">
-        <template v-if="props.row.lead.waitingSince">
-          <span class="tk-wait" :class="{ 'is-overdue': isOverdue(props.row.lead.waitingSince) }">
-            {{ waitAge(props.row.lead.waitingSince) }}
+      <q-td key="waiting" :props="props" class="tk-stack">
+        <template v-if="props.row.waitingSince">
+          <span class="tk-wait" :class="{ 'is-overdue': isOverdue(props.row.waitingSince) }">
+            {{ waitAge(props.row.waitingSince) }}
           </span>
-          <div v-if="isOverdue(props.row.lead.waitingSince)" class="tk-overdue">Overdue</div>
-          <div v-else class="tk-sub">{{ props.row.lead.lastReplyAt ? 'since reply' : 'no reply yet' }}</div>
+          <div v-if="isOverdue(props.row.waitingSince)" class="tk-overdue">Overdue</div>
+          <div v-else class="tk-sub">{{ props.row.lastReplyAt ? 'since reply' : 'no reply yet' }}</div>
         </template>
         <template v-else>
           <span class="tk-none">—</span>
-          <div v-if="props.row.lead.status === 'resolved'" class="tk-sub">Resolved</div>
-          <div v-else-if="props.row.lead.lastReplyAt" class="tk-sub">replied {{ getTimeAgo(props.row.lead.lastReplyAt) }}</div>
+          <div v-if="props.row.status === 'resolved'" class="tk-sub">Resolved</div>
+          <div v-else-if="props.row.lastReplyAt" class="tk-sub">replied {{ getTimeAgo(props.row.lastReplyAt) }}</div>
         </template>
       </q-td>
 
-      <q-td key="assignee" :props="props" class="tk-assignee">
-        <span v-if="props.row.lead.assignee">{{ props.row.lead.assignee }}</span>
-        <span v-else class="tk-none">Unassigned</span>
+      <q-td key="assignee" :props="props" class="tk-assignee tk-wide">
+        <template v-if="props.row.assignee">
+          <span class="tk-ring">{{ getInitials(props.row.assignee) }}</span>
+          <span class="tk-line tk-strong" :title="props.row.assignee">{{ props.row.assignee }}</span>
+        </template>
+        <template v-else>
+          <span class="tk-ring is-none" />
+          <span class="tk-none">Unassigned</span>
+        </template>
       </q-td>
     </template>
   </TableCard>
@@ -95,14 +105,15 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import TableCard from '@/components/table/TableCard.vue'
-import { getStatus, toneVar } from '@/utils/status.config'
-import { capitalize, getTimeAgo } from '@/utils/format'
-import { isOverdue, waitAge, type TicketGroup } from '@/utils/ticketTriage'
+import BadgePill from '@/components/user/BadgePill.vue'
+import { getStatus } from '@/utils/status.config'
+import { capitalize, getInitials, getTimeAgo, roleLabel } from '@/utils/format'
+import { boardLane, isOverdue, waitAge } from '@/utils/ticketTriage'
 import type { Ticket } from '@/composables/useTickets'
 import { stLabel } from './types'
 
 const props = defineProps<{
-  rows: TicketGroup[]
+  rows: Ticket[]
   totalItems: number
   totalLabel: string
   search: string
@@ -111,35 +122,38 @@ const props = defineProps<{
   error: string | null
   selectedId: string | null
   highlightId: string
+  filters: { key: string; label: string; options: { label: string; value: string }[] }[]
+  activeFilters: Record<string, string[]>
 }>()
 
 defineEmits<{
   (e: 'update:search', value: string): void
   (e: 'update:page', value: number): void
+  (e: 'update:activeFilters', value: Record<string, string[]>): void
   (e: 'select', id: string): void
   (e: 'refresh'): void
 }>()
 
 const COLUMNS = [
-  { name: 'ticket', label: 'TICKET', align: 'left' as const, field: 'key', headerClasses: 'tk-grow' },
-  { name: 'where', label: 'WHERE', align: 'left' as const, field: 'key' },
-  { name: 'reporter', label: 'REPORTER', align: 'left' as const, field: 'key' },
-  { name: 'waiting', label: 'WAITING ON US', align: 'left' as const, field: 'key' },
-  { name: 'assignee', label: 'ASSIGNEE', align: 'left' as const, field: 'key' },
+  { name: 'ticket', label: 'TICKET', align: 'left' as const, field: 'id', headerClasses: 'tk-grow' },
+  { name: 'requester', label: 'REQUESTER', align: 'left' as const, field: 'id', headerClasses: 'tk-wide' },
+  { name: 'place', label: 'PLACE', align: 'left' as const, field: 'id' },
+  { name: 'category', label: 'CATEGORY', align: 'left' as const, field: 'id', headerClasses: 'tk-narrow' },
+  { name: 'priority', label: 'PRIORITY', align: 'left' as const, field: 'id', headerClasses: 'tk-narrow' },
+  { name: 'waiting', label: 'WAITING', align: 'left' as const, field: 'id' },
+  { name: 'assignee', label: 'ASSIGNEE', align: 'left' as const, field: 'id', headerClasses: 'tk-wide' },
 ]
 
-function rowClass(g: TicketGroup) {
-  // DataTable asks for the filler rows' class too, and those carry no reports.
-  if (!g.reports) return ''
-  const ids = g.reports.map((r) => r.id)
+function rowClass(t: Ticket) {
+  // DataTable asks for the filler rows' class too, and those carry no ticket.
+  if (!t.id) return ''
   return [
     'cursor-pointer ticket-row',
-    `prio-${g.lead.priority}`,
-    props.selectedId && ids.includes(props.selectedId) ? 'is-active' : '',
-    ids.includes(props.highlightId) ? 'row-flash' : '',
+    `prio-${t.priority}`,
+    t.id === props.selectedId ? 'is-active' : '',
+    t.id === props.highlightId ? 'row-flash' : '',
   ].filter(Boolean).join(' ')
 }
-
 </script>
 
 <style scoped>
@@ -165,30 +179,33 @@ function rowClass(g: TicketGroup) {
 
 /* The ticket column takes the room. */
 :global(.tk-grow) { flex: 3 1 0 !important; }
+/* People columns need room for a full name; category and priority are one word. */
+:global(.tk-wide) { flex: 1.4 1 0 !important; }
+:global(.tk-narrow) { flex: 0.8 1 0 !important; }
 /* DataTable lays every cell out as a centred flex row; these cells stack lines,
    and its rule outranks a scoped one, hence !important. */
-.tk-ticket, .tk-where, .tk-waiting { flex-direction: column !important; align-items: flex-start !important; justify-content: center; min-width: 0; }
+.tk-stack { display: flex; flex-direction: column !important; align-items: flex-start !important; justify-content: center; min-width: 0; }
+.tk-line { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.tk-subject { display: flex; align-items: center; gap: 8px; max-width: 100%; overflow: hidden; color: var(--c-ink); font-size: 13.5px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.tk-reports { flex-shrink: 0; padding: 1px 8px; border-radius: 999px; background: var(--c-warning-soft); color: var(--c-warning); font-size: 10.5px; font-weight: 800; }
-.tk-meta { max-width: 100%; overflow: hidden; margin-top: 2px; color: var(--c-muted); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
-.tk-prio { font-weight: 700; }
-.tk-ref { font-family: var(--font-mono); font-size: 11px; }
-.tk-said { color: var(--c-text); }
+.tk-title { display: flex; align-items: center; gap: 8px; }
+.tk-unread { flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--c-primary); }
+.tk-ref { flex-shrink: 0; color: var(--c-muted); font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
+.tk-subject { overflow: hidden; color: var(--c-ink); font-size: 13.5px; font-weight: 700; text-overflow: ellipsis; }
+.tk-said { margin-top: 2px; color: var(--c-text); font-size: 12px; }
 
-.tk-place { max-width: 100%; overflow: hidden; color: var(--c-ink); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.tk-strong { color: var(--c-ink); font-size: 13px; font-weight: 600; }
 .tk-sub { color: var(--c-muted); font-size: 11.5px; }
 .tk-none { color: var(--c-muted); font-size: 12.5px; }
+.tk-plain { color: var(--c-text); font-size: 13px; }
 
-.tk-reporter { gap: 8px; min-width: 0; }
-.tk-avatars { display: flex; flex-shrink: 0; }
-.tk-av { font-size: 10px; font-weight: 800; box-shadow: 0 0 0 2px var(--c-surface); }
-.tk-av + .tk-av { margin-left: -8px; }
-.tk-name { overflow: hidden; color: var(--c-ink); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.tk-requester { gap: 8px; min-width: 0; }
+.tk-av { flex-shrink: 0; font-size: 10px; font-weight: 800; }
 
 .tk-wait { color: var(--c-ink); font-family: var(--font-display); font-size: 15px; font-weight: 700; }
 .tk-wait.is-overdue { color: var(--c-danger); }
 .tk-overdue { color: var(--c-danger); font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 
-.tk-assignee { color: var(--c-ink); font-size: 13px; font-weight: 600; }
+.tk-assignee { gap: 8px; min-width: 0; }
+.tk-ring { display: inline-grid; flex-shrink: 0; place-items: center; width: 24px; height: 24px; border: 1px solid var(--c-border); border-radius: 50%; background: var(--c-surface-2); color: var(--c-ink); font-size: 9.5px; font-weight: 800; }
+.tk-ring.is-none { border-style: dashed; background: transparent; }
 </style>

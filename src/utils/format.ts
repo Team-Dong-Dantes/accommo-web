@@ -54,6 +54,25 @@ export function getTimeAgo(dateString: string | null | undefined): string {
   return `${d} ${d === 1 ? 'day' : 'days'} ago`
 }
 
+/**
+ * A room's `room_status` as people read it. The stored value `maintenance`
+ * reads as "Under maintenance", which says the room is out of use; the bare
+ * word read like a category.
+ */
+export function roomStatusLabel(status: string | null | undefined): string {
+  if (!status) return ''
+  if (status.toLowerCase() === 'maintenance') return 'Under maintenance'
+  return humanizeEnum(status)
+}
+
+/** Whole days since `date`, never negative; 0 when the date is missing or unreadable. */
+export function ageInDays(date: string | null | undefined): number {
+  if (!date) return 0
+  const timestamp = new Date(date).getTime()
+  if (Number.isNaN(timestamp)) return 0
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 86_400_000))
+}
+
 // Compact variant used on the dashboard ("5 min ago" vs "5 mins ago").
 // Consolidated from identical copies in useDashboardStats.ts and Dashboard.vue.
 export function getTimeAgoShort(dateStr: string | null | undefined): string {
@@ -137,6 +156,24 @@ export function landlordTitle(sex: string | null | undefined): string {
  * system sees the same string as everyone else — with an English locale the
  * output is unchanged.
  */
+/**
+ * Several columns (audit_logs.created_at, announcements.published_at, …) are
+ * `timestamp without time zone` holding UTC. Read back they carry no offset,
+ * and `new Date()` would take them as local time — 8 hours early in Manila.
+ * Pin offset-less values to UTC; values that carry an offset pass through.
+ */
+export function utcMs(ts: string | null | undefined): number | null {
+  if (!ts) return null
+  const t = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(ts) ? ts : ts + 'Z').getTime()
+  return isNaN(t) ? null : t
+}
+
+/** The same instant as an ISO string with its offset, for the formatters below. */
+export function utcIso(ts: string | null | undefined): string | null {
+  const ms = utcMs(ts)
+  return ms == null ? null : new Date(ms).toISOString()
+}
+
 export function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -227,6 +264,11 @@ export function dayLabel(day: string, now = new Date()): string {
 /** A Philippine mobile number in groups ("+639763126760" → "+63 976 312 6760"); anything else as typed. */
 export function formatPhone(raw: string): string {
   const d = raw.replace(/[^\d]/g, '')
-  const local = d.startsWith('63') && d.length === 12 ? d.slice(2) : d.startsWith('0') && d.length === 11 ? d.slice(1) : null
+  const local =
+    d.startsWith('63') && d.length === 12 ? d.slice(2)
+      : d.startsWith('0') && d.length === 11 ? d.slice(1)
+        // The ten digits after the mobile form's fixed "+63" prefix.
+        : d.startsWith('9') && d.length === 10 ? d
+          : null
   return local ? `+63 ${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}` : raw
 }

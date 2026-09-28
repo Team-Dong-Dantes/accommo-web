@@ -59,8 +59,10 @@ const props = withDefaults(
     managementActions?: { label: string; action: string; danger?: boolean }[]
     /** The record is still fetching its rooms, boarders and reviews. */
     loading?: boolean
+    /** The tab to open on; Rooms when not given. */
+    initialTab?: string
   }>(),
-  { managementActions: () => [], loading: false },
+  { managementActions: () => [], loading: false, initialTab: 'rooms' },
 )
 
 defineEmits<{
@@ -76,7 +78,9 @@ const TABS = [
   { name: 'reviews', label: 'Ratings' },
 ]
 
-const tab = ref('rooms')
+const tab = ref(props.initialTab)
+// Asked to open on a tab again (another "View all"), follow it.
+watch(() => props.initialTab, (next) => { tab.value = next })
 const person = ref<PersonTarget | null>(null)
 const lightbox = ref<{ title: string; photos: string[]; index: number } | null>(null)
 const permitIndex = ref<number | null>(null)

@@ -60,7 +60,7 @@
               </span>
             </q-td>
             <q-td key="status" :props="props" class="col-badge">
-              <BadgePill :tone="getStatus(props.row.status).tone" :icon="getStatus(props.row.status).icon ?? 'lucide:circle'" :label="cap(props.row.status)" />
+              <BadgePill :tone="getStatus(props.row.status).tone" :icon="getStatus(props.row.status).icon ?? 'lucide:circle'" :label="roomStatusLabel(props.row.status)" />
             </q-td>
           </q-tr>
         </template>
@@ -91,7 +91,7 @@ import type { DrawerPreview, PreviewChip } from '@/components/ui/DetailDrawer.vu
 import { getStatus, getTone } from '@/utils/status.config'
 import { resolveAsset } from '@/utils/cloudinaryUrl'
 import { counted } from '@/utils/filterOptions'
-import { avatarUrl, cap, getInitialsWide as initialsOf, humanizeEnum, landlordTitle } from '@/utils/format'
+import { avatarUrl, cap, getInitialsWide as initialsOf, humanizeEnum, landlordTitle, roomStatusLabel } from '@/utils/format'
 import { facilityIcon, facilityLabel } from '@/utils/facilities'
 
 /** A room row as the rooms query returns it, before mapping to a table row. */
@@ -158,7 +158,7 @@ const TYPE_ORDER = ['Solo', 'Duo', 'Triple', 'Bedspace']
 const filterConfig = computed(() => {
   const rows = rooms.value
   return [
-    { label: 'Status', key: 'status', options: counted(rows, 'status', cap, ['available', 'occupied', 'maintenance']) },
+    { label: 'Status', key: 'status', options: counted(rows, 'status', roomStatusLabel, ['available', 'occupied', 'maintenance']) },
     { label: 'Vacancy', key: 'vacancy', options: counted(rows, 'vacancy', (v) => VACANCY[v] ?? v, Object.keys(VACANCY)) },
     { label: 'Accommodation', key: 'accommodation', options: counted(rows, 'accommodation') },
     { label: 'Room type', key: 'type', options: counted(rows, 'type', undefined, TYPE_ORDER) },
@@ -414,7 +414,7 @@ const roomPreview = computed<DrawerPreview>(() => {
   const name = roomTypeName(r) || roomName(r)
   const statusTone = getTone(r.status)
   const chips: PreviewChip[] = [
-    { text: cap(r.status) || 'Unknown', tone: statusTone, icon: 'lucide:door-closed' },
+    { text: roomStatusLabel(r.status) || 'Unknown', tone: statusTone, icon: 'lucide:door-closed' },
     { text: r.floor != null ? `Floor ${r.floor}` : 'No floor', tone: 'neutral', icon: 'lucide:layers' },
   ]
   const detailGroups = [
@@ -435,7 +435,7 @@ const roomPreview = computed<DrawerPreview>(() => {
       icon: 'lucide:banknote',
       rows: [
         { label: 'Monthly Rent', value: r.monthly_rent != null ? `${peso(r.monthly_rent)} ${r.rent_basis === 'person' && (r.capacity ?? 0) > 1 ? 'per boarder' : 'whole room'}` : '—' },
-        { label: 'Status', value: cap(r.status) || '—' },
+        { label: 'Status', value: roomStatusLabel(r.status) || '—' },
       ],
     },
     {
@@ -461,7 +461,7 @@ const roomPreview = computed<DrawerPreview>(() => {
       floor: r.floor ?? null,
       capacity: r.capacity ?? 0,
       status: String(r.status ?? ''),
-      statusLabel: cap(r.status) || 'Unknown',
+      statusLabel: roomStatusLabel(r.status) || 'Unknown',
       rent: r.monthly_rent ?? r.rent ?? null,
       rentBasis: r.rent_basis === 'person' && (r.capacity ?? 0) > 1 ? 'person' : 'room',
       advanceMonths: r.advance_months ?? null,

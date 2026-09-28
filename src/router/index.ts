@@ -65,6 +65,8 @@ export default defineRouter(() => {
     // Unauthenticated users may only reach public routes.
     if (!isAuthenticated) {
       if (isPublicRoute) return true;
+      // A reset link that has expired or was already used arrives with no session.
+      if (to.path === '/auth/reset-password') return '/auth/login?reset=expired';
       return '/auth/login';
     }
 
@@ -80,6 +82,17 @@ export default defineRouter(() => {
       authStore.clearCachedRole();
       return '/auth/login?suspended=true';
     }
+
+    // Second factor before anything else an admin can reach. The database
+    // enforces the same rule (is_admin() needs aal2 once a factor exists), so
+    // this is about sending them to the code screen, not about security.
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const needsCode = aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2';
+    if (to.path === '/auth/mfa') return needsCode ? true : '/dashboard';
+    if (needsCode) return '/auth/mfa';
+
+    // The e-mailed reset link signs the person in, then lands here.
+    if (to.path === '/auth/reset-password') return true;
 
     const needsOnboarding =
       !!authStore.user &&
@@ -97,7 +110,15 @@ export default defineRouter(() => {
 
     if (isPublicRoute) {
       if (role === 'admin') return '/dashboard';
-      return '/';
+      // A non-admin session is useless in the console; drop it so the login
+      // page can be reached with an admin account.
+      if (to.path === '/auth/login') {
+        await authStore.logout();
+        return true;
+      }
+      // Non-admins (or a failed role read) stay on the landing page. Returning
+      // '/' while already on '/' loops the guard forever.
+      return to.path === '/' ? true : '/';
     }
 
     const requiresAuth = to.matched.some((record) => record.meta?.requiresAuth);

@@ -79,7 +79,12 @@ export const useAuthStore = defineStore('auth', {
 
       const profile = await this.loadProfileById(authData.user.id);
 
-      if (profile?.role !== 'admin') throw new Error('Access denied: Admins only.');
+      // Sign the rejected session out, or it lingers and the router guard keeps
+      // bouncing this browser off the login page.
+      if (profile?.role !== 'admin') {
+        await this.logout();
+        throw new Error('Access denied: Admins only.');
+      }
 
       // A suspended admin was still being let all the way in — the mobile app
       // has refused a suspended account since 20260909000002_auth_status_gate,

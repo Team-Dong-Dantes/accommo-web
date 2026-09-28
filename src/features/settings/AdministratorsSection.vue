@@ -99,6 +99,7 @@ import { useNotify } from '@/utils/notify'
 import { useAuthStore } from '@/stores/auth'
 import { useQuasar } from 'quasar'
 import { supabase } from '@/utils/supabase'
+import { callEdgeFunction } from '@/utils/edgeFunction'
 import { type StatusTone } from '@/utils/status.config'
 
 export interface AdminRow {
@@ -143,20 +144,7 @@ async function inviteAdmin() {
   }
   inviting.value = true
   try {
-    const { data: sess } = await supabase.auth.getSession()
-    const token = sess.session?.access_token
-    const invokeOpts: Record<string, unknown> = { body: { email } }
-    if (token) invokeOpts.headers = { Authorization: `Bearer ${token}` }
-    const { data, error } = await supabase.functions.invoke('invite-admin', invokeOpts as never)
-    if (error) {
-      inviteError.value = error.message || 'Invitation failed.'
-      return
-    }
-    const result = data as { ok?: boolean; error?: string; invite_link?: string; temporary_password?: string; message?: string; promoted?: boolean; already_admin?: boolean }
-    if (!result || !result.ok) {
-      inviteError.value = result?.error || 'Invitation failed.'
-      return
-    }
+    const result = await callEdgeFunction<{ invite_link?: string; temporary_password?: string; message?: string; promoted?: boolean; already_admin?: boolean }>('invite-admin', { email })
     inviteLink.value = result.invite_link ?? ''
     tempPassword.value = result.temporary_password ?? ''
     if (result.already_admin) {
@@ -223,17 +211,7 @@ function confirmAction(action: 'revoke' | 'remove', a: AdminRow) {
 
 async function manageAdmin(action: 'revoke' | 'remove', a: AdminRow) {
   try {
-    const { data: sess } = await supabase.auth.getSession()
-    const token = sess.session?.access_token
-    const opts: Record<string, unknown> = {
-      body: { action: action === 'revoke' ? 'revoke_invite' : 'remove_admin', target_id: a.id },
-    }
-    if (token) opts.headers = { Authorization: `Bearer ${token}` }
-    const { error } = await supabase.functions.invoke('manage-admin', opts as never)
-    if (error) {
-      notify.error(error.message || 'Action failed.')
-      return
-    }
+    await callEdgeFunction('manage-admin', { action: action === 'revoke' ? 'revoke_invite' : 'remove_admin', target_id: a.id })
     notify.success(action === 'revoke' ? 'Invite cancelled' : 'Admin access removed')
     await loadAdmins()
   } catch (e) {

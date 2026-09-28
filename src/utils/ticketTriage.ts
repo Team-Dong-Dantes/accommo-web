@@ -1,20 +1,18 @@
 // Triage rules for the Support Tickets queue: who is waiting on whom, when
-// that becomes overdue, which reports are the same issue, and the order the
-// queue is worked in. Pure functions — useTickets shapes rows with them and the
-// page/board consume the result — so ticketTriage.test.ts can pin every rule.
+// that becomes overdue, which board column a ticket sits in, and the order the
+// queue is worked in. Every ticket is its own row: reports are never merged,
+// since matching subjects made separate students' questions look like one. Pure functions â€” useTickets shapes rows with them and the
+// page/board consume the result â€” so ticketTriage.test.ts can pin every rule.
 
 import type { Ticket } from '@/composables/useTickets'
 
 /** A ticket waiting on a support reply this long is overdue, whatever its priority. */
 export const OVERDUE_MS = 48 * 3600 * 1000
 
-/** Reports of the same issue from one accommodation this close together are one incident. */
-export const GROUP_WINDOW_MS = 3 * 86400 * 1000
-
 const PRIORITY_RANK: Record<string, number> = { urgent: 3, high: 2, medium: 1, low: 0 }
 
 export function ticketRef(ticketNo: number | null | undefined, id: string): string {
-  // ticket_no arrived with migration 20260926120000; the uuid prefix is only a
+  // ticket_no arrived with migration 20260926101320; the uuid prefix is only a
   // fallback for a database that predates it (and read TKT-0000 for every
   // seeded row, which is why the column exists).
   if (ticketNo) return 'TKT-' + String(ticketNo).padStart(4, '0')
@@ -30,7 +28,7 @@ interface Msg {
 /**
  * When the requester started waiting on support, or null when they are not:
  * the ticket is resolved, or support's public reply is the latest word.
- * Internal notes are not replies — the requester never sees them. A ticket no
+ * Internal notes are not replies â€” the requester never sees them. A ticket no
  * one has answered has been waiting since it was reported.
  */
 export function waitingSince(messages: Msg[], reportedAt: string, status: string): string | null {
@@ -44,62 +42,24 @@ export function waitingSince(messages: Msg[], reportedAt: string, status: string
   return next ? next.createdAt : null
 }
 
+/**
+ * The board's column: who owes the next move, read off the conversation rather
+ * than the status field. Replying moves a ticket on its own â€” nobody drags it.
+ *   new          nobody has picked it up: unassigned and never answered
+ *   needs_reply  OSAS owes the requester a reply (claimed, or they wrote since)
+ *   waiting      OSAS has the last word; the requester owes the next move
+ *   resolved     closed
+ */
+export type BoardLane = 'new' | 'needs_reply' | 'waiting' | 'resolved'
+
+export function boardLane(t: Pick<Ticket, 'status' | 'lastReplyAt' | 'waitingSince' | 'assigneeId'>): BoardLane {
+  if (t.status === 'resolved') return 'resolved'
+  if (!t.lastReplyAt && !t.assigneeId) return 'new'
+  return t.waitingSince ? 'needs_reply' : 'waiting'
+}
+
 export function isOverdue(since: string | null, now = Date.now()): boolean {
   return !!since && now - new Date(since).getTime() >= OVERDUE_MS
-}
-
-/** One row in the queue: a ticket, plus any other reports of the same incident. */
-export interface TicketGroup {
-  key: string
-  /** The report the row opens — the one that has waited longest. */
-  lead: Ticket
-  reports: Ticket[]
-}
-
-const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
-
-/**
- * Collapse reports of one incident into a row: same accommodation, same status,
- * same subject (ignoring case and spacing), reported within GROUP_WINDOW_MS of
- * the group's first report. Tickets with no accommodation are never grouped —
- * two students' "Request to transfer rooms" elsewhere are two requests.
- * Status is part of the key so the board's columns and the status tabs never
- * split a row across themselves.
- */
-export function groupReports(tickets: Ticket[]): TicketGroup[] {
-  const groups: TicketGroup[] = []
-  const open = new Map<string, TicketGroup[]>()
-  const byReported = [...tickets].sort((a, b) => new Date(a.reportedAt).getTime() - new Date(b.reportedAt).getTime())
-  for (const t of byReported) {
-    if (!t.accommodationId) {
-      groups.push({ key: t.id, lead: t, reports: [t] })
-      continue
-    }
-    const k = `${t.accommodationId}|${t.status}|${norm(t.subject)}`
-    const candidates = open.get(k) ?? []
-    const t0 = new Date(t.reportedAt).getTime()
-    const hit = candidates.find((g) => t0 - new Date(g.reports[0]!.reportedAt).getTime() <= GROUP_WINDOW_MS)
-    if (hit) {
-      hit.reports.push(t)
-    } else {
-      const g: TicketGroup = { key: t.id, lead: t, reports: [t] }
-      candidates.push(g)
-      open.set(k, candidates)
-      groups.push(g)
-    }
-  }
-  for (const g of groups) g.lead = pickLead(g.reports)
-  return groups
-}
-
-/** The report that has waited longest; failing that, the most recently updated. */
-function pickLead(reports: Ticket[]): Ticket {
-  return [...reports].sort(compareTickets)[0]!
-}
-
-/** A group's wait is its longest-waiting report's. */
-export function groupWaitingSince(g: TicketGroup): string | null {
-  return g.lead.waitingSince
 }
 
 /**
@@ -118,11 +78,11 @@ export function compareTickets(a: Ticket, b: Ticket): number {
   return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
 }
 
-export function sortGroups(groups: TicketGroup[]): TicketGroup[] {
-  return [...groups].sort((a, b) => compareTickets(a.lead, b.lead))
+export function sortTickets(tickets: Ticket[]): Ticket[] {
+  return [...tickets].sort(compareTickets)
 }
 
-/** "5d", "7h", "40m" — a wait is read as a size, so it drops the "ago". */
+/** "5d", "7h", "40m" â€” a wait is read as a size, so it drops the "ago". */
 export function waitAge(since: string, now = Date.now()) {
   const ms = now - new Date(since).getTime()
   const m = Math.max(1, Math.floor(ms / 60000))

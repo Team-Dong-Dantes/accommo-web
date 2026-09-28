@@ -21,27 +21,6 @@
               </button>
             </div>
 
-            <!-- Grouped reports of one incident: each is its own ticket with its
-                 own requester, so each gets its own reply. -->
-            <div v-if="reports.length > 1" class="tw-reports" role="group" aria-label="Reports of this issue">
-              <span class="tw-reports-label">{{ reports.length }} reports</span>
-              <button
-                v-for="r in reports"
-                :key="r.id"
-                type="button"
-                class="tw-report"
-                :class="{ 'is-active': r.id === ticket.id }"
-                :aria-pressed="r.id === ticket.id"
-                @click="$emit('select-report', r.id)"
-              >
-                <q-avatar size="20px" :color="r.avatarColor" text-color="white" class="tw-report-av">
-                  <img v-if="r.avatarUrl" :src="r.avatarUrl" :alt="r.reporterName" />
-                  <template v-else>{{ r.initials }}</template>
-                </q-avatar>
-                {{ r.reporterName }}
-                <span v-if="r.waitingSince" class="tw-report-dot" aria-label="Waiting on a reply" />
-              </button>
-            </div>
 
             <div class="tw-controls">
               <q-btn unelevated no-caps padding="none" class="chip-trigger" :ripple="false" aria-label="Change status">
@@ -60,6 +39,22 @@
                 <q-menu anchor="bottom left" self="top left" class="tw-chip-menu">
                   <button v-for="o in PRIORITY_OPTS" :key="o.value" v-close-popup class="pop-item" :class="{ 'is-active': ticket.priority === o.value }" @click="$emit('update:priority', o.value)">
                     <span class="pop-dot" :style="{ background: toneVar(getStatus(o.value).tone) }"></span>{{ o.label }}
+                  </button>
+                </q-menu>
+              </q-btn>
+
+              <q-btn unelevated no-caps padding="none" class="chip-trigger" :ripple="false" aria-label="Change assignee">
+                <BadgePill tone="neutral" icon="lucide:user-round" :label="ticket.assignee || 'Unassigned'" />
+                <Icon icon="lucide:chevron-down" width="14" height="14" class="chip-caret" />
+                <q-menu anchor="bottom left" self="top left" class="tw-chip-menu">
+                  <button v-if="meId && ticket.assigneeId !== meId" v-close-popup class="pop-item" @click="$emit('update:assignee', meId)">
+                    <Icon icon="lucide:user-round-check" width="15" height="15" />Assign to me
+                  </button>
+                  <button v-for="a in agents" :key="a.id" v-close-popup class="pop-item" :class="{ 'is-active': ticket.assigneeId === a.id }" @click="$emit('update:assignee', a.id)">
+                    <Icon icon="lucide:user-round" width="15" height="15" />{{ a.full_name }}
+                  </button>
+                  <button v-if="ticket.assigneeId" v-close-popup class="pop-item" @click="$emit('update:assignee', null)">
+                    <Icon icon="lucide:user-round-x" width="15" height="15" />Unassign
                   </button>
                 </q-menu>
               </q-btn>
@@ -115,18 +110,19 @@ export type DrillKind = 'user' | 'accommodation' | 'landlord' | 'room'
 const props = defineProps<{
   /** Nullable so the leave transition can play while the ticket deselects. */
   ticket: Ticket | null
-  /** Every report of the open ticket's incident (itself included); one entry when ungrouped. */
-  reports: Ticket[]
   groups: MsgGroup[]
   sending?: boolean
   drill: { kind: DrillKind } | null
+  /** OSAS staff a ticket can be assigned to. */
+  agents: { id: string; full_name: string }[]
+  meId: string | null
 }>()
 
 defineEmits<{
   (e: 'close'): void
-  (e: 'select-report', id: string): void
   (e: 'update:status', value: string): void
   (e: 'update:priority', value: string): void
+  (e: 'update:assignee', value: string | null): void
   (e: 'resolve'): void
   (e: 'send', body: string, opts: { isInternal: boolean }): void
   (e: 'open-drill', kind: DrillKind): void
@@ -173,13 +169,6 @@ const tabs = computed(() => [
 .tw-close { display: grid; flex-shrink: 0; width: 34px; height: 34px; place-items: center; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); color: var(--c-muted); cursor: pointer; transition: color var(--t-fast), border-color var(--t-fast); }
 .tw-close:hover { color: var(--c-ink); border-color: var(--c-border-strong); }
 
-.tw-reports { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: var(--sp-3); }
-.tw-reports-label { margin-right: 2px; padding: 2px 8px; border-radius: 999px; background: var(--c-warning-soft); color: var(--c-warning); font-size: 10.5px; font-weight: 800; }
-.tw-report { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border: 1px solid var(--c-border); border-radius: 999px; background: var(--c-surface); color: var(--c-text); cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; }
-.tw-report:hover { border-color: var(--c-primary); }
-.tw-report.is-active { border-color: var(--c-primary); background: var(--c-primary-soft); color: var(--c-primary); }
-.tw-report-av { font-size: 8px; font-weight: 800; }
-.tw-report-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-danger); }
 .tw-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
 .chip-trigger { display: inline-flex; align-items: center; gap: 2px; background: transparent; font-weight: 600; }
 .chip-caret { margin-left: 2px; color: var(--c-muted); }

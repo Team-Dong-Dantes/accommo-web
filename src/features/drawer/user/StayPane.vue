@@ -35,7 +35,7 @@ import DetailSections from '../DetailSections.vue'
 import TabEmptyState from '../TabEmptyState.vue'
 import PropertyMap from '@/features/verifications/PropertyMap.vue'
 import { fetchStaySummary, type StaySummary } from '@/api/leases'
-import { cap, composeAddress, humanizeEnum, landlordTitle } from '@/utils/format'
+import { cap, composeAddress, humanizeEnum, landlordTitle, roomStatusLabel } from '@/utils/format'
 import { fmtMonthYear, type HubKind, type PreviewDetailGroup } from '../preview'
 
 const props = defineProps<{ kind: HubKind; accommodationId: string; leaseId: string | null }>()
@@ -119,7 +119,7 @@ const roomGroups = computed<PreviewDetailGroup[]>(() => {
         { label: 'Floor', value: r.floor != null ? String(r.floor) : '—' },
         { label: 'Capacity', value: r.capacity != null ? `${r.capacity}` : '—' },
         { label: 'Monthly rent', value: peso(r.monthly_rent) },
-        { label: 'Status', value: humanizeEnum(r.status) },
+        { label: 'Status', value: roomStatusLabel(r.status) || '—' },
       ],
     },
     {

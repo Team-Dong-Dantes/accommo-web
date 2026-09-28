@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Ticket } from '@/composables/useTickets'
-import { groupReports, isOverdue, sortGroups, ticketRef, waitAge, waitingSince } from './ticketTriage'
+import { boardLane, isOverdue, sortTickets, ticketRef, waitAge, waitingSince } from './ticketTriage'
 
 const H = 3600 * 1000
 const iso = (hAgo: number, now = Date.parse('2026-09-26T12:00:00Z')) => new Date(now - hAgo * H).toISOString()
@@ -10,7 +10,7 @@ function t(p: Partial<Ticket> & { id: string }): Ticket {
     ref: '', subject: 'x', description: '', category: 'other', priority: 'medium', status: 'open',
     assignee: null, assigneeId: null, reporterName: p.id, reporterEmail: '', reporterPhone: '', reporterRole: 'student',
     accommodationName: null, accommodationId: null, room: '—', landlordName: null, initials: '', avatarColor: 'teal-6', avatarUrl: '',
-    reportedAt: iso(10), updatedAt: iso(10), photoUrls: [], messages: [], lastPreview: '', lastRequesterText: '', lastReplyAt: null,
+    reportedAt: iso(10), updatedAt: iso(10), resolvedAt: null, photoUrls: [], messages: [], lastPreview: '', lastRequesterText: '', lastReplyAt: null,
     waitingSince: iso(10), unread: 0, ...p,
   }
 }
@@ -33,6 +33,20 @@ describe('waitingSince', () => {
   it('is null for a resolved ticket', () => expect(waitingSince([], iso(99), 'resolved')).toBeNull())
 })
 
+describe('boardLane', () => {
+  it('is new until OSAS first replies', () => expect(boardLane(t({ id: 'a' }))).toBe('new'))
+  it('stays new when only an internal note was added', () =>
+    expect(boardLane(t({ id: 'a', status: 'in_progress', lastReplyAt: null }))).toBe('new'))
+  it('needs a reply once someone claims it, answered or not', () =>
+    expect(boardLane(t({ id: 'a', assigneeId: 'me' }))).toBe('needs_reply'))
+  it('needs a reply when the requester wrote after OSAS', () =>
+    expect(boardLane(t({ id: 'a', lastReplyAt: iso(9), waitingSince: iso(5) }))).toBe('needs_reply'))
+  it('waits on the requester when OSAS has the last word', () =>
+    expect(boardLane(t({ id: 'a', lastReplyAt: iso(5), waitingSince: null }))).toBe('waiting'))
+  it('is resolved whatever the conversation says', () =>
+    expect(boardLane(t({ id: 'a', status: 'resolved', lastReplyAt: null }))).toBe('resolved'))
+})
+
 describe('isOverdue', () => {
   const now = Date.parse('2026-09-26T12:00:00Z')
   it('turns at 48 hours', () => {
@@ -42,44 +56,15 @@ describe('isOverdue', () => {
   it('is never overdue when not waiting', () => expect(isOverdue(null, now)).toBe(false))
 })
 
-describe('groupReports', () => {
-  it('merges one incident: same place, status and subject, within three days', () => {
-    const g = groupReports([
-      t({ id: 'a', accommodationId: 'h1', subject: 'No water', reportedAt: iso(30) }),
-      t({ id: 'b', accommodationId: 'h1', subject: '  no  WATER ', reportedAt: iso(20) }),
-    ])
-    expect(g).toHaveLength(1)
-    expect(g[0]!.reports.map((r) => r.id)).toEqual(['a', 'b'])
-  })
-  it('keeps different places, statuses, far-apart dates and placeless tickets apart', () => {
-    const g = groupReports([
-      t({ id: 'a', accommodationId: 'h1', subject: 'No water', reportedAt: iso(200) }),
-      t({ id: 'b', accommodationId: 'h2', subject: 'No water', reportedAt: iso(199) }),
-      t({ id: 'c', accommodationId: 'h1', subject: 'No water', status: 'resolved', reportedAt: iso(198) }),
-      t({ id: 'd', accommodationId: 'h1', subject: 'No water', reportedAt: iso(10) }),
-      t({ id: 'e', subject: 'Transfer', reportedAt: iso(9) }),
-      t({ id: 'f', subject: 'Transfer', reportedAt: iso(8) }),
-    ])
-    expect(g).toHaveLength(6)
-  })
-  it('leads with the longest-waiting report', () => {
-    const g = groupReports([
-      t({ id: 'a', accommodationId: 'h1', subject: 'x', reportedAt: iso(30), waitingSince: null }),
-      t({ id: 'b', accommodationId: 'h1', subject: 'x', reportedAt: iso(20), waitingSince: iso(20) }),
-    ])
-    expect(g[0]!.lead.id).toBe('b')
-  })
-})
-
-describe('sortGroups', () => {
+describe('sortTickets', () => {
   it('puts waiting first, then priority, then longest wait', () => {
-    const rows = groupReports([
+    const rows = sortTickets([
       t({ id: 'answered-high', priority: 'high', waitingSince: null }),
       t({ id: 'low-old', priority: 'low', waitingSince: iso(100) }),
       t({ id: 'high-new', priority: 'high', waitingSince: iso(5) }),
       t({ id: 'high-old', priority: 'high', waitingSince: iso(50) }),
     ])
-    expect(sortGroups(rows).map((g) => g.lead.id)).toEqual(['high-old', 'high-new', 'low-old', 'answered-high'])
+    expect(rows.map((r) => r.id)).toEqual(['high-old', 'high-new', 'low-old', 'answered-high'])
   })
 })
 

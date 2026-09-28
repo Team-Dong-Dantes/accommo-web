@@ -1,6 +1,5 @@
 <template>
   <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
-
     <!-- Top bar -->
     <div class="row justify-between items-end non-shrink">
       <TabNav v-model="activeTab" :tabs="tabs" />
@@ -20,22 +19,16 @@
           <q-badge v-if="showArchived" floating color="primary" rounded transparent class="archive-active-dot" />
           <q-tooltip>{{ showArchived ? 'Active' : 'Archived' }}</q-tooltip>
         </q-btn>
-        <q-btn
-          unelevated
-          color="primary"
-          no-caps
-          class="text-weight-bold rounded-button"
-          @click="openCreate()"
-        >
-          <Icon :icon="activeTab === 'announcements' ? 'lucide:megaphone' : 'lucide:gavel'" class="on-left" width="18" height="18" />
-          {{ activeTab === 'announcements' ? 'New Announcement' : 'New Policy' }}
+        <q-btn unelevated color="primary" no-caps class="text-weight-bold rounded-button" @click="openCreate()">
+          <Icon :icon="isAnn ? 'lucide:megaphone' : 'lucide:gavel'" class="on-left" width="18" height="18" />
+          {{ isAnn ? 'New Announcement' : 'New Policy' }}
         </q-btn>
       </div>
     </div>
 
     <div v-if="fetchError" class="text-white bg-negative q-pa-sm q-px-md q-mb-md" style="border-radius: 12px; font-size: 13px;">
       <Icon icon="lucide:circle-alert" class="q-mr-xs" width="16" height="16" style="vertical-align: middle;" />
-      Could not load {{ activeTab === 'announcements' ? 'announcements' : 'policies' }}: {{ fetchError }}
+      Could not load {{ isAnn ? 'announcements' : 'policies' }}: {{ fetchError }}
     </div>
 
     <TableCard
@@ -44,17 +37,17 @@
       :filters="filterConfig"
       v-model:active-filters="activeFilters"
       @clear-filters="clearFilters"
-      :search-placeholder="searchPlaceholder"
-      :total-label="`${filteredData.length} ${activeTab === 'announcements' ? 'announcements' : 'policies'}`"
+      :search-placeholder="isAnn ? 'Search announcements...' : 'Search policies & guidelines...'"
+      :total-label="`${filteredData.length} ${isAnn ? 'announcements' : 'policies'}`"
       :total-items="filteredData.length"
-      :item-name="activeTab === 'announcements' ? 'announcements' : 'policies'"
+      :item-name="isAnn ? 'announcements' : 'policies'"
       @refresh="fetchAll"
     >
       <template #panels>
         <q-tab-panels v-model="activeTab" animated style="background: transparent; height: 100%;">
           <!-- Announcements tab -->
           <q-tab-panel name="announcements" class="q-pa-none">
-            <DataTable :rows="paginatedData" :columns="announcementColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10">
+            <DataTable :rows="paginatedData" :columns="announcementColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" @row-click="openView">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon icon="lucide:megaphone" width="48" height="48" class="q-mb-md" />
@@ -67,24 +60,38 @@
                   <q-td key="title" :props="props">
                     <div class="column">
                       <div class="text-weight-bold text-ink ellipsis" style="font-size: 14px;">{{ props.row.title }}</div>
-                      <div class="text-muted ellipsis" style="font-size: 12px; margin-top: 2px;">{{ props.row.body }}</div>
+                      <div class="text-muted ellipsis" style="font-size: 12px; margin-top: 2px;">{{ props.row.summary || props.row.body }}</div>
                     </div>
                   </q-td>
                   <q-td key="status" :props="props">
-                    <BadgePill :tone="statusColor(props.row.status).tone" :icon="statusIcon(props.row.status)" :label="statusLabel(props.row.status)" />
+                    <BadgePill v-bind="STATUS_META[props.row.status as AnnouncementStatus]" />
                   </q-td>
                   <q-td key="audience" :props="props">
-                    <BadgePill :tone="audienceColor(props.row.audience).tone" :label="audienceLabel(props.row.audience)" />
+                    <BadgePill v-if="props.row.accommodation_id" tone="primary" icon="lucide:house" :label="props.row.accommodation?.name ?? 'Landlord notice'" />
+                    <BadgePill v-else v-bind="audienceMeta(props.row.audience)" />
                   </q-td>
-                  <q-td key="author" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.authorName }}</q-td>
+                  <q-td key="reach" :props="props" class="text-ink" style="font-size: 13px;">
+                    <div v-if="props.row.reach" class="row items-center no-wrap q-gutter-x-sm">
+                      <q-circular-progress
+                        :value="props.row.reach.sent ? (props.row.reach.seen / props.row.reach.sent) * 100 : 0"
+                        size="22px"
+                        :thickness="0.28"
+                        color="primary"
+                      />
+                      <span class="text-weight-medium">{{ pct(props.row.reach.seen, props.row.reach.sent) }}</span>
+                      <q-tooltip>{{ props.row.reach.seen }} of {{ props.row.reach.sent }} seen</q-tooltip>
+                    </div>
+                    <span v-else class="text-muted">—</span>
+                  </q-td>
                   <q-td key="date" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.dateLabel }}</q-td>
-                  <q-td key="actions" :props="props" class="row items-center justify-end q-gutter-x-sm no-wrap">
-                    <q-btn flat dense color="grey-6" size="sm" class="custom-radius" @click="openView(props.row)"><Icon icon="lucide:eye" width="18" height="18" /><q-tooltip>View</q-tooltip></q-btn>
-                    <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="togglePublish(props.row)">
-                      <Icon :icon="props.row.status === 'published' ? 'lucide:eye-off' : 'lucide:send'" width="18" height="18" />
-                      <q-tooltip>{{ props.row.status === 'published' ? 'Unpublish' : 'Publish' }}</q-tooltip>
-                    </q-btn>
-                    <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="openEdit(props.row)"><Icon icon="lucide:pencil" width="18" height="18" /><q-tooltip>Edit</q-tooltip></q-btn>
+                  <q-td key="actions" :props="props" class="row items-center justify-end q-gutter-x-sm no-wrap" @click.stop>
+                    <template v-if="!props.row.accommodation_id">
+                      <q-btn v-if="props.row.status !== 'expired'" flat dense color="primary" size="sm" class="custom-radius" @click="togglePublish(props.row)">
+                        <Icon :icon="props.row.status === 'live' ? 'lucide:eye-off' : 'lucide:send'" width="18" height="18" />
+                        <q-tooltip>{{ props.row.status === 'live' ? 'Unpublish' : 'Publish now' }}</q-tooltip>
+                      </q-btn>
+                      <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="openEdit(props.row)"><Icon icon="lucide:pencil" width="18" height="18" /><q-tooltip>Edit</q-tooltip></q-btn>
+                    </template>
                     <q-btn v-if="!showArchived" flat dense color="grey-7" size="sm" class="custom-radius" @click="archiveItem(props.row)"><Icon icon="lucide:archive" width="18" height="18" /><q-tooltip>Archive</q-tooltip></q-btn>
                     <q-btn v-else flat dense color="primary" size="sm" class="custom-radius" @click="restoreItem(props.row)"><Icon icon="lucide:archive-restore" width="18" height="18" /><q-tooltip>Restore</q-tooltip></q-btn>
                   </q-td>
@@ -94,7 +101,7 @@
 
           <!-- Policies tab -->
           <q-tab-panel name="policies" class="q-pa-none">
-            <DataTable :rows="paginatedData" :columns="policyColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10">
+            <DataTable :rows="paginatedData" :columns="policyColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" @row-click="openView">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon icon="lucide:gavel" width="48" height="48" class="q-mb-md" />
@@ -111,15 +118,20 @@
                     </div>
                   </q-td>
                   <q-td key="version" :props="props">
-                    <q-badge color="grey-2" text-color="ink" class="text-weight-bold q-px-sm" style="border-radius: var(--radius-sm); font-size: 11px;">{{ props.row.version || '—' }}</q-badge>
+                    <BadgePill tone="neutral" :label="versionLabel(props.row)" />
                   </q-td>
                   <q-td key="status" :props="props">
-                    <BadgePill :tone="policyStatusColor(props.row).tone" :label="policyStatusLabel(props.row)" />
+                    <BadgePill v-bind="STATUS_META[props.row.status as PolicyStatus]" />
                   </q-td>
-                  <q-td key="updatedAt" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.effectiveLabel }}</q-td>
-                  <q-td key="author" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.authorName }}</q-td>
-                  <q-td key="actions" :props="props" class="row items-center justify-end q-gutter-x-sm no-wrap">
-                    <q-btn flat dense color="grey-6" size="sm" class="custom-radius" @click="openView(props.row)"><Icon icon="lucide:eye" width="18" height="18" /><q-tooltip>View</q-tooltip></q-btn>
+                  <q-td key="accepted" :props="props" style="font-size: 13px;">
+                    <template v-if="props.row.stats && props.row.status === 'in_effect'">
+                      <div class="text-ink text-weight-medium">{{ props.row.stats.accepted }} / {{ props.row.stats.eligible }}</div>
+                      <q-linear-progress :value="props.row.stats.eligible ? props.row.stats.accepted / props.row.stats.eligible : 0" rounded size="4px" color="primary" style="max-width: 96px;" />
+                    </template>
+                    <span v-else class="text-muted">—</span>
+                  </q-td>
+                  <q-td key="effective" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ fmtDate(props.row.effective_date) }}</q-td>
+                  <q-td key="actions" :props="props" class="row items-center justify-end q-gutter-x-sm no-wrap" @click.stop>
                     <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="openEdit(props.row)"><Icon icon="lucide:pencil" width="18" height="18" /><q-tooltip>Edit</q-tooltip></q-btn>
                     <q-btn v-if="!showArchived" flat dense color="grey-7" size="sm" class="custom-radius" @click="archiveItem(props.row)"><Icon icon="lucide:archive" width="18" height="18" /><q-tooltip>Archive</q-tooltip></q-btn>
                     <q-btn v-else flat dense color="primary" size="sm" class="custom-radius" @click="restoreItem(props.row)"><Icon icon="lucide:archive-restore" width="18" height="18" /><q-tooltip>Restore</q-tooltip></q-btn>
@@ -131,49 +143,23 @@
       </template>
     </TableCard>
 
-    <!-- Create / Edit dialog -->
-    <ComposerDialog
-      ref="composerRef"
-      :kind="activeTab"
-      :edit-row="composerEditRow"
-      :create-token="composerCreateToken"
-      @saved="fetchAll"
+    <ComposerDialog :kind="activeTab" :edit-row="composerEditRow" :create-token="composerCreateToken" @saved="fetchAll" />
+
+    <AnnouncementDrawer
+      :row="viewKind === 'announcements' ? viewRow : null"
+      @close="viewRow = null"
+      @edit="editFromDrawer"
+      @archive="archiveItem"
+      @restore="restoreItem"
+      @toggle-publish="togglePublish"
     />
-
-    <!-- View dialog -->
-    <q-dialog v-model="viewOpen">
-      <q-card class="dialog-card" style="min-width: 480px; max-width: 90vw;">
-        <q-bar class="bg-transparent q-px-md q-pt-sm">
-          <div class="text-h6 text-weight-bold">{{ view.title }}</div>
-          <q-space />
-          <q-btn flat round dense icon="close" @click="viewOpen = false" size="sm" />
-        </q-bar>
-        <q-card-section class="q-gutter-y-sm q-pt-none">
-          <div class="row items-center q-gutter-x-sm">
-            <BadgePill
-              v-if="view.kind === 'announcement'"
-              :tone="statusColor(view.status).tone"
-              :icon="statusIcon(view.status)"
-              :label="statusLabel(view.status)"
-            />
-            <BadgePill
-              v-if="view.kind === 'announcement'"
-              :tone="audienceColor(view.audience).tone"
-              :label="audienceLabel(view.audience)"
-            />
-            <q-badge v-if="view.kind === 'policy'" color="grey-2" text-color="ink" class="text-weight-bold q-px-sm" style="border-radius: var(--radius-sm); font-size: 11px;">
-              {{ view.version || 'No version' }}
-            </q-badge>
-          </div>
-          <div class="text-muted" style="font-size: 12px;">
-            {{ view.kind === 'announcement' ? 'By ' + view.authorName + ' · ' + view.dateLabel : 'By ' + view.authorName + ' · Effective ' + view.effectiveLabel }}
-          </div>
-          <q-separator />
-          <div class="text-ink" style="font-size: 14px; line-height: 1.5; white-space: pre-wrap;">{{ view.body }}</div>
-        </q-card-section>
-      </q-card>
-    </q-dialog>
-
+    <PolicyDrawer
+      :row="viewKind === 'policies' ? viewRow : null"
+      @close="viewRow = null"
+      @edit="editFromDrawer"
+      @archive="archiveItem"
+      @restore="restoreItem"
+    />
   </q-page>
 </template>
 
@@ -187,83 +173,84 @@ import TableCard from '@/components/table/TableCard.vue'
 import DataTable from '@/components/table/DataTable.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import ComposerDialog from '@/features/announcements/ComposerDialog.vue'
-import { type StatusTone } from '@/utils/status.config'
-import { fmtDate, announcementStatus } from '@/features/announcements/shared'
+import AnnouncementDrawer from '@/features/announcements/AnnouncementDrawer.vue'
+import PolicyDrawer from '@/features/announcements/PolicyDrawer.vue'
+import {
+  fetchAnnouncements, fetchPolicies, fetchReach, fetchPolicyStats, setAnnouncementPublished, setArchived,
+} from '@/api/announcements'
+import {
+  STATUS_META, announcementStatus, audienceMeta, fmtDate, pct, policyStatus, utcIso, versionLabel,
+  type AnnouncementStatus, type PolicyStatus,
+} from '@/features/announcements/shared'
+
+type Tab = 'announcements' | 'policies'
 
 const $q = useQuasar()
 const notify = useNotify()
 
-const activeTab = ref<'announcements' | 'policies'>('announcements')
+const activeTab = ref<Tab>('announcements')
+const isAnn = computed(() => activeTab.value === 'announcements')
 const searchQuery = ref('')
 const currentPage = ref(1)
 const loading = ref(true)
 const fetchError = ref('')
-const activeFilters = ref<Record<string, any[]>>({})
 const showArchived = ref(false)
+// OSAS's own broadcasts by default; landlord/landlady notices are one filter away.
+const defaultFilters = (tab: Tab): Record<string, any[]> => (tab === 'announcements' ? { source: ['osas'] } : {})
+const activeFilters = ref<Record<string, any[]>>(defaultFilters('announcements'))
 
 const tabs = [
   { name: 'announcements', label: 'Announcements' },
   { name: 'policies', label: 'Policies & Guidelines' },
 ]
 
-// ---- data models (raw Supabase rows joined with author) ----
 const announcements = ref<any[]>([])
 const policies = ref<any[]>([])
 
-// ---- dialog state (trigger refs for ComposerDialog) ----
-const composerRef = ref<InstanceType<typeof ComposerDialog> | null>(null)
 const composerEditRow = ref<any | null>(null)
 const composerCreateToken = ref(0)
-const viewOpen = ref(false)
-const view = ref<any>({})
-
-// ---- timestamp helpers (shared) ----
-// fmtDate / dateInput / dateToIso / announcementStatus live in
-// features/announcements/shared.ts
+const viewRow = ref<any | null>(null)
+const viewKind = ref<Tab>('announcements')
 
 // ---- fetch ----
 async function fetchAll() {
   loading.value = true
   fetchError.value = ''
-
   try {
-    const annSelect = 'id, title, body, audience, published_at, expires_at, archived, author:users ( full_name )'
-    const annSelectNoArch = 'id, title, body, audience, published_at, expires_at, author:users ( full_name )'
-    const polSelect = 'id, title, body, version, effective_date, archived, creator:users ( full_name )'
-    const polSelectNoArch = 'id, title, body, version, effective_date, creator:users ( full_name )'
+    const [ann, pol] = await Promise.all([fetchAnnouncements(), fetchPolicies()])
+    // Reach and acceptance are extras: a failure leaves the columns blank, not the page.
+    const [reach, stats] = await Promise.all([
+      fetchReach().catch((e) => { console.error('Reach failed:', e); return new Map() }),
+      fetchPolicyStats().catch((e) => { console.error('Policy stats failed:', e); return new Map() }),
+    ])
 
-    // Select with `archived`; if the column hasn't been migrated yet, fall back
-    // to a select without it so the page still loads (archive becomes a no-op
-    // until the migration is applied).
-    let annRes: any = await supabase.from('announcements').select(annSelect).order('published_at', { ascending: false, nullsFirst: false })
-    if (annRes.error && (annRes.error as any).code === '42703') {
-      annRes = await supabase.from('announcements').select(annSelectNoArch).order('published_at', { ascending: false, nullsFirst: false })
-    }
-    let polRes: any = await supabase.from('policies').select(polSelect).order('effective_date', { ascending: false })
-    if (polRes.error && (polRes.error as any).code === '42703') {
-      polRes = await supabase.from('policies').select(polSelectNoArch).order('effective_date', { ascending: false })
-    }
-
-    if (annRes.error) throw annRes.error
-    if (polRes.error) throw polRes.error
-
-    announcements.value = (annRes.data ?? []).map((a: any) => ({
-      ...a,
-      archived: !!a.archived,
-      status: announcementStatus(a),
-      authorName: a.author?.full_name ?? 'Unknown',
-      dateLabel: a.published_at ? fmtDate(a.published_at) : (a.expires_at ? 'Draft · expires ' + fmtDate(a.expires_at) : 'Draft'),
-      audience: a.audience ?? 'all',
-    }))
-
-    policies.value = (polRes.data ?? []).map((p: any) => ({
+    announcements.value = ann.map((a: any) => {
+      const status = announcementStatus(a)
+      return {
+        ...a,
+        status,
+        reach: status === 'draft' || status === 'scheduled' ? null : reach.get(a.id) ?? null,
+        authorName: a.author?.full_name ?? 'Unknown',
+        audience: a.audience ?? 'all',
+        dateLabel: status === 'draft' ? 'Draft'
+          : (status === 'scheduled' ? 'Goes live ' : '') + fmtDate(utcIso(a.published_at)),
+      }
+    })
+    policies.value = pol.map((p: any) => ({
       ...p,
-      archived: !!p.archived,
+      status: policyStatus(p),
+      stats: stats.get(p.id) ?? null,
       authorName: p.creator?.full_name ?? 'Unknown',
-      effectiveLabel: fmtDate(p.effective_date),
     }))
+
+    // Keep an open drawer on the refreshed copy of its row.
+    if (viewRow.value) {
+      const list = viewKind.value === 'announcements' ? announcements.value : policies.value
+      viewRow.value = list.find((r) => r.id === viewRow.value.id) ?? null
+    }
   } catch (e) {
-    fetchError.value = e instanceof Error ? e.message : 'Failed to load data'
+    // Supabase errors are plain objects, not Error instances; keep their message.
+    fetchError.value = (e as { message?: string })?.message || 'Failed to load data'
     console.error('Failed to load announcements/policies:', e)
   } finally {
     loading.value = false
@@ -272,30 +259,21 @@ async function fetchAll() {
 
 onMounted(fetchAll)
 
-// ---- computed (filter/paginate per tab) ----
-const currentDataArray = computed(() => {
-  return activeTab.value === 'announcements' ? announcements.value : policies.value
-})
-
+// ---- filter / paginate ----
 const filteredData = computed(() => {
-  let result = currentDataArray.value.filter((item) => showArchived.value ? !!item.archived : !item.archived)
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase()
+  const source = isAnn.value ? announcements.value : policies.value
+  let result = source.filter((item) => showArchived.value ? !!item.archived : !item.archived)
+  const q = searchQuery.value.toLowerCase()
+  if (q) {
     result = result.filter((item) =>
-      (item.title ?? '').toLowerCase().includes(q) ||
-      (item.body ?? '').toLowerCase().includes(q) ||
-      (item.authorName ?? '').toLowerCase().includes(q)
-    )
+      [item.title, item.summary, item.body, item.authorName, item.accommodation?.name]
+        .some((v) => (v ?? '').toLowerCase().includes(q)))
   }
   const f = activeFilters.value
-  if (activeTab.value === 'announcements') {
-    const statuses = f.status
-    if (statuses && statuses.length) result = result.filter((item) => statuses.includes(item.status))
-    const audiences = f.audience
-    if (audiences && audiences.length) result = result.filter((item) => audiences.includes(item.audience))
-  } else {
-    const statuses = f.status
-    if (statuses && statuses.length) result = result.filter((item) => statuses.includes(policyStatus(item)))
+  if (f.status?.length) result = result.filter((item) => f.status!.includes(item.status))
+  if (isAnn.value) {
+    if (f.audience?.length) result = result.filter((item) => !item.accommodation_id && f.audience!.includes(item.audience))
+    if (f.source?.length) result = result.filter((item) => f.source!.includes(item.accommodation_id ? 'landlord' : 'osas'))
   }
   return result
 })
@@ -305,9 +283,9 @@ const paginatedData = computed(() => {
   return filteredData.value.slice(start, start + 10)
 })
 
-watch(activeTab, () => {
+watch(activeTab, (tab) => {
   searchQuery.value = ''
-  activeFilters.value = {}
+  activeFilters.value = defaultFilters(tab)
   showArchived.value = false
   currentPage.value = 1
 })
@@ -317,25 +295,25 @@ watch(activeFilters, () => {
 })
 
 const filterConfig = computed(() => {
-  if (activeTab.value === 'announcements') {
+  if (isAnn.value) {
     return [
+      {
+        label: 'Source',
+        key: 'source',
+        options: [
+          { label: 'OSAS', value: 'osas' },
+          { label: 'Landlord/Landlady notices', value: 'landlord' },
+        ],
+      },
       {
         label: 'Status',
         key: 'status',
-        options: [
-          { label: 'Published', value: 'published' },
-          { label: 'Draft', value: 'draft' },
-          { label: 'Expired', value: 'expired' },
-        ],
+        options: (['live', 'scheduled', 'draft', 'expired'] as const).map((s) => ({ label: STATUS_META[s].label, value: s })),
       },
       {
         label: 'Audience',
         key: 'audience',
-        options: [
-          { label: 'All users', value: 'all' },
-          { label: 'Students', value: 'students' },
-          { label: 'Landlords/Landladies', value: 'landlords' },
-        ],
+        options: ['all', 'students', 'landlords'].map((a) => ({ label: audienceMeta(a).label, value: a })),
       },
     ]
   }
@@ -343,25 +321,16 @@ const filterConfig = computed(() => {
     {
       label: 'Status',
       key: 'status',
-      options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Draft', value: 'draft' },
-      ],
+      options: (['in_effect', 'scheduled'] as const).map((s) => ({ label: STATUS_META[s].label, value: s })),
     },
   ]
 })
 
-function policyStatus(row: any): 'active' | 'draft' {
-  const eff = row.effective_date
-  const active = eff && new Date(eff).getTime() <= Date.now()
-  return active ? 'active' : 'draft'
-}
-
 function clearFilters() {
-  activeFilters.value = {}
+  activeFilters.value = defaultFilters(activeTab.value)
 }
 
-// ---- dialog actions ----
+// ---- actions ----
 function openCreate() {
   composerEditRow.value = null
   composerCreateToken.value++
@@ -374,143 +343,74 @@ function openEdit(row: any) {
   composerEditRow.value = { ...row }
 }
 
+function editFromDrawer(row: any) {
+  viewRow.value = null
+  openEdit(row)
+}
+
 function openView(row: any) {
-  view.value = {
-    ...row,
-    kind: activeTab.value === 'announcements' ? 'announcement' : 'policy',
-    status: row.status ?? announcementStatus(row),
-  }
-  viewOpen.value = true
+  viewKind.value = activeTab.value
+  viewRow.value = row
 }
 
 async function togglePublish(row: any) {
-  const publishing = row.status !== 'published'
-  const { data: { session } } = await supabase.auth.getSession()
-  const userId = session?.user?.id ?? null
-
+  const publishing = row.status !== 'live'
   try {
-    let error: any = null
-    if (publishing) {
-      ;({ error } = await supabase.from('announcements').update({
-        published_at: new Date().toISOString(),
-        author_id: userId ?? row.author_id,
-      } as any).eq('id', row.id))
-    } else {
-      ;({ error } = await supabase.from('announcements').update({ published_at: null } as any).eq('id', row.id))
-    }
-    if (error) throw error
+    const { data: { session } } = await supabase.auth.getSession()
+    await setAnnouncementPublished(row.id, publishing ? new Date().toISOString() : null, publishing ? session?.user?.id : null)
     notify.success(publishing ? 'Announcement published.' : 'Announcement unpublished.')
     await fetchAll()
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Failed to update'
     console.error('Toggle publish failed:', e)
-    notify.error(msg)
+    notify.error(e instanceof Error ? e.message : 'Failed to update')
   }
 }
 
-async function archiveItem(row: any) {
-  const label = activeTab.value === 'announcements' ? 'announcement' : 'policy'
+function archiveItem(row: any) {
+  const table = viewRow.value ? viewKind.value : activeTab.value
+  const label = table === 'announcements' ? 'announcement' : 'policy'
   $q.dialog({
     title: 'Archive ' + label + '?',
     message: '"' + row.title + '" will be moved to the archive. You can restore it later from the Archived view.',
     cancel: { label: 'Cancel', flat: true, color: 'grey-7', noCaps: true },
     ok: { label: 'Archive', unelevated: true, color: 'primary', noCaps: true },
-  }).onOk(async () => {
-    try {
-      const table = activeTab.value === 'announcements' ? 'announcements' : 'policies'
-      const { error } = await supabase.from(table).update({ archived: true } as any).eq('id', row.id)
-      if (error) throw error
-      notify.success(label.charAt(0).toUpperCase() + label.slice(1) + ' archived.')
-      await fetchAll()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to archive'
-      console.error('Archive failed:', e)
-      notify.error(msg)
-    }
-  })
+  }).onOk(() => setArchivedAndReload(table, row, true))
 }
 
-async function restoreItem(row: any) {
-  const label = activeTab.value === 'announcements' ? 'announcement' : 'policy'
+function restoreItem(row: any) {
+  void setArchivedAndReload(viewRow.value ? viewKind.value : activeTab.value, row, false)
+}
+
+async function setArchivedAndReload(table: Tab, row: any, archived: boolean) {
+  const label = table === 'announcements' ? 'Announcement' : 'Policy'
   try {
-    const table = activeTab.value === 'announcements' ? 'announcements' : 'policies'
-    const { error } = await supabase.from(table).update({ archived: false } as any).eq('id', row.id)
-    if (error) throw error
-    notify.success(label.charAt(0).toUpperCase() + label.slice(1) + ' restored.')
+    await setArchived(table, row.id, archived)
+    notify.success(label + (archived ? ' archived.' : ' restored.'))
     await fetchAll()
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Failed to restore'
-    console.error('Restore failed:', e)
-    notify.error(msg)
+    console.error('Archive/restore failed:', e)
+    notify.error(e instanceof Error ? e.message : 'Failed to update')
   }
 }
 
-// ---- display helpers ----
-const searchPlaceholder = computed(() => {
-  return activeTab.value === 'announcements' ? 'Search announcements...' : 'Search policies & guidelines...'
-})
-
+// ---- columns ----
 const announcementColumns = [
-  { name: 'title', required: true, align: 'left', label: 'Announcement Title', field: 'title', headerStyle: 'width: 35%' },
-  { name: 'status', align: 'left', label: 'Status', field: 'status', headerStyle: 'width: 12%' },
-  { name: 'audience', align: 'left', label: 'Audience', field: 'audience', headerStyle: 'width: 14%' },
-  { name: 'author', align: 'left', label: 'Author', field: 'authorName', headerStyle: 'width: 13%' },
-  { name: 'date', align: 'left', label: 'Publish Date', field: 'dateLabel', headerStyle: 'width: 14%' },
+  { name: 'title', required: true, align: 'left', label: 'Announcement', field: 'title', headerStyle: 'width: 32%' },
+  { name: 'status', align: 'left', label: 'Status', field: 'status', headerStyle: 'width: 11%' },
+  { name: 'audience', align: 'left', label: 'Audience', field: 'audience', headerStyle: 'width: 15%' },
+  { name: 'reach', align: 'left', label: 'Reach', field: 'reach', headerStyle: 'width: 11%' },
+  { name: 'date', align: 'left', label: 'Published', field: 'dateLabel', headerStyle: 'width: 15%' },
   { name: 'actions', align: 'right', label: '', field: 'actions', headerStyle: 'width: 12%' },
 ]
 
 const policyColumns = [
-  { name: 'title', required: true, align: 'left', label: 'Policy Name', field: 'title', headerStyle: 'width: 40%' },
+  { name: 'title', required: true, align: 'left', label: 'Policy', field: 'title', headerStyle: 'width: 38%' },
   { name: 'version', align: 'left', label: 'Version', field: 'version', headerStyle: 'width: 10%' },
   { name: 'status', align: 'left', label: 'Status', field: 'status', headerStyle: 'width: 12%' },
-  { name: 'updatedAt', align: 'left', label: 'Effective', field: 'effectiveLabel', headerStyle: 'width: 15%' },
-  { name: 'author', align: 'left', label: 'Created By', field: 'authorName', headerStyle: 'width: 13%' },
+  { name: 'accepted', align: 'left', label: 'Accepted', field: 'stats', headerStyle: 'width: 14%' },
+  { name: 'effective', align: 'left', label: 'Effective', field: 'effective_date', headerStyle: 'width: 14%' },
   { name: 'actions', align: 'right', label: '', field: 'actions', headerStyle: 'width: 10%' },
 ]
-
-function statusColor(status: string): { tone: StatusTone } {
-  if (status === 'published') return { tone: 'success' }
-  if (status === 'draft') return { tone: 'warning' }
-  return { tone: 'neutral' }
-}
-
-function statusIcon(status: string) {
-  if (status === 'draft') return 'lucide:file-pen'
-  if (status === 'published') return 'lucide:circle-check'
-  return 'lucide:archive'
-}
-
-function statusLabel(status: string) {
-  if (status === 'published') return 'Published'
-  if (status === 'draft') return 'Draft'
-  return 'Expired'
-}
-
-function audienceLabel(audience: string) {
-  if (audience === 'all') return 'All users'
-  if (audience === 'students') return 'Students'
-  if (audience === 'landlords') return 'Landlords/Landladies'
-  return audience
-}
-
-function audienceColor(audience: string): { tone: StatusTone } {
-  if (audience === 'all') return { tone: 'neutral' }
-  if (audience === 'students') return { tone: 'info' }
-  if (audience === 'landlords') return { tone: 'primary' }
-  return { tone: 'neutral' }
-}
-
-function policyStatusColor(row: any): { tone: StatusTone } {
-  const eff = row.effective_date
-  const active = eff && new Date(eff).getTime() <= Date.now()
-  return active ? { tone: 'success' } : { tone: 'warning' }
-}
-
-function policyStatusLabel(row: any) {
-  const eff = row.effective_date
-  const active = eff && new Date(eff).getTime() <= Date.now()
-  return active ? 'Active' : 'Draft'
-}
 </script>
 
 <style scoped>
@@ -539,8 +439,5 @@ function policyStatusLabel(row: any) {
   padding: 0;
   border: 2px solid var(--c-surface);
   box-shadow: 0 0 0 1px var(--c-primary);
-}
-.dialog-card {
-  border-radius: 16px;
 }
 </style>

@@ -83,8 +83,10 @@ async function runAutoChecks() {
   const list: VerificationCheck[] = []
 
   const have = props.isAccommodation ? 0 : (r.files?.length ?? 0)
-  const need = r.type?.includes('Landlord/Landlady') ? 1 : 2
-  const docsOk = props.isAccommodation ? true : have >= need
+  // The same named checklist the queue row shows, so "ready" means one thing in
+  // both places. Counting files let a landlord/landlady with a business permit
+  // and no ID pass as complete.
+  const missingRequirements = (r.requirements ?? []).filter((item: { ok: boolean }) => !item.ok)
 
   if (props.isAccommodation) {
     const requiredPermits = [
@@ -114,9 +116,11 @@ async function runAutoChecks() {
     }
   } else {
     list.push({
-      label: 'Required documents',
-      status: docsOk ? 'pass' : 'fail',
-      detail: docsOk ? `All ${need} required document(s) attached.` : `Missing ${need - have} of ${need} required document(s).`,
+      label: 'Requirements submitted',
+      status: missingRequirements.length ? 'fail' : 'pass',
+      detail: missingRequirements.length
+        ? `Missing: ${missingRequirements.map((item: { label: string }) => item.label).join(', ')}.`
+        : `${(r.requirements ?? []).map((item: { label: string }) => item.label).join(' and ')} are attached.`,
     })
     if (have) {
       const unopenable = (r.files as any[]).filter((f) => !f.url).length
