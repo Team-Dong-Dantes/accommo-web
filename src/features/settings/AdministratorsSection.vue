@@ -71,6 +71,20 @@
                     </q-item-section>
                     <q-item-section class="text-negative">Cancel invite</q-item-section>
                   </q-item>
+                  <template v-if="canRemove(a) && a.onboarding_complete">
+                    <q-item clickable v-close-popup @click="confirmAction('password', a)">
+                      <q-item-section avatar style="min-width: 32px">
+                        <Icon icon="lucide:key-round" width="18" height="18" />
+                      </q-item-section>
+                      <q-item-section>Set a temporary password…</q-item-section>
+                    </q-item>
+                    <q-item clickable v-close-popup @click="confirmAction('mfa', a)">
+                      <q-item-section avatar style="min-width: 32px">
+                        <Icon icon="lucide:shield-off" width="18" height="18" />
+                      </q-item-section>
+                      <q-item-section>Reset two-factor…</q-item-section>
+                    </q-item>
+                  </template>
                   <q-item v-if="canRemove(a)" clickable v-close-popup @click="confirmAction('remove', a)">
                     <q-item-section avatar style="min-width: 32px">
                       <Icon icon="lucide:user-minus" width="18" height="18" class="text-negative" />
@@ -197,23 +211,57 @@ function canRemove(a: AdminRow): boolean {
   return !a.is_superadmin && a.id !== authStore.user?.id
 }
 
-function confirmAction(action: 'revoke' | 'remove', a: AdminRow) {
-  const isRevoke = action === 'revoke'
+type AdminAction = 'revoke' | 'remove' | 'password' | 'mfa'
+
+const ACTIONS: Record<AdminAction, { fn: string; title: string; ok: string; done: string; message: (who: string) => string }> = {
+  revoke: {
+    fn: 'revoke_invite', title: 'Cancel invite', ok: 'Cancel invite', done: 'Invite cancelled',
+    message: (who) => `Cancel the pending invite for ${who}? The invitation will be withdrawn and the account removed.`,
+  },
+  remove: {
+    fn: 'remove_admin', title: 'Remove admin', ok: 'Remove', done: 'Admin access removed',
+    message: (who) => `Remove admin access from ${who}? Their account is kept but demoted to a regular user.`,
+  },
+  password: {
+    fn: 'set_temp_password', title: 'Set a temporary password', ok: 'Generate password', done: 'Temporary password set',
+    message: (who) => `Give ${who} a new password? Their current password stops working. Hand the new one to them in person; they can change it in Settings.`,
+  },
+  mfa: {
+    fn: 'reset_mfa', title: 'Reset two-factor', ok: 'Reset two-factor', done: 'Two-factor reset',
+    message: (who) => `Remove ${who}'s authenticator? They sign in with only their password until they set two-factor up again in Settings.`,
+  },
+}
+
+function confirmAction(action: AdminAction, a: AdminRow) {
+  const spec = ACTIONS[action]
   $q.dialog({
-    title: isRevoke ? 'Cancel invite' : 'Remove admin',
-    message: isRevoke
-      ? `Cancel the pending invite for ${a.email}? The invitation will be withdrawn and the account removed.`
-      : `Remove admin access from ${a.full_name || a.email}? Their account is kept but demoted to a regular user.`,
+    title: spec.title,
+    message: spec.message(action === 'revoke' ? a.email : a.full_name || a.email),
     cancel: { label: 'Keep', noCaps: true, flat: true },
-    ok: { label: isRevoke ? 'Cancel invite' : 'Remove', color: 'negative', noCaps: true },
+    ok: { label: spec.ok, color: 'negative', noCaps: true },
     persistent: true,
   }).onOk(() => manageAdmin(action, a))
 }
 
-async function manageAdmin(action: 'revoke' | 'remove', a: AdminRow) {
+async function manageAdmin(action: AdminAction, a: AdminRow) {
+  const spec = ACTIONS[action]
   try {
-    await callEdgeFunction('manage-admin', { action: action === 'revoke' ? 'revoke_invite' : 'remove_admin', target_id: a.id })
-    notify.success(action === 'revoke' ? 'Invite cancelled' : 'Admin access removed')
+    const result = await callEdgeFunction<{ temporary_password?: string }>('manage-admin', { action: spec.fn, target_id: a.id })
+    notify.success(spec.done)
+    if (result.temporary_password) {
+      // Shown once, never stored.
+      $q.dialog({
+        title: 'Temporary password',
+        message: `${a.email} signs in with ${result.temporary_password} — it is shown only now.`,
+        ok: { label: 'Copy and close', noCaps: true },
+        persistent: true,
+      }).onOk(() => {
+        navigator.clipboard.writeText(result.temporary_password!).then(
+          () => notify.success('Password copied'),
+          () => notify.error('Could not copy password'),
+        )
+      })
+    }
     await loadAdmins()
   } catch (e) {
     notify.error(errorMessage(e, 'Action failed.'))

@@ -58,3 +58,13 @@ Since you're the sole web dev, conflicts are rare. But when you need new API fea
 - Database schema changes (coordinate with both mobile devs)
 - API endpoint changes (coordinate with both mobile devs)
 - Auth flow changes (affects all interfaces)
+
+---
+
+## 5. Admin locked out
+
+- **Forgot password:** "Forgot password?" on the sign-in page e-mails a reset link (admin accounts only). If e-mail isn't arriving, the main admin can use Settings → Administrators → ⋮ → *Set a temporary password…*
+- **Lost two-factor device:** the main admin uses Settings → Administrators → ⋮ → *Reset two-factor…*; the admin then sets it up again in Settings.
+- **The main admin themselves**, when the above isn't enough — nobody in the app ranks above them, so use the Supabase dashboard:
+  - Password: Authentication → Users → the account → *Send password recovery* (or set a password there).
+  - Two-factor: SQL editor → `delete from auth.mfa_factors where user_id = '<their user id>';`

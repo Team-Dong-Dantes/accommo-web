@@ -65,7 +65,7 @@ export async function fetchAccountEvents(userId: string, limit = 30): Promise<Ac
     .select('action, entity_type, created_at, before_json, after_json, actor:users!audit_logs_actor_id_fkey(full_name)')
     .in('entity_type', ['users', 'account_standing'])
     .eq('entity_id', userId)
-    .in('action', ['UPDATE', 'account.sign_out_everywhere', 'account.disconnect_google', 'account.email_changed', 'account.temp_password', 'account.closed'])
+    .in('action', ['UPDATE', 'account.sign_out_everywhere', 'account.disconnect_google', 'account.email_changed', 'account.temp_password', 'account.mfa_reset', 'account.closed'])
     .order('created_at', { ascending: false })
     .limit(limit)
   if (error) throw error

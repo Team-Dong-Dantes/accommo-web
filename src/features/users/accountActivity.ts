@@ -27,6 +27,7 @@ const SIGN_IN: Record<string, { text: string; icon: string }> = {
   'account.sign_out_everywhere': { text: 'Signed them out everywhere', icon: 'lucide:log-out' },
   'account.disconnect_google': { text: 'Disconnected their Google account', icon: 'lucide:unlink' },
   'account.temp_password': { text: 'Set a temporary password', icon: 'lucide:key-round' },
+  'account.mfa_reset': { text: 'Reset their two-factor', icon: 'lucide:shield-off' },
   'account.email_changed': { text: 'Changed their sign-in e-mail', icon: 'lucide:at-sign' },
   'account.closed': { text: 'Closed the account', icon: 'lucide:user-x' },
 }

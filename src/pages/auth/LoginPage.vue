@@ -45,7 +45,7 @@ import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar, type QForm } from 'quasar';
 import { useAuthStore } from '@/stores/auth';
-import { supabase } from '@/utils/supabase';
+import { callEdgeFunction } from '@/utils/edgeFunction';
 import { useNotify } from '@/utils/notify';
 
 import AuthInput from '@/components/auth/AuthInput.vue';
@@ -70,9 +70,10 @@ onMounted(() => {
 const notify = useNotify();
 const resetting = ref(false);
 
-// Uses whatever is in the e-mail field, like the mobile app. Supabase only
-// sends if the address has an account, but the reply is the same either way so
-// the form can't be used to find out who has one.
+// Goes through request-admin-reset, which only e-mails admin accounts —
+// calling Supabase directly here let any student or landlord/landlady reset
+// from the console. The reply is the same either way, so the form can't be
+// used to find out which addresses are admins.
 async function sendReset() {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
     notify.error('Enter your e-mail address first, then choose Forgot password.');
@@ -80,11 +81,8 @@ async function sendReset() {
   }
   resetting.value = true;
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email.value, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
-    });
-    if (error) throw error;
-    notify.success('If that address has an account, a reset link is on its way.');
+    await callEdgeFunction('request-admin-reset', { email: email.value });
+    notify.success('If that is an OSAS admin account, a reset link is on its way.');
   } catch (e) {
     notify.error(errorMessage(e, 'Could not send the reset e-mail.'));
   } finally {
