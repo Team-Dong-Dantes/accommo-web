@@ -292,6 +292,7 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
       pax: r.currentPax,
       status: r.status,
       statusTone: getTone(r.status),
+      utilities: r.utilities,
       accommodationId: p.id,
       occupants: (r.occupants ?? []).map((o: any) => ({
         id: o.id,

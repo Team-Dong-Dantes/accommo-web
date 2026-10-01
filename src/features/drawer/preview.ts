@@ -141,6 +141,8 @@ export interface PreviewRoom {
   occupants?: PreviewOccupant[]
   /** Its photos, once the record has loaded them. */
   photos?: string[]
+  /** How its utilities are paid, one line ("" when not set yet). */
+  utilities?: string
 }
 export interface PreviewOccupant {
   id: string

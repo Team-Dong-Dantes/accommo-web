@@ -5,7 +5,7 @@ import { registerReset } from '@/utils/pageCache'
 import { getStatus, type StatusTone } from '@/utils/status.config'
 import { composeAddress, getInitialsWide as initialsOf, humanizeEnum } from '@/utils/format'
 import { resolveAsset } from '@/utils/cloudinaryUrl'
-import { facilityIcon, facilityLabel } from '@/utils/facilities'
+import { facilityIcon, facilityLabel, roomUtilitiesSummary } from '@/utils/facilities'
 
 // Real accommodation shape pulled from Supabase. Fields the DB doesn't carry
 // (audit results, inspectors, compliance permits, performance scores) are
@@ -127,6 +127,8 @@ export interface RealRoom {
   currentPax: number | null
   status: string
   monthlyRent: number | null
+  /** How its utilities are paid, e.g. "Water included · Electricity own meter". */
+  utilities: string
   occupants: RealOccupant[]
 }
 
@@ -185,7 +187,8 @@ export function useAccommodations() {
             landlord:users!accommodations_landlord_id_fkey(id, full_name, phone, initials, avatar_url, sex)`
         ),
         supabase.from('rooms').select(
-          `id, room_number, label, floor, capacity, current_pax, status, monthly_rent, accommodation_id`
+          `id, room_number, label, floor, capacity, current_pax, status, monthly_rent, accommodation_id,
+           water_billing, water_flat_fee, electric_billing, electric_flat_fee, wifi_billing, wifi_flat_fee`
         ),
         supabase.from('leases').select(
           `id, status, room_id, student_id, start_date,
@@ -331,6 +334,7 @@ export function useAccommodations() {
           currentPax: r.current_pax ?? null,
           status: r.status ?? 'available',
           monthlyRent: r.monthly_rent ?? null,
+          utilities: roomUtilitiesSummary(r),
           occupants: (occupantsByRoom.get(r.id) ?? []).map((l): RealOccupant => {
             const st = l.student ?? {}
             const sex = st.sex === 'F' || st.sex === 'Female' ? 'female' : 'male'

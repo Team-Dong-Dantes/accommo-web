@@ -28,6 +28,10 @@
           </template>
 
           <div class="rl-detail">
+            <p class="rl-utils">
+              <Icon icon="lucide:plug-zap" width="13" height="13" />
+              {{ rm.utilities || 'Utilities not set yet' }}
+            </p>
             <PhotoStrip :photos="rm.photos ?? []" :title="rm.name" @open="(i) => $emit('photos', rm.name, rm.photos ?? [], i)" />
             <div v-for="p in boarders(rm)" :key="p.id" class="rl-person">
               <span class="rl-av" :class="p.gender === 'female' ? 'rl-av--f' : 'rl-av--m'">
@@ -85,3 +89,13 @@ function state(rm: PreviewRoom): { label: string; tone: 'ok' | 'full' | 'warn' }
 </script>
 
 <style scoped src="./rowList.css"></style>
+<style scoped>
+.rl-utils {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--ar-muted);
+  font-size: 12px;
+}
+</style>
