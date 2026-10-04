@@ -75,9 +75,9 @@
           <div v-if="pay.txnReference" class="dd-entry-ref">Ref: {{ pay.txnReference }}</div>
 
           <div v-if="pay.proofUrl" class="dd-entry-actions">
-            <a :href="pay.proofUrl" target="_blank" rel="noopener" class="dd-proof-btn">
+            <button type="button" class="dd-proof-btn" :disabled="opening === pay.id" @click="viewProof(pay)">
               <Icon icon="lucide:receipt-text" width="15" height="15" /> View proof
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -89,14 +89,22 @@
       title="No payments recorded"
       message="Payments for this student's leases will appear here in chronological order."
     />
+
+    <q-dialog :model-value="!!proof" maximized @update:model-value="proof = null">
+      <PhotoLightbox v-if="proof" :index="0" :title="proof.title" :photos="[proof.url]" style="border-radius: 0" @close="proof = null" />
+    </q-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import TabEmptyState from './TabEmptyState.vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import BadgePill from '@/components/user/BadgePill.vue'
+import PhotoLightbox from './accommodation/PhotoLightbox.vue'
+import { signDocUrl } from '@/utils/docUrl'
+import { isImage } from '@/features/verifications/fileUtils'
+import { useNotify } from '@/utils/notify'
 import type { DrawerPreview, PreviewLease, PreviewPayment } from './preview'
 
 const props = withDefaults(
@@ -112,6 +120,21 @@ const byStay = <T extends { accommodationId: string }>(rows: T[]) =>
   props.filterAccommodationId ? rows.filter((r) => r.accommodationId === props.filterAccommodationId) : rows
 const payments = computed(() => byStay(props.preview.payments ?? []))
 const leases = computed(() => byStay(props.preview.leases ?? []))
+
+// proof_url holds a private `cld:` reference, not a link, so it is signed on
+// demand. Images open in the viewer; a PDF proof can only open in a tab, and
+// that signed link expires after a few minutes.
+const notify = useNotify()
+const opening = ref<string | null>(null)
+const proof = ref<{ title: string; url: string } | null>(null)
+async function viewProof(pay: PreviewPayment) {
+  opening.value = pay.id
+  const { url, error } = await signDocUrl('payments', pay.id, pay.proofUrl ?? undefined)
+  opening.value = null
+  if (!url) return notify.error(error ?? 'Could not open this proof.')
+  if (isImage(url)) proof.value = { title: `Proof of payment · ${pay.monthLabel}`, url }
+  else window.open(url, '_blank', 'noopener')
+}
 
 // One stay's summary shows even after it has ended.
 const activeLease = computed<PreviewLease | undefined>(
@@ -350,6 +373,7 @@ function dotColor(pay: PreviewPayment): string {
   border: 1px solid var(--c-border);
   background: var(--c-surface-2);
   color: var(--c-primary);
+  font-family: inherit;
   text-decoration: none;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
