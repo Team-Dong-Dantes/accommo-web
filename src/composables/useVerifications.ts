@@ -8,6 +8,7 @@ import { secureDocUrl } from '@/utils/docUrl'
 import { fetchAccommodationExtras, type AccommodationExtras } from '@/api/accommodations'
 import { fetchReviewProfile, fetchApplicantDetails, type ApplicantDetails, type ReviewProfile } from '@/api/users'
 import { useReviewPresence } from '@/composables/useReviewPresence'
+import { useAuthStore } from '@/stores/auth'
 
 /**
  * The property behind an accreditation request. An accommodation is not an
@@ -20,6 +21,7 @@ export interface AccommodationFacts {
   /** Amenities and house rules, loaded when the review window opens. */
   extras?: AccommodationExtras
   gender_policy: string | null
+  purok?: string | null
   barangay: string | null
   city: string | null
   lat: number | null
@@ -37,7 +39,7 @@ export interface VerificationRequest {
   owner: string
   initials: string
   type: string
-  files: { id?: string; name: string; url: string; type?: string }[]
+  files: QueueFile[]
   status: string
   statusStyle: { tone: string; icon: string }
   submitted: string
@@ -45,10 +47,14 @@ export interface VerificationRequest {
   submittedAt: string | null
   /** When the current review claim was taken, ISO. Null when nobody holds it. */
   reviewingAt: string | null
+  /** Who holds the claim (reviewing_by). Null when nobody does. */
+  reviewingBy: string | null
   /** The account behind the request, loaded when the review window opens. */
   profile?: ReviewProfile
   /** The property behind an accreditation request, carried from the queue. */
   accommodation?: AccommodationFacts
+  /** Accommodation tab: the open accreditation round this request is. */
+  round?: RoundInfo
   avatarColor: string
   /** The applicant's profile photo. Empty for an accreditation request. */
   avatarUrl: string
@@ -123,12 +129,44 @@ function byQueueOrder(a: VerificationRequest, b: VerificationRequest) {
   return (a.submittedAt ?? '9999').localeCompare(b.submittedAt ?? '9999')
 }
 
+/** What an accreditation round asks OSAS to look at. */
+export type RoundKind = 'new' | 'resubmission' | 'appeal' | 'renewal' | 'change' | 'permit_update'
+
+export const ROUND_KIND_LABEL: Record<RoundKind, string> = {
+  new: 'New accreditation',
+  resubmission: 'Resubmission',
+  appeal: 'Appeal',
+  renewal: 'Renewal',
+  change: 'Listing change',
+  permit_update: 'Permit update',
+}
+
 /**
- * How long an OSAS accreditation stands before it has to be renewed. One
- * number, one place — change it here and both the stamp and the nightly expiry
- * sweep follow.
+ * The open round behind an accommodation request, and the decision before it.
+ * The accreditation term itself now lives in the database
+ * (public.accreditation_term), next to the one function that stamps it.
  */
-const ACCREDITATION_TERM_YEARS = 1
+export interface RoundInfo {
+  id: string
+  number: number
+  kind: RoundKind
+  /** The listing stays visible to students while this is decided. */
+  live: boolean
+  /** accommodations.status as it stands. */
+  listingStatus: string
+  /** What the landlord/landlady wrote with it: the appeal, or a resubmission note. */
+  message: string | null
+  /** kind = 'change': the values asked for, by column. */
+  proposedChanges: Record<string, unknown> | null
+  expiresAt: string | null
+  previous: {
+    decision: 'approved' | 'returned' | 'rejected'
+    decidedAt: string
+    flaggedDocs: string[]
+    tags: string[]
+    note: string | null
+  } | null
+}
 
 function getStatusStyle(status: string) {
   const def = getStatus(status)
@@ -154,11 +192,18 @@ interface QueueDocumentRow {
  * is opened — documents have no readable URL without a signature — and `id` is
  * optional because the profile-column fallbacks carry a URL but no row.
  */
-interface QueueFile {
+export interface QueueFile {
   id?: string
   name: string
   url: string
   type?: string
+  /** Permits only: the expiry date the landlord/landlady gave, ISO date. */
+  expiresAt?: string | null
+  version?: number
+  /** Permits only: SHA-256 of the file, for the duplicate check. */
+  sha256?: string | null
+  /** Permits only: replaced since OSAS last flagged it. */
+  replaced?: boolean
 }
 
 // Module scope: the three queues survive navigation, so returning to
@@ -275,6 +320,7 @@ export function useVerifications() {
             avatar_url: row.avatar_url,
             created_at: row.created_at,
             reviewing_at: row.reviewing_at,
+            reviewing_by: row.reviewing_by,
             documents: [],
           }
           if (row.file_url) {
@@ -328,6 +374,7 @@ export function useVerifications() {
             submitted: getTimeAgo(user.created_at),
             submittedAt: user.created_at ?? null,
             reviewingAt: user.reviewing_at ?? null,
+            reviewingBy: user.reviewing_by ?? null,
             avatarColor: manager ? 'teal-7' : 'blue-6',
             avatarUrl: user.avatar_url || '',
             requirements,
@@ -358,57 +405,93 @@ export function useVerifications() {
           .sort(byQueueOrder)
       }
 
-      const { data: accommodations, error: accommodationError } = await supabase
-        .from('accommodations')
+      // The accommodation queue is every listing with an open accreditation
+      // round (accommo-mobile's migration 20261002120000) — a new listing, a
+      // resubmission, an appeal, a renewal, a change or a permit replaced on a
+      // live listing. It used to be "status is pending or reviewing", which
+      // could not see the last three: they leave the listing live.
+      const { data: openRounds, error: accommodationError } = await supabase
+        .from('accreditation_rounds')
         .select(
-          `id, name, status, landlord_id, accommodation_type, gender_policy,
-           barangay, city, description, lat, lng, reviewing_at,
-           landlord:landlord_id ( full_name, email, phone, status )`,
+          `id, round, kind, message, proposed_changes, submitted_at,
+           accommodation:accommodation_id (
+             id, name, status, landlord_id, accommodation_type, gender_policy,
+             purok, barangay, city, description, lat, lng, reviewing_at, reviewing_by,
+             accreditation_expires_at,
+             landlord:landlord_id ( full_name, email, phone, status )
+           )`,
         )
-        .in('status', ['pending', 'reviewing'])
+        .is('decided_at', null)
 
       if (accommodationError) {
         console.warn('Could not fetch accommodations:', accommodationError.message)
-      } else if (accommodations) {
-        const accommodationIds = (accommodations as any[]).map((accommodation) => accommodation.id)
-        const { data: documents, error: documentError } = accommodationIds.length
-          ? await supabase
-            .from('accommodation_documents')
-            .select('id, accommodation_id, doc_type, file_url, uploaded_at')
-            .in('accommodation_id', accommodationIds)
-          : { data: [], error: null }
+      } else if (openRounds) {
+        const rounds = (openRounds as any[]).filter((r) => r.accommodation)
+        const accommodationIds = rounds.map((r) => r.accommodation.id as string)
+        const [{ data: documents, error: documentError }, { data: pastRounds }] = accommodationIds.length
+          ? await Promise.all([
+            supabase
+              .from('accommodation_documents')
+              .select('id, accommodation_id, doc_type, uploaded_at, expires_at, version, file_sha256')
+              .in('accommodation_id', accommodationIds)
+              .order('version', { ascending: false }),
+            supabase
+              .from('accreditation_rounds')
+              .select('accommodation_id, round, kind, decision, decided_at, flagged_docs, tags, note')
+              .in('accommodation_id', accommodationIds)
+              .not('decided_at', 'is', null)
+              .order('round', { ascending: false }),
+          ])
+          : [{ data: [], error: null }, { data: [] }]
         if (documentError) console.warn('Could not fetch accommodation permits:', documentError.message)
-        const documentsByAccommodation = new Map<string, any[]>()
+
+        // Latest version of each permit only. Every version used to be listed,
+        // so a resubmitted listing showed the rejected file beside its fix.
+        const latestDocs = new Map<string, any[]>()
         for (const document of documents ?? []) {
           if (!document.accommodation_id) continue
-          documentsByAccommodation.set(document.accommodation_id, [
-            ...(documentsByAccommodation.get(document.accommodation_id) ?? []),
-            document,
-          ])
+          const list = latestDocs.get(document.accommodation_id) ?? []
+          if (!list.some((d) => d.doc_type === document.doc_type)) list.push(document)
+          latestDocs.set(document.accommodation_id, list)
         }
-        accommodationRequests.value = (accommodations as any[]).map((p: any) => {
+        const previousRound = new Map<string, any>()
+        for (const past of pastRounds ?? []) {
+          if (!previousRound.has(past.accommodation_id)) previousRound.set(past.accommodation_id, past)
+        }
+
+        accommodationRequests.value = rounds.map((r: any) => {
+          const p = r.accommodation
           const landlordRow = (Array.isArray(p.landlord) ? p.landlord[0] : p.landlord) as any
           const ownerName = landlordRow?.full_name || 'Unknown Landlord/Landlady'
-          const documentRows = documentsByAccommodation.get(p.id) ?? []
-          const submittedAt = documentRows.reduce<string | null>(
-            (latest, document) =>
-              document.uploaded_at && (!latest || document.uploaded_at > latest)
-                ? document.uploaded_at
-                : latest,
-            null,
-          )
-          const files = documentRows.map((document) => ({
+          const previous = previousRound.get(p.id) ?? null
+          const live = !['pending', 'reviewing'].includes(String(p.status))
+          // A live listing keeps its own status; whether someone has it open is
+          // the claim alone.
+          const queueStatus = live ? (p.reviewing_by ? 'reviewing' : 'pending') : String(p.status)
+          const files = (latestDocs.get(p.id) ?? []).map((document) => ({
             id: document.id,
             name: ACCOMMODATION_PERMITS.find((permit) => permit.type === document.doc_type)?.label ?? document.doc_type,
             type: document.doc_type,
             // Signed on demand in selectRequest — permits have no readable URL.
             url: '',
+            expiresAt: document.expires_at ?? null,
+            version: document.version ?? 1,
+            sha256: document.file_sha256 ?? null,
+            // Replaced since OSAS last sent it back, which is what a reviewer
+            // checks first on a resubmission.
+            replaced: Boolean(
+              previous?.decided_at &&
+              (previous.flagged_docs ?? []).includes(document.doc_type) &&
+              document.uploaded_at &&
+              new Date(document.uploaded_at) > new Date(previous.decided_at),
+            ),
           }))
           // Short names: four chips have to share one cell.
           const requirements = checklist(
             ACCOMMODATION_PERMITS.map((permit) => ({ ...permit, label: permit.label.replace(/ permit$/, '') })),
             files,
           )
+          const submittedAt: string | null = r.submitted_at ?? null
           const ageDays = submittedAt ? ageInDays(submittedAt) : null
           return {
             requirements,
@@ -421,7 +504,7 @@ export function useVerifications() {
             college: '',
             yearLevel: '',
             phone: '',
-            location: [p.barangay, p.city].filter(Boolean).join(', '),
+            location: [p.purok, p.barangay, p.city].filter(Boolean).join(', '),
             accommodationType: p.accommodation_type ? humanizeEnum(p.accommodation_type) : '',
             id: `REQ-AC${p.id.substring(0, 4).toUpperCase()}`,
             rawId: p.id,
@@ -430,20 +513,41 @@ export function useVerifications() {
             owner: ownerName,
             ownerId: p.landlord_id,
             initials: getInitials(p.name),
-            type: 'OSAS Accreditation',
+            type: ROUND_KIND_LABEL[r.kind as RoundKind] ?? 'OSAS Accreditation',
             files,
-            status: capitalize(p.status),
-            statusStyle: getStatusStyle(p.status),
+            status: capitalize(queueStatus),
+            statusStyle: getStatusStyle(queueStatus),
             submitted: submittedAt ? getTimeAgo(submittedAt) : 'Unknown',
             submittedAt,
             reviewingAt: p.reviewing_at ?? null,
+            reviewingBy: p.reviewing_by ?? null,
             avatarColor: 'orange-6',
             // A property, not a person — the initials circle is the whole avatar.
             avatarUrl: '',
+            round: {
+              id: r.id,
+              number: r.round,
+              kind: r.kind as RoundKind,
+              live,
+              listingStatus: String(p.status),
+              message: r.message ?? null,
+              proposedChanges: (r.proposed_changes ?? null) as Record<string, unknown> | null,
+              expiresAt: p.accreditation_expires_at ?? null,
+              previous: previous
+                ? {
+                  decision: previous.decision,
+                  decidedAt: previous.decided_at,
+                  flaggedDocs: previous.flagged_docs ?? [],
+                  tags: previous.tags ?? [],
+                  note: previous.note ?? null,
+                }
+                : null,
+            },
             accommodation: {
               accommodation_type: p.accommodation_type ?? null,
               description: p.description ?? null,
               gender_policy: p.gender_policy ?? null,
+              purok: p.purok ?? null,
               barangay: p.barangay ?? null,
               city: p.city ?? null,
               lat: p.lat ?? null,
@@ -538,7 +642,7 @@ export function useVerifications() {
    * copy and left the table row showing the old badge. The request is patched by
    * id wherever it lives instead.
    */
-  function patchRowStatus(id: string, next: 'pending' | 'reviewing', reviewingAt: string | null) {
+  function patchRowStatus(id: string, next: 'pending' | 'reviewing', reviewingAt: string | null, reviewingBy: string | null) {
     const label = capitalize(next)
     const style = getStatusStyle(next)
     const lists = [studentRequests.value, landlordRequests.value, accommodationRequests.value]
@@ -548,10 +652,11 @@ export function useVerifications() {
         row.status = label
         row.statusStyle = style
         row.reviewingAt = reviewingAt
+        row.reviewingBy = reviewingBy
       }
     }
     if (selectedRequest.value?.id === id) {
-      selectedRequest.value = { ...selectedRequest.value, status: label, statusStyle: style, reviewingAt }
+      selectedRequest.value = { ...selectedRequest.value, status: label, statusStyle: style, reviewingAt, reviewingBy }
     }
   }
 
@@ -563,27 +668,42 @@ export function useVerifications() {
     const table = row.id.startsWith('REQ-AC') ? 'accommodations' : 'users'
     const taking = next === 'reviewing'
     const reviewingAt = taking ? new Date().toISOString() : null
-    const reviewingBy = taking ? (await supabase.auth.getUser()).data.user?.id ?? null : null
+    const reviewingBy = taking ? auth.user?.id ?? (await supabase.auth.getUser()).data.user?.id ?? null : null
+    // A live listing (renewal, change, permit update) keeps its own status —
+    // writing 'reviewing' over 'accredited' would take it off Discover. Its
+    // claim is the two lock columns alone.
     const { error } = await supabase
       .from(table)
-      .update({ status: next as never, reviewing_by: reviewingBy, reviewing_at: reviewingAt } as never)
+      .update(
+        (row.round?.live
+          ? { reviewing_by: reviewingBy, reviewing_at: reviewingAt }
+          : { status: next, reviewing_by: reviewingBy, reviewing_at: reviewingAt }) as never,
+      )
       .eq('id', row.rawId)
     if (error) {
       console.warn('Could not set review status:', error.message)
       return
     }
-    patchRowStatus(row.id, next, reviewingAt)
+    patchRowStatus(row.id, next, reviewingAt, reviewingBy)
   }
 
-  /**
-   * Requests this browser session has open. `reviewing` says a reviewer holds a
-   * request but the tables carry no column saying which one, so ownership is
-   * tracked here: anything already `reviewing` that this session did not claim
-   * belongs to somebody else and stays shut.
-   */
+  /** Requests this browser session has open. */
   const claimedIds = ref(new Set<string>())
 
   const presence = useReviewPresence()
+  const auth = useAuthStore()
+
+  /**
+   * A claim made by this admin — in this tab, an earlier one, or before a
+   * refresh. reviewing_by records the owner, and presence carries the user id
+   * too, so neither should read the admin's own lock as somebody else's.
+   */
+  function isMine(row: VerificationRequest): boolean {
+    const me = auth.user?.id
+    if (!me) return false
+    const holder = presence.holderOf(row.id)?.userId || row.reviewingBy
+    return holder === me
+  }
 
   /**
    * How long a claim stands on its timestamp alone. Presence answers the online
@@ -608,6 +728,7 @@ export function useVerifications() {
     return (
       String(row.status).toLowerCase() === 'reviewing' &&
       !claimedIds.value.has(row.id) &&
+      !isMine(row) &&
       isHeld(row)
     )
   }
@@ -639,7 +760,10 @@ export function useVerifications() {
   watch([presence.holders, presence.ready], () => void sweepStaleLocks())
 
   async function claimForReview(row: VerificationRequest) {
-    if (String(row.status).toLowerCase() !== 'pending') return
+    // Pending, or already this admin's (reopened after a refresh): take it and
+    // stamp a fresh claim time.
+    const status = String(row.status).toLowerCase()
+    if (status !== 'pending' && !(status === 'reviewing' && isMine(row))) return
     claimedIds.value.add(row.id)
     presence.track(row.id)
     await setRequestStatus(row, 'reviewing')
@@ -768,180 +892,57 @@ export function useVerifications() {
     currentPage.value = 1
   }, { deep: true })
 
+  /**
+   * An accommodation decision is one call. decide_accreditation (accommo-mobile
+   * migration 20261002120000) closes the round, sets the status, stamps the
+   * term, writes the audit entry and tells the landlord/landlady — in one
+   * transaction. It used to be five separate writes from here, any of which
+   * could fail alone and leave a listing accredited with nobody told and
+   * nothing recorded.
+   */
+  async function decideAccommodation(req: VerificationRequest, payload: any): Promise<boolean> {
+    const decision: 'approved' | 'returned' | 'rejected' =
+      payload?.decision === 'approve' ? 'approved'
+        : payload?.allowResubmission === true ? 'returned'
+          : 'rejected'
+    const { data, error } = await supabase.rpc('decide_accreditation', {
+      p_accommodation: req.rawId,
+      p_decision: decision,
+      p_flagged_docs: payload?.flaggedDocs?.length ? payload.flaggedDocs : undefined,
+      p_tags: payload?.tags?.length ? payload.tags : undefined,
+      p_note: payload?.notes || undefined,
+      p_override: payload?.override === true,
+    })
+    if (error) {
+      notify.error('Decision not saved', error.message)
+      return false
+    }
+    const kind = req.round?.kind
+    const words =
+      decision === 'approved'
+        ? kind === 'renewal' ? 'Renewal approved' : kind === 'change' ? 'Change approved'
+          : kind === 'permit_update' ? 'Permit accepted' : 'Accommodation accredited'
+        : decision === 'returned' ? 'Sent back for changes'
+          : kind === 'appeal' ? 'Rejection upheld' : 'Refused'
+    notify.success(words, `${req.name} · status ${humanizeEnum(String(data))}. The landlord/landlady was notified.`)
+    return true
+  }
+
   async function handleDecision(decisionPayload: any) {
     if (!selectedRequest.value) return
     loading.value = true
     try {
       const req = selectedRequest.value
-      const isAccommodation = req.id.startsWith('REQ-AC')
-      const decision = decisionPayload?.decision || 'approve'
-      // Reject with "allow resubmission" is a soft reject (user can re-upload);
-      // otherwise it's a hard reject.
-      const allowResub = decision === 'reject' && decisionPayload?.allowResubmission === true
-
-      // A refusal the landlord/landlady can fix is not the same as a refusal. Soft
-      // rejects used to land on `rejected` alongside an outright refusal, so a
-      // blurry permit looked terminal; they now land on `needs_revision`, and
-      // the ball being with the landlord/landlady keeps them out of the OSAS queue until
-      // a new document arrives and the permit trigger re-queues them.
-      let newStatus: string
-      if (decision === 'approve') newStatus = isAccommodation ? 'accredited' : 'verified'
-      else if (allowResub && isAccommodation) newStatus = 'needs_revision'
-      else newStatus = 'rejected'
-
-      const rawId = req.rawId
-      const actorId = (await supabase.auth.getUser()).data.user?.id || null
-      // Accreditation runs for a term rather than forever. Stamping it here is
-      // what makes `accreditation_expires_at` real — the column has always
-      // existed and nothing wrote it, so the dashboard's renewal warning and
-      // the nightly expiry sweep both had nothing to match on.
-      const accreditedNow = isAccommodation && decision === 'approve'
-      const accreditedAt = accreditedNow ? new Date() : null
-      const expiresAt = accreditedAt ? new Date(accreditedAt) : null
-      if (expiresAt) expiresAt.setFullYear(expiresAt.getFullYear() + ACCREDITATION_TERM_YEARS)
-
-      const { data, error } = isAccommodation
-        ? await supabase.from('accommodations').update({
-            status: newStatus,
-            reviewing_by: null,
-            reviewing_at: null,
-            ...(accreditedNow
-              ? { accredited_at: accreditedAt!.toISOString(), accreditation_expires_at: expiresAt!.toISOString() }
-              : {}),
-          } as never).eq('id', rawId).select()
-        : await supabase.from('users').update({ status: newStatus as any, reviewing_by: null, reviewing_at: null } as never).eq('id', rawId).select()
-
-      if (error) {
-        notify.error('Database error', error.message)
-        throw error
-      }
-
-      // Approving a STUDENT stamps student_profiles.osas_verified_at, which is
-      // what actually gates the QR, lease applications and chat-apply — not
-      // users.status. Upsert unconditionally: an update alone matches no rows for
-      // a student with no profile row yet (a Google signup with no ISU record)
-      // and reports no error, which is how this silently no-opped for a whole
-      // release. Revoking on reject/suspend is handled by tg_revoke_on_unverify.
-      if (!isAccommodation && decision === 'approve') {
-        const { error: stampErr } = await supabase
-          .from('student_profiles')
-          .upsert({ user_id: rawId, osas_verified_at: new Date().toISOString() }, { onConflict: 'user_id' })
-        if (stampErr) notify.error('Could not record OSAS verification', stampErr.message)
-      }
-
-      // Close out the document rows this decision covers. Nothing wrote these
-      // before, so decided accounts trailed the queue forever.
-      if (!isAccommodation) {
-        const { error: docErr } = await supabase
-          .from('verification_documents')
-          .update({
-            status: decision === 'approve' ? 'approved' : 'rejected',
-            verified_at: new Date().toISOString(),
-            verified_by: actorId,
-          } as any)
-          .eq('user_id', rawId)
-          .eq('status', 'pending')
-        if (docErr) console.warn('Could not close verification documents:', docErr.message)
-      }
-
-      const verb =
-        decision === 'approve'
-          ? isAccommodation ? 'accredited' : 'verified'
-          : allowResub ? 'sent back for resubmission' : 'rejected'
-
-      if (!data || data.length === 0) {
-        notify.warning('No rows updated', 'This is likely a Row Level Security (RLS) policy restriction.')
-      } else {
-        notify.success(isAccommodation ? 'Accommodation ' + verb : 'User ' + verb, `Status set to "${newStatus}".`)
-      }
-
-      // --- Close the loop: record the decision + notify (best-effort) -------
-      const entityType = isAccommodation ? 'accommodation' : 'user'
-      const subjectUserId = isAccommodation ? (req as any).ownerId : rawId
-
-      // supabase-js RETURNS errors, it does not throw them — these three writes
-      // used to sit inside try/catch blocks that could never fire, so an RLS
-      // refusal was invisible. audit_logs had no admin INSERT policy at all
-      // until 20260915000004, which is why not one decision was ever recorded.
-      {
-        const { error: auditErr } = await supabase.from('audit_logs').insert({
-          action: allowResub ? 'verification.resubmit' : `verification.${decision}`,
-          actor_id: actorId,
-          entity_id: rawId,
-          entity_type: entityType,
-          before_json: { status: req.status },
-          after_json: {
-            status: newStatus,
-            decision,
-            override: decisionPayload?.override === true,
-            allow_resubmission: allowResub,
-            tags: decisionPayload?.tags ?? null,
-            notes: decisionPayload?.notes ?? null,
-          },
-        } as any)
-        if (auditErr) notify.warning('Decision not recorded in the audit log', auditErr.message)
-      }
-
-      {
-        const notifs: any[] = []
-        if (subjectUserId) {
-          const subjectBody =
-            decision === 'approve'
-              ? `Your ${isAccommodation ? 'accommodation' : 'account'} has been verified.`
-              : allowResub
-                ? `We need more information — please re-upload your requirements.${decisionPayload?.notes ? ' Note: ' + decisionPayload.notes : ''}`
-                : `Your ${isAccommodation ? 'accommodation' : 'account'} was rejected.${decisionPayload?.notes ? ' Reason: ' + decisionPayload.notes : ''}`
-          notifs.push({
-            user_id: subjectUserId,
-            type: 'verification',
-            title:
-              decision === 'approve' ? 'Verification approved'
-                : allowResub ? 'Resubmission requested' : 'Verification rejected',
-            body: subjectBody,
-            link_url: isAccommodation ? `/verifications?focus=verification:${rawId}` : '/profile',
-          })
-        }
-        if (actorId) {
-          notifs.push({
-            user_id: actorId,
-            type: 'system',
-            title: 'Verification decision recorded',
-            body: `You ${verb} ${req.name}.`,
-            link_url: isAccommodation ? `/verifications?focus=verification:${rawId}` : `/users?user=${rawId}`,
-          })
-        }
-        // Both rows go in one statement, so a refusal on the applicant's row
-        // used to take the admin's own copy with it — and can_notify() does not
-        // cover admin → applicant, so that was every decision. 20260915000004
-        // adds notifications_insert_admin; if it is ever missing again, say so
-        // rather than leaving the applicant silently uninformed.
-        if (notifs.length) {
-          const { error: notifErr } = await supabase.from('notifications').insert(notifs as any)
-          if (notifErr) notify.warning('Applicant was not notified', notifErr.message)
-        }
-      }
-
-      {
-        const { error: reqErr } = await (supabase as any).from('verification_requests').insert({
-          entity_type: entityType,
-          entity_id: rawId,
-          type: req.type,
-          status:
-            decision === 'approve' ? 'approved'
-              : allowResub ? 'resubmission_requested'
-                : 'rejected',
-          reviewed_by: actorId,
-          reviewed_at: new Date().toISOString(),
-          rejection_reasons: decisionPayload?.tags ?? null,
-          decision_notes: decisionPayload?.notes ?? null,
-        })
-        if (reqErr) notify.warning('Decision history not updated', reqErr.message)
-      }
-
       // Where the reviewer was in the queue, so the decision can hand them the
       // next request instead of the table they came from. Read before the
       // refetch, which rebuilds the rows.
       const decidedIndex = queueIndex.value
+
+      if (req.id.startsWith('REQ-AC')) {
+        if (!(await decideAccommodation(req, decisionPayload))) return
+      } else {
+        await decideAccount(req, decisionPayload)
+      }
 
       await fetch()
 
@@ -955,6 +956,139 @@ export function useVerifications() {
       selectedRequest.value = null
     } finally {
       loading.value = false
+    }
+  }
+
+  /** A student or landlord/landlady account. Throws on the status write. */
+  async function decideAccount(req: VerificationRequest, decisionPayload: any) {
+    const decision = decisionPayload?.decision || 'approve'
+    // Reject with "allow resubmission" lets the applicant re-upload; the status
+    // is `rejected` either way, and the flag changes only the notice and audit.
+    const allowResub = decision === 'reject' && decisionPayload?.allowResubmission === true
+    const newStatus = decision === 'approve' ? 'verified' : 'rejected'
+
+    const rawId = req.rawId
+    const actorId = (await supabase.auth.getUser()).data.user?.id || null
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ status: newStatus as any, reviewing_by: null, reviewing_at: null } as never)
+      .eq('id', rawId)
+      .select()
+
+    if (error) {
+      notify.error('Database error', error.message)
+      throw error
+    }
+
+    // Approving a STUDENT stamps student_profiles.osas_verified_at, which is
+    // what actually gates the QR, lease applications and chat-apply — not
+    // users.status. Upsert unconditionally: an update alone matches no rows for
+    // a student with no profile row yet (a Google signup with no ISU record)
+    // and reports no error, which is how this silently no-opped for a whole
+    // release. Revoking on reject/suspend is handled by tg_revoke_on_unverify.
+    if (decision === 'approve') {
+      const { error: stampErr } = await supabase
+        .from('student_profiles')
+        .upsert({ user_id: rawId, osas_verified_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      if (stampErr) notify.error('Could not record OSAS verification', stampErr.message)
+    }
+
+    // Close out the document rows this decision covers. Nothing wrote these
+    // before, so decided accounts trailed the queue forever.
+    {
+      const { error: docErr } = await supabase
+        .from('verification_documents')
+        .update({
+          status: decision === 'approve' ? 'approved' : 'rejected',
+          verified_at: new Date().toISOString(),
+          verified_by: actorId,
+        } as any)
+        .eq('user_id', rawId)
+        .eq('status', 'pending')
+      if (docErr) console.warn('Could not close verification documents:', docErr.message)
+    }
+
+    const verb = decision === 'approve' ? 'verified' : allowResub ? 'sent back for resubmission' : 'rejected'
+
+    if (!data || data.length === 0) {
+      notify.warning('No rows updated', 'This is likely a Row Level Security (RLS) policy restriction.')
+    } else {
+      notify.success('User ' + verb, `Status set to "${newStatus}".`)
+    }
+
+    // --- Close the loop: record the decision + notify (best-effort) -------
+    // supabase-js RETURNS errors, it does not throw them — these three writes
+    // used to sit inside try/catch blocks that could never fire, so an RLS
+    // refusal was invisible. audit_logs had no admin INSERT policy at all
+    // until 20260915000004, which is why not one decision was ever recorded.
+    {
+      const { error: auditErr } = await supabase.from('audit_logs').insert({
+        action: allowResub ? 'verification.resubmit' : `verification.${decision}`,
+        actor_id: actorId,
+        entity_id: rawId,
+        entity_type: 'user',
+        before_json: { status: req.status },
+        after_json: {
+          status: newStatus,
+          decision,
+          override: decisionPayload?.override === true,
+          allow_resubmission: allowResub,
+          tags: decisionPayload?.tags ?? null,
+          notes: decisionPayload?.notes ?? null,
+        },
+      } as any)
+      if (auditErr) notify.warning('Decision not recorded in the audit log', auditErr.message)
+    }
+
+    {
+      const notifs: any[] = [{
+        user_id: rawId,
+        type: 'verification',
+        title:
+          decision === 'approve' ? 'Verification approved'
+            : allowResub ? 'Resubmission requested' : 'Verification rejected',
+        body:
+          decision === 'approve'
+            ? 'Your account has been verified.'
+            : allowResub
+              ? `We need more information — please re-upload your requirements.${decisionPayload?.notes ? ' Note: ' + decisionPayload.notes : ''}`
+              : `Your account was rejected.${decisionPayload?.notes ? ' Reason: ' + decisionPayload.notes : ''}`,
+        link_url: '/profile',
+      }]
+      if (actorId) {
+        notifs.push({
+          user_id: actorId,
+          type: 'system',
+          title: 'Verification decision recorded',
+          body: `You ${verb} ${req.name}.`,
+          link_url: `/users?user=${rawId}`,
+        })
+      }
+      // Both rows go in one statement, so a refusal on the applicant's row
+      // used to take the admin's own copy with it — and can_notify() does not
+      // cover admin → applicant, so that was every decision. 20260915000004
+      // adds notifications_insert_admin; if it is ever missing again, say so
+      // rather than leaving the applicant silently uninformed.
+      const { error: notifErr } = await supabase.from('notifications').insert(notifs as any)
+      if (notifErr) notify.warning('Applicant was not notified', notifErr.message)
+    }
+
+    {
+      const { error: reqErr } = await (supabase as any).from('verification_requests').insert({
+        entity_type: 'user',
+        entity_id: rawId,
+        type: req.type,
+        status:
+          decision === 'approve' ? 'approved'
+            : allowResub ? 'resubmission_requested'
+              : 'rejected',
+        reviewed_by: actorId,
+        reviewed_at: new Date().toISOString(),
+        rejection_reasons: decisionPayload?.tags ?? null,
+        decision_notes: decisionPayload?.notes ?? null,
+      })
+      if (reqErr) notify.warning('Decision history not updated', reqErr.message)
     }
   }
 

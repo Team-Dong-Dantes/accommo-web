@@ -20,7 +20,7 @@
           <button type="button" class="rv-back" aria-label="Back to the decision" @click="reset">
             <Icon icon="lucide:arrow-left" width="16" height="16" />
           </button>
-          <b>{{ pendingDecision === 'approve' ? 'Approving' : 'Rejecting' }}</b>
+          <b>{{ stageTitle }}</b>
         </header>
 
         <div v-if="pendingDecision === 'reject'" class="reason-row">
@@ -54,8 +54,18 @@
         </label>
         <label v-if="pendingDecision === 'reject'" class="rv-override">
           <q-checkbox v-model="allowResubmission" dense style="color: var(--c-ink)" />
-          Let them fix it and re-upload
+          {{ roundKind === 'appeal' ? 'Reopen it for fixes instead of upholding' : 'Let them fix it and re-upload' }}
         </label>
+        <!-- Which permits to replace. The landlord/landlady sees exactly these on
+             the listing, and cannot resubmit until each one is replaced. -->
+        <div v-if="pendingDecision === 'reject' && allowResubmission && permits.length" class="rv-flags">
+          <span class="rv-flags-label">Permits to replace</span>
+          <label v-for="p in permits" :key="p.type" class="rv-override">
+            <q-checkbox v-model="flaggedDocs" :val="p.type" dense style="color: var(--c-ink)" />
+            {{ p.label }}
+          </label>
+        </div>
+        <p v-if="needsReason" class="rv-hint">Flag a permit or write a note so they know what to fix.</p>
         <!-- An override is a judgement call that has to survive in the audit log,
              so it can't be a bare checkbox. -->
         <p v-if="pendingDecision === 'approve' && hasBlockingFail && overrideConfirm && !notes.trim()" class="rv-hint">
@@ -69,7 +79,7 @@
           :disabled="!canSubmit"
           @click="submit"
         >
-          {{ pendingDecision === 'approve' ? 'Confirm Approve' : 'Confirm Reject' }}
+          {{ confirmLabel }}
         </button>
       </div>
     </transition>
@@ -86,6 +96,8 @@ export interface DecisionPayload {
   tags: string[]
   allowResubmission: boolean
   override: boolean
+  /** Accommodation permits to replace, by doc_type. Empty for accounts. */
+  flaggedDocs: string[]
 }
 
 const props = withDefaults(
@@ -94,11 +106,17 @@ const props = withDefaults(
     allowOverride?: boolean
     /** Changes when the reviewed request changes — resets the form. */
     requestKey?: string | null
+    /** Accommodation permits OSAS can flag for replacement. */
+    permits?: { type: string; label: string }[]
+    /** The accreditation round's kind; an appeal reads as uphold / reopen. */
+    roundKind?: string | null
   }>(),
   {
     hasBlockingFail: false,
     allowOverride: true,
     requestKey: null,
+    permits: () => [],
+    roundKind: null,
   },
 )
 
@@ -111,6 +129,26 @@ const overrideConfirm = ref(false)
 // A reject that lets the applicant try again is the common case; a permanent
 // rejection should be the deliberate choice, so this defaults on.
 const allowResubmission = ref(true)
+const flaggedDocs = ref<string[]>([])
+
+const stageTitle = computed(() => {
+  if (pendingDecision.value === 'approve') return 'Approving'
+  if (props.roundKind === 'appeal') return allowResubmission.value ? 'Reopening for fixes' : 'Upholding the rejection'
+  return allowResubmission.value ? 'Sending back for changes' : 'Rejecting'
+})
+const confirmLabel = computed(() => {
+  if (pendingDecision.value === 'approve') return 'Confirm Approve'
+  if (props.roundKind === 'appeal') return allowResubmission.value ? 'Confirm Reopen' : 'Confirm Uphold'
+  return allowResubmission.value ? 'Confirm Send back' : 'Confirm Reject'
+})
+/** A send-back with nothing to act on is refused by the database too. */
+const needsReason = computed(() =>
+  pendingDecision.value === 'reject' &&
+  allowResubmission.value &&
+  props.permits.length > 0 &&
+  flaggedDocs.value.length === 0 &&
+  !notes.value.trim(),
+)
 
 const availableTags = [
   'Name Mismatch',
@@ -136,6 +174,7 @@ function setDecision(val: 'approve' | 'reject') {
   pendingDecision.value = val
   overrideConfirm.value = false
   allowResubmission.value = true
+  flaggedDocs.value = []
   if (val !== 'reject') selectedTags.value = []
 }
 function reset() {
@@ -143,6 +182,7 @@ function reset() {
   overrideConfirm.value = false
   allowResubmission.value = true
   selectedTags.value = []
+  flaggedDocs.value = []
   notes.value = ''
 }
 function toggleTag(tag: string) {
@@ -158,11 +198,13 @@ function submit() {
     tags: selectedTags.value,
     allowResubmission: pendingDecision.value === 'reject' && allowResubmission.value,
     override: overrideConfirm.value,
+    flaggedDocs: pendingDecision.value === 'reject' && allowResubmission.value ? [...flaggedDocs.value] : [],
   })
 }
 
 const canSubmit = computed(() => {
   if (!pendingDecision.value) return false
+  if (needsReason.value) return false
   if (pendingDecision.value === 'approve' && props.hasBlockingFail) {
     if (!props.allowOverride || !overrideConfirm.value) return false
     // The override reason lands in audit_logs, so it can't be blank.
@@ -229,6 +271,8 @@ watch(() => props.requestKey, reset)
 
 .reason-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .rv-override { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--c-ink); }
+.rv-flags { display: flex; flex-direction: column; gap: 2px; padding-left: 4px; }
+.rv-flags-label { font-size: 11px; font-weight: 700; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .note-input { width: 100%; }
 
 /* Primary confirm button (mirrors ticket Resolve) */

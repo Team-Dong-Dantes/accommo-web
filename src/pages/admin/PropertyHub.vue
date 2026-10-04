@@ -345,9 +345,25 @@ async function onManageAccommodation(action: string) {
   const next = action === 'suspend' ? 'suspended' : action === 'restore' ? 'accredited' : null
   if (!next) return
 
+  // Suspending takes a property off Discover and tells everyone staying there
+  // (tg_accreditation_status_change), so the reviewer sees how many first.
+  let boarders = 0
+  if (action === 'suspend') {
+    const { count } = await supabase
+      .from('leases')
+      .select('id, rooms!inner(accommodation_id)', { count: 'exact', head: true })
+      .eq('rooms.accommodation_id', a.id)
+      .in('status', ['active', 'leave_requested'])
+    boarders = count ?? 0
+  }
   const reason =
     action === 'suspend'
-      ? (window.prompt('Why is this property being suspended? This is recorded in the audit log.') ?? '').trim()
+      ? (window.prompt(
+          (boarders
+            ? `${boarders} student${boarders === 1 ? '' : 's'} currently stay here and will be notified. `
+            : 'Nobody currently stays here. ') +
+            'Why is this property being suspended? This is recorded in the audit log and shown to the landlord/landlady.',
+        ) ?? '').trim()
       : ''
   if (action === 'suspend' && !reason) return
 

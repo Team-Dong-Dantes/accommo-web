@@ -114,6 +114,14 @@ async function runAutoChecks() {
         ? { label: 'Permit files', status: 'fail', detail: `${unopenable} permit(s) could not be opened.` }
         : { label: 'Permit files', status: 'pass', detail: 'All permits opened for review.' })
     }
+    list.push(...permitDateChecks(r.files ?? []))
+
+    // An unverified owner can build a listing (by design), but OSAS should not
+    // accredit a property for someone it has not verified without knowing.
+    const ownerStatus = String(r.accommodation?.landlord_status ?? '')
+    list.push(ownerStatus === 'verified'
+      ? { label: 'Landlord/landlady verified', status: 'pass', detail: "The owner's account is verified by OSAS." }
+      : { label: 'Landlord/landlady verified', status: 'warn', detail: `The owner's account is ${ownerStatus || 'not verified'} — check it before accrediting.` })
   } else {
     list.push({
       label: 'Requirements submitted',
@@ -147,23 +155,90 @@ async function runAutoChecks() {
       const dup = (data ?? []).find((u: any) => u.status === 'verified' || u.status === 'rejected')
       list.push(dup
         ? { label: 'Duplicate account', status: 'fail', detail: `Another account with this email is already ${dup.status}.` }
-        : { label: 'Duplicate account', status: 'pass', detail: 'No conflicting account found.' })
+        : { label: 'No duplicate account', status: 'pass', detail: 'No conflicting account found.' })
     } else if (props.isAccommodation && r.name) {
        const { data } = await supabase.from('accommodations').select('id, status').eq('name', r.name).neq('id', r.rawId)
       const dup = (data ?? []).find((p: any) => p.status === 'accredited')
       list.push(dup
-         ? { label: 'Duplicate accommodation', status: 'fail', detail: 'An accommodation with this name is already accredited.' }
-         : { label: 'Duplicate accommodation', status: 'pass', detail: 'No duplicate accommodation found.' })
+         ? { label: 'Duplicate name', status: 'fail', detail: 'An accommodation with this name is already accredited.' }
+         : { label: 'No duplicate name', status: 'pass', detail: 'No duplicate accommodation found.' })
+      list.push(...(await sameFileChecks(r)), ...(await nearbyChecks(r)))
     }
   } catch {
     list.push({ label: 'Duplicate check', status: 'warn', detail: 'Could not run duplicate check.' })
   }
 
-  const emailOk = !!r.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email)
-  list.push({ label: 'Contact email', status: emailOk ? 'pass' : 'warn', detail: emailOk ? `Valid: ${r.email}` : 'No email on file.' })
+  // An accommodation has no e-mail of its own; its owner's is on the record.
+  if (!props.isAccommodation) {
+    const emailOk = !!r.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email)
+    list.push({ label: 'Contact email', status: emailOk ? 'pass' : 'warn', detail: emailOk ? `Valid: ${r.email}` : 'No email on file.' })
+  }
 
   checks.value = list
   checksLoading.value = false
+}
+
+/**
+ * Each permit's own expiry date against today and against the term an approval
+ * would grant. A permit that runs out mid-term takes the listing down with it
+ * (sweep_expired_permits), so that is worth knowing before accrediting.
+ */
+function permitDateChecks(files: any[]): VerificationCheck[] {
+  const now = new Date()
+  const termEnd = new Date(now)
+  termEnd.setFullYear(termEnd.getFullYear() + 1)
+  const undated = files.filter((f) => !f.expiresAt).map((f) => f.name)
+  const expired = files.filter((f) => f.expiresAt && new Date(f.expiresAt) < now).map((f) => f.name)
+  const shortLived = files
+    .filter((f) => f.expiresAt && new Date(f.expiresAt) >= now && new Date(f.expiresAt) < termEnd)
+    .map((f) => f.name)
+  if (expired.length) {
+    return [{ label: 'Permit dates', status: 'fail', detail: `Expired: ${expired.join(', ')}.` }]
+  }
+  if (undated.length || shortLived.length) {
+    const parts = [
+      undated.length ? `no expiry date on ${undated.join(', ')}` : '',
+      shortLived.length ? `${shortLived.join(', ')} expire before a year is up` : '',
+    ].filter(Boolean)
+    return [{ label: 'Permit dates', status: 'warn', detail: parts.join('; ') + '.' }]
+  }
+  return files.length ? [{ label: 'Permit dates', status: 'pass', detail: 'Every permit is valid for the whole term.' }] : []
+}
+
+/** The same permit file submitted for another accommodation. */
+async function sameFileChecks(r: Record<string, any>): Promise<VerificationCheck[]> {
+  const hashes = (r.files ?? []).map((f: any) => f.sha256).filter(Boolean)
+  if (!hashes.length) return []
+  const { data } = await supabase
+    .from('accommodation_documents')
+    .select('accommodation_id, doc_type')
+    .in('file_sha256', hashes)
+    .neq('accommodation_id', r.rawId)
+  const others = new Set((data ?? []).map((d: any) => d.accommodation_id))
+  return [others.size
+    ? { label: 'Permit reused', status: 'fail', detail: `The same permit file was submitted for ${others.size} other accommodation(s).` }
+    : { label: 'Permits not reused', status: 'pass', detail: 'These permit files appear on no other listing.' }]
+}
+
+/**
+ * Another owner's listing within about 30 m. Two owners claiming one building
+ * is either a mistaken pin or a problem, and either way a reviewer should look.
+ */
+async function nearbyChecks(r: Record<string, any>): Promise<VerificationCheck[]> {
+  const lat = Number(r.accommodation?.lat)
+  const lng = Number(r.accommodation?.lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return []
+  const d = 0.0003 // ~33 m of latitude; longitude is close enough at 17°N
+  const { data } = await supabase
+    .from('accommodations')
+    .select('id, name, landlord_id')
+    .gte('lat', lat - d).lte('lat', lat + d)
+    .gte('lng', lng - d).lte('lng', lng + d)
+    .neq('id', r.rawId)
+  const others = (data ?? []).filter((a: any) => a.landlord_id !== r.ownerId)
+  return [others.length
+    ? { label: 'Listing nearby', status: 'warn', detail: `Another owner's listing is within 30 m: ${others.map((a: any) => a.name).join(', ')}.` }
+    : { label: 'No listing nearby', status: 'pass', detail: 'No other owner has a listing at this spot.' }]
 }
 
 // `sortedChecks` is exposed so the review window can show the same checks as

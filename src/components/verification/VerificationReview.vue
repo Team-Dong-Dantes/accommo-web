@@ -105,6 +105,40 @@
           <!-- What the documents are checked against, beside them rather than
                beneath — the reviewer compares, so both sides stay on screen. -->
           <aside class="tw-rail">
+            <!-- What this request is asking for, and what OSAS said last time.
+                 A resubmission is judged against the previous decision, an
+                 appeal against its own message, a change against the values it
+                 would replace. -->
+            <section v-if="round" class="tw-sec">
+              <h3 class="tw-sec-head">
+                <Icon icon="lucide:history" width="15" height="15" />
+                {{ roundTitle }}
+              </h3>
+              <p v-if="round.live" class="tw-round-line">
+                Still listed for students while you decide{{ round.expiresAt ? ' · accredited until ' + stamp(round.expiresAt) : '' }}.
+              </p>
+              <div v-if="round.message" class="tw-quote">
+                <b>{{ round.kind === 'appeal' ? 'Their appeal' : 'Their note' }}</b>
+                <span>{{ round.message }}</span>
+              </div>
+              <dl v-if="changeRows.length" class="tw-facts">
+                <div v-for="row in changeRows" :key="row.label" class="is-block">
+                  <dt>{{ row.label }}</dt>
+                  <dd class="tw-change"><s>{{ row.from || 'Not set' }}</s> → {{ row.to }}</dd>
+                </div>
+              </dl>
+              <div v-if="round.previous" class="tw-prev">
+                <span class="tw-prev-head">
+                  Last decision: <b>{{ PREVIOUS_LABEL[round.previous.decision] }}</b> · {{ stamp(round.previous.decidedAt) }}
+                </span>
+                <span v-if="round.previous.flaggedDocs.length" class="tw-prev-line">
+                  Flagged: {{ round.previous.flaggedDocs.map(permitName).join(', ') }}
+                </span>
+                <span v-if="round.previous.tags.length" class="tw-prev-line">{{ round.previous.tags.join(' · ') }}</span>
+                <span v-if="round.previous.note" class="tw-prev-line">“{{ round.previous.note }}”</span>
+              </div>
+            </section>
+
             <!-- The switcher for the sheet beside it, so it sits at the top of
                  the rail rather than under the record it is not part of. -->
             <section v-if="files.length" class="tw-sec">
@@ -124,7 +158,13 @@
                     @click="show('doc', i)"
                   >
                     <Icon :icon="fileIcon(f.name)" width="15" height="15" />
-                    <span class="tw-doc-name">{{ f.name }}</span>
+                    <span class="tw-doc-text">
+                      <span class="tw-doc-name">{{ f.name }}</span>
+                      <span v-if="isAccommodation" class="tw-doc-meta" :class="{ 'is-bad': expiryTone(f) === 'bad' }">
+                        {{ expiryText(f) }}<template v-if="(f.version ?? 1) > 1"> · v{{ f.version }}</template>
+                      </span>
+                    </span>
+                    <span v-if="f.replaced" class="tw-chip is-pass">Replaced</span>
                     <Icon
                       :icon="isOpen('doc', i) ? 'lucide:eye' : 'lucide:eye'"
                       width="16"
@@ -190,6 +230,8 @@
                 :has-blocking-fail="checksRef?.hasBlockingFail ?? false"
                 :allow-override="true"
                 :request-key="request?.id ?? null"
+                :permits="isAccommodation ? PERMITS : []"
+                :round-kind="round?.kind ?? null"
                 @submit="(payload) => emit('submit', payload)"
               />
             </footer>
@@ -219,6 +261,7 @@ import PropertyMap from '@/features/verifications/PropertyMap.vue'
 import DecisionForm from '@/features/verifications/DecisionForm.vue'
 import VerificationChecks from '@/features/verifications/VerificationChecks.vue'
 import { fileIcon } from '@/features/verifications/fileUtils'
+import { ROUND_KIND_LABEL, type RoundInfo } from '@/composables/useVerifications'
 
 const props = defineProps({
   request: {
@@ -338,6 +381,7 @@ const accommodationGroups = computed<InfoGroup[]>(() => {
       // of coordinates nobody can read.
       ...(a.lat != null && a.lng != null ? { view: 'map' as const } : {}),
       rows: [
+        { label: 'Purok', value: a.purok || '' },
         { label: 'Barangay', value: a.barangay || '' },
         { label: 'City', value: a.city || '' },
       ],
@@ -436,6 +480,64 @@ const infoGroups = computed(() => {
 
 const isLandlord = computed(() => props.request?.id?.startsWith('REQ-AM'))
 const isAccommodation = computed(() => props.request?.id?.startsWith('REQ-AC'))
+
+/** The four permits, in the order the landlord/landlady uploads them. */
+const PERMITS = [
+  { type: 'sanitary_permit', label: 'Sanitary permit' },
+  { type: 'fire_safety', label: 'Fire safety permit' },
+  { type: 'business_permit', label: 'Business permit' },
+  { type: 'building_permit', label: 'Building permit' },
+]
+function permitName(type: string) {
+  return PERMITS.find((p) => p.type === type)?.label ?? type
+}
+const PREVIOUS_LABEL: Record<string, string> = {
+  approved: 'approved',
+  returned: 'sent back for changes',
+  rejected: 'refused',
+}
+
+const round = computed<RoundInfo | null>(() => (props.request?.round as RoundInfo | undefined) ?? null)
+const roundTitle = computed(() => {
+  const r = round.value
+  if (!r) return ''
+  const base = ROUND_KIND_LABEL[r.kind] ?? 'Request'
+  return r.kind === 'resubmission' ? `${base} · round ${r.number}` : base
+})
+
+/** kind = 'change': each column asked for, beside what the listing says now. */
+const CHANGE_LABEL: Record<string, string> = {
+  name: 'Name',
+  accommodation_type: 'Type',
+  gender_policy: 'Gender policy',
+  purok: 'Purok',
+  barangay: 'Barangay',
+  city: 'City',
+  lat: 'Map pin (latitude)',
+  lng: 'Map pin (longitude)',
+}
+const changeRows = computed(() => {
+  const changes = round.value?.proposedChanges
+  if (!changes) return []
+  const a = (props.request?.accommodation ?? {}) as Record<string, unknown>
+  const current: Record<string, unknown> = { ...a, name: props.request?.name }
+  return Object.entries(changes).map(([key, to]) => ({
+    label: CHANGE_LABEL[key] ?? key,
+    from: label(current[key] == null ? '' : String(current[key])),
+    to: label(String(to)),
+  }))
+})
+
+/** A permit with no date, or one already past it, is the reviewer's problem. */
+function expiryTone(f: { expiresAt?: string | null }): 'bad' | 'ok' {
+  if (!f.expiresAt) return 'bad'
+  return new Date(f.expiresAt) < new Date() ? 'bad' : 'ok'
+}
+function expiryText(f: { expiresAt?: string | null }): string {
+  if (!f.expiresAt) return 'No expiry date given'
+  const when = stamp(f.expiresAt)
+  return new Date(f.expiresAt) < new Date() ? `Expired ${when}` : `Expires ${when}`
+}
 
 /** 97% of this queue is past the 3-day target, so the wait is worth colouring. */
 const isLate = computed(() => {
@@ -764,6 +866,37 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
   white-space: nowrap;
 }
 .tw-doc-eye { flex: 0 0 auto; opacity: 0.5; }
+.tw-doc-text { display: flex; flex: 1; min-width: 0; flex-direction: column; }
+.tw-doc-meta { color: var(--c-muted); font-size: 11px; }
+.tw-doc-meta.is-bad { color: var(--c-danger); font-weight: 700; }
+
+/* ── the round: what is asked, and what was said last time ── */
+.tw-round-line { margin: 0; padding: 0 14px 6px; color: var(--c-muted); font-size: 12px; }
+.tw-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 14px 8px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--c-primary);
+  border-radius: 0 8px 8px 0;
+  background: var(--c-surface-2);
+  font-size: 12.5px;
+}
+.tw-quote b { color: var(--c-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.tw-change s { color: var(--c-muted); font-weight: 500; }
+.tw-prev {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 14px 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.tw-prev-head { color: var(--c-ink); }
+.tw-prev-line { color: var(--c-muted); }
 /* On the heading, at the far right, where the document count sits on its own
    section — the map belongs to the whole group, not to one line of it. */
 .tw-sec-eye {
