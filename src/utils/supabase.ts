@@ -12,6 +12,7 @@ interface MockSupabaseClient {
       password: string;
     }) => Promise<{ data: null; error: { message: string } }>;
     signOut: () => Promise<{ error: null }>;
+    onAuthStateChange: () => { data: { subscription: { unsubscribe: () => void } } };
   };
   from: (table: string) => {
     select: (columns: string) => {
@@ -41,6 +42,7 @@ if (supabaseUrl && supabaseAnonKey) {
           error: { message: 'Supabase not configured' },
         }),
       signOut: () => Promise.resolve({ error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
     },
     from: () => ({
       select: () => ({
