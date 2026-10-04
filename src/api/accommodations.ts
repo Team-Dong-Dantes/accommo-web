@@ -141,6 +141,46 @@ export async function fetchAccommodationPins(): Promise<AccommodationPin[]> {
   return (data ?? []) as unknown as AccommodationPin[]
 }
 
+/** What a pin's popup shows: the map view's card facts plus the exterior photo. */
+export interface PinDetails {
+  name: string
+  status: string
+  type: string | null
+  address: string
+  landlord: string
+  beds: number
+  taken: number
+  /** First exterior photo by sort order; empty when none was uploaded. */
+  cover: string
+}
+
+/** One pin's details, fetched when its popup opens rather than for every pin up front. */
+export async function fetchPinDetails(id: string): Promise<PinDetails | null> {
+  const { data, error } = await supabase
+    .from('accommodations')
+    .select(`name, status, accommodation_type, purok, barangay, city,
+      landlord:users!accommodations_landlord_id_fkey(full_name),
+      accommodation_images(url, sort_order),
+      rooms(capacity, current_pax)`)
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const d = data as any
+  const rooms = (d.rooms ?? []) as { capacity: number | null; current_pax: number | null }[]
+  const images = [...(d.accommodation_images ?? [])].sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+  return {
+    name: d.name || 'Unnamed accommodation',
+    status: String(d.status ?? ''),
+    type: d.accommodation_type ?? null,
+    address: [d.purok, d.barangay, d.city].filter(Boolean).join(', '),
+    landlord: d.landlord?.full_name ?? '',
+    beds: rooms.reduce((n, r) => n + (r.capacity ?? 0), 0),
+    taken: rooms.reduce((n, r) => n + (r.current_pax ?? 0), 0),
+    cover: images[0]?.url ?? '',
+  }
+}
+
 /** What the landlord/landlady filled in alongside the property, beyond its own columns. */
 export interface AccommodationExtras {
   amenities: string[]

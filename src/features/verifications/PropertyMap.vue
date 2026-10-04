@@ -38,8 +38,8 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { fetchAccommodationPins, type AccommodationPin } from '@/api/accommodations'
-import { capitalize } from '@/utils/format'
+import { fetchAccommodationPins, fetchPinDetails, type AccommodationPin, type PinDetails } from '@/api/accommodations'
+import { capitalize, humanizeEnum } from '@/utils/format'
 import { CAMPUS, kmBetween } from '@/utils/geo'
 
 const props = defineProps<{
@@ -118,7 +118,7 @@ function drawMarkers() {
     markers.push(
       new mapboxgl.Marker({ color: otherColor })
         .setLngLat([p.lng, p.lat])
-        .setPopup(new mapboxgl.Popup({ offset: 24 }).setText(`${p.name} · ${capitalize(p.status)}`))
+        .setPopup(pinPopup(p.id, p.name, p.lat, p.lng, 24))
         .addTo(map),
     )
   }
@@ -128,10 +128,66 @@ function drawMarkers() {
     markers.push(
       new mapboxgl.Marker({ color: selfColor, scale: 1.25 })
         .setLngLat([props.lng!, props.lat!])
-        .setPopup(new mapboxgl.Popup({ offset: 28 }).setText(props.plain ? props.name : `${props.name} · under review`))
+        .setPopup(pinPopup(props.selfId, props.name, props.lat!, props.lng!, 28))
         .addTo(map),
     )
   }
+}
+
+const details = new Map<string, Promise<PinDetails | null>>()
+
+/** A pin's popup: the name at once, then the map view's facts and the exterior photo. */
+function pinPopup(id: string, name: string, lat: number, lng: number, offset: number) {
+  const box = document.createElement('div')
+  box.className = 'pm-pop'
+  box.append(el('strong', 'pm-pop-name', name), el('span', 'pm-pop-wait', 'Loading…'))
+  const popup = new mapboxgl.Popup({ offset, maxWidth: '280px', className: 'pm-popup' }).setDOMContent(box)
+  popup.on('open', () => {
+    if (!details.has(id)) details.set(id, fetchPinDetails(id).catch(() => null))
+    void details.get(id)!.then((d) => {
+      if (!d) {
+        box.replaceChildren(el('strong', 'pm-pop-name', name), el('span', 'pm-pop-wait', 'Could not load its details.'))
+        return
+      }
+      const photo = d.cover ? Object.assign(document.createElement('img'), { src: d.cover, alt: `${d.name} exterior`, className: 'pm-pop-img' })
+        : el('div', 'pm-pop-img pm-pop-img--none', 'No exterior photo')
+      const head = el('div', 'pm-pop-head')
+      head.append(el('strong', 'pm-pop-name', d.name), el('span', `pm-pop-pill pm-pop-pill--${STATUS_TONE[d.status] ?? 'muted'}`, humanizeEnum(d.status)))
+      const rows = el('dl', 'pm-pop-rows')
+      const km = kmBetween(CAMPUS.lat, CAMPUS.lng, lat, lng)
+      for (const [k, v] of [
+        ['Type', d.type ? humanizeEnum(d.type) : '—'],
+        ['Beds taken', d.beds ? `${d.taken} of ${d.beds}` : 'No rooms yet'],
+        ['From campus', `${km.toFixed(1)} km`],
+        ['Landlord/Landlady', d.landlord || '—'],
+        ['Address', d.address || '—'],
+      ]) {
+        const row = el('div', '')
+        row.append(el('dt', '', k), el('dd', '', v))
+        rows.append(row)
+      }
+      box.replaceChildren(photo, head, rows)
+    })
+  })
+  return popup
+}
+
+/** textContent only — names and addresses are user input. */
+function el(tag: string, className: string, text = '') {
+  const node = document.createElement(tag)
+  if (className) node.className = className
+  node.textContent = text
+  return node
+}
+
+const STATUS_TONE: Record<string, string> = {
+  accredited: 'good',
+  pending: 'warn',
+  reviewing: 'warn',
+  needs_revision: 'warn',
+  rejected: 'bad',
+  expired: 'bad',
+  suspended: 'bad',
 }
 
 onMounted(async () => {
@@ -217,4 +273,39 @@ onBeforeUnmount(() => {
   line-height: 1.45;
 }
 .pm-note :deep(svg) { flex: 0 0 auto; margin-top: 1px; color: var(--c-warning); }
+
+/* Pin popups are built outside Vue, so they are styled through :deep. Mapbox's
+   own popup is white with inherited text, which went white-on-white in dark mode. */
+.pm :deep(.pm-popup .mapboxgl-popup-content) {
+  width: 260px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
+  background: var(--c-surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--c-ink);
+  font-family: inherit;
+}
+.pm :deep(.pm-popup .mapboxgl-popup-tip) { border-top-color: var(--c-surface); border-bottom-color: var(--c-surface); }
+.pm :deep(.pm-popup .mapboxgl-popup-close-button) {
+  top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 8px;
+  background: var(--c-surface); color: var(--c-muted); font-size: 16px; line-height: 1;
+}
+.pm :deep(.pm-pop) { display: flex; flex-direction: column; }
+.pm :deep(.pm-pop-img) { display: block; width: 100%; height: 130px; object-fit: cover; background: var(--c-surface-2); }
+.pm :deep(.pm-pop-img--none) { display: grid; place-items: center; height: 64px; color: var(--c-muted); font-size: 12px; }
+.pm :deep(.pm-pop-head) { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 14px; }
+.pm :deep(.pm-pop > .pm-pop-name) { padding: 12px 34px 0 14px; }
+.pm :deep(.pm-pop-name) { color: var(--c-ink); font-family: var(--font-display); font-size: 15px; line-height: 1.25; }
+.pm :deep(.pm-pop-wait) { padding: 4px 14px 12px; color: var(--c-muted); font-size: 12px; }
+.pm :deep(.pm-pop-pill) { padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: var(--c-surface-2); color: var(--c-muted); }
+.pm :deep(.pm-pop-pill--good) { background: var(--c-primary-soft); color: var(--c-primary); }
+.pm :deep(.pm-pop-pill--warn) { background: var(--c-warning-soft); color: var(--c-warning); }
+.pm :deep(.pm-pop-pill--bad) { background: var(--c-danger-soft); color: var(--c-danger); }
+.pm :deep(.pm-pop-rows) { margin: 0; border-top: 1px solid var(--c-border); }
+.pm :deep(.pm-pop-rows div) { display: flex; justify-content: space-between; gap: 12px; padding: 7px 14px; border-bottom: 1px solid var(--c-border); font-size: 12.5px; }
+.pm :deep(.pm-pop-rows div:last-child) { border-bottom: 0; }
+.pm :deep(.pm-pop-rows dt) { flex: none; color: var(--c-muted); }
+.pm :deep(.pm-pop-rows dd) { min-width: 0; margin: 0; overflow: hidden; color: var(--c-ink); font-weight: 600; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 </style>
