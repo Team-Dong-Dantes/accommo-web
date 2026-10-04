@@ -16,7 +16,11 @@ export default defineRouter(() => {
     : (import.meta.env.QUASAR_VUE_ROUTER_MODE === 'history' ? createWebHistory : createWebHashHistory);
 
   const Router = createRouter({
-    scrollBehavior: () => ({ left: 0, top: 0 }),
+    // Safari reports a same-page anchor (#download on the landing page) as a
+    // navigation, so always returning top:0 left it stuck at the top. 72 is the
+    // fixed navbar, matching the landing page's scroll-margin-top.
+    scrollBehavior: (to) =>
+      to.hash ? { el: to.hash, top: 72, behavior: 'smooth' } : { left: 0, top: 0 },
     routes,
     history: createHistory(import.meta.env.QUASAR_VUE_ROUTER_BASE)
   });
