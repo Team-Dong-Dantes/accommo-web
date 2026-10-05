@@ -20,7 +20,7 @@ export async function fetchAdminName(): Promise<string | null> {
 export async function fetchStudentCount(): Promise<number> {
   const { count, error } = await supabase
     .from('users')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('role', 'student')
   if (error) throw error
   return count ?? 0
@@ -29,7 +29,7 @@ export async function fetchStudentCount(): Promise<number> {
 export async function fetchNewStudentCount(sinceIso: string): Promise<number> {
   const { count, error } = await supabase
     .from('users')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('role', 'student')
     .gte('created_at', sinceIso)
   if (error) throw error

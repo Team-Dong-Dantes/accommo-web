@@ -90,7 +90,7 @@ const groups = computed<Row[][]>(() => [
 
 async function loadWorkCounts() {
   const [usersResult, propertiesResult, ticketsResult] = await Promise.all([
-    supabase.from('users').select('*', { count: 'exact', head: true }).in('status', ['pending', 'reviewing']),
+    supabase.from('users').select('id', { count: 'exact', head: true }).in('status', ['pending', 'reviewing']),
     supabase.from('accommodations').select('*', { count: 'exact', head: true }).in('status', ['pending', 'reviewing']),
     supabase.from('tickets').select('*', { count: 'exact', head: true }).in('status', ['open', 'in_progress']),
   ]);
