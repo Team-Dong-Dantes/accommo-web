@@ -19,7 +19,7 @@
           <q-badge v-if="showArchived" floating color="primary" rounded transparent class="archive-active-dot" />
           <q-tooltip>{{ showArchived ? 'Active' : 'Archived' }}</q-tooltip>
         </q-btn>
-        <q-btn unelevated color="primary" no-caps class="text-weight-bold rounded-button" @click="openCreate()">
+        <q-btn v-if="canEdit" unelevated color="primary" no-caps class="text-weight-bold rounded-button" @click="openCreate()">
           <Icon :icon="isAnn ? 'lucide:megaphone' : 'lucide:gavel'" class="on-left" width="18" height="18" />
           {{ isAnn ? 'New Announcement' : 'New Policy' }}
         </q-btn>
@@ -85,6 +85,7 @@
                   </q-td>
                   <q-td key="date" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.dateLabel }}</q-td>
                   <q-td key="actions" :props="props" class="row items-center justify-end q-gutter-x-sm no-wrap" @click.stop>
+                   <template v-if="canEdit">
                     <template v-if="!props.row.accommodation_id">
                       <q-btn v-if="props.row.status !== 'expired'" flat dense color="primary" size="sm" class="custom-radius" @click="togglePublish(props.row)">
                         <Icon :icon="props.row.status === 'live' ? 'lucide:eye-off' : 'lucide:send'" width="18" height="18" />
@@ -94,6 +95,7 @@
                     </template>
                     <q-btn v-if="!showArchived" flat dense color="grey-7" size="sm" class="custom-radius" @click="archiveItem(props.row)"><Icon icon="lucide:archive" width="18" height="18" /><q-tooltip>Archive</q-tooltip></q-btn>
                     <q-btn v-else flat dense color="primary" size="sm" class="custom-radius" @click="restoreItem(props.row)"><Icon icon="lucide:archive-restore" width="18" height="18" /><q-tooltip>Restore</q-tooltip></q-btn>
+                   </template>
                   </q-td>
               </template>
             </DataTable>
@@ -132,9 +134,11 @@
                   </q-td>
                   <q-td key="effective" :props="props" class="text-ink text-weight-medium" style="font-size: 13px;">{{ fmtDate(props.row.effective_date) }}</q-td>
                   <q-td key="actions" :props="props" class="row items-center justify-end q-gutter-x-sm no-wrap" @click.stop>
+                   <template v-if="canEdit">
                     <q-btn flat dense color="primary" size="sm" class="custom-radius" @click="openEdit(props.row)"><Icon icon="lucide:pencil" width="18" height="18" /><q-tooltip>Edit</q-tooltip></q-btn>
                     <q-btn v-if="!showArchived" flat dense color="grey-7" size="sm" class="custom-radius" @click="archiveItem(props.row)"><Icon icon="lucide:archive" width="18" height="18" /><q-tooltip>Archive</q-tooltip></q-btn>
                     <q-btn v-else flat dense color="primary" size="sm" class="custom-radius" @click="restoreItem(props.row)"><Icon icon="lucide:archive-restore" width="18" height="18" /><q-tooltip>Restore</q-tooltip></q-btn>
+                   </template>
                   </q-td>
               </template>
             </DataTable>
@@ -174,6 +178,7 @@ import TableCard from '@/components/table/TableCard.vue'
 import DataTable from '@/components/table/DataTable.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import ComposerDialog from '@/features/announcements/ComposerDialog.vue'
+import { useAuthStore } from '@/stores/auth'
 import AnnouncementDrawer from '@/features/announcements/AnnouncementDrawer.vue'
 import PolicyDrawer from '@/features/announcements/PolicyDrawer.vue'
 import {
@@ -183,6 +188,9 @@ import {
   STATUS_META, announcementStatus, audienceMeta, fmtDate, pct, policyStatus, utcIso, versionLabel,
   type AnnouncementStatus, type PolicyStatus,
 } from '@/features/announcements/shared'
+
+const authStore = useAuthStore()
+const canEdit = computed(() => authStore.can('announcements', 'edit'))
 
 type Tab = 'announcements' | 'policies'
 

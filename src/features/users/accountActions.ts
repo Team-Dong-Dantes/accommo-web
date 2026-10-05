@@ -3,6 +3,7 @@
 
 import { computed, ref, type Ref } from 'vue'
 import { useNotify } from '@/utils/notify'
+import { useAuthStore } from '@/stores/auth'
 import {
   changeRole,
   changeSignInEmail,
@@ -97,6 +98,7 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
   const { standing, signIn } = state
   const { onChanged, onEditProfile } = hooks
   const notify = useNotify()
+  const authStore = useAuthStore()
   const spec = ref<AccountActionSpec | null>(null)
 
   const role = computed(() => (subject.value?.role || '').toLowerCase())
@@ -134,7 +136,13 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
     if (state.isSuperadmin.value) {
       out.push({ group: danger, label: 'Close account…', action: 'close', icon: 'lucide:user-x', danger: true })
     }
-    return out
+    // Only what this admin's access covers — the database refuses the rest.
+    // A verification decision on an unverified account is Verification's; the
+    // ticket is Support's; everything else is Accounts edit.
+    return out.filter((a) =>
+      a.action === 'ticket' ? authStore.can('support', 'edit')
+        : a.action === 'verify' ? authStore.can('accounts', 'edit') || authStore.can('verification', 'edit')
+          : authStore.can('accounts', 'edit'))
   })
 
   async function changeStatus(next: AccountStatus, input: AccountActionInput, done: string) {

@@ -4,7 +4,7 @@
   <RecordShell
     v-model:tab="tab"
     v-model:person="person"
-    :tabs="TABS"
+    :tabs="tabs"
     :loading="loading"
     :management-actions="managementActions"
     :record-key="preview.name"
@@ -12,14 +12,14 @@
     @manage="$emit('manage', $event)"
   >
     <template #overview="{ toggleMenu }">
-      <OverviewPanel :preview="preview" :loading="loading" @menu="toggleMenu" @view-landlord="openLandlord" />
+      <OverviewPanel :preview="preview" :loading="loading" :has-menu="managementActions.length > 0" @menu="toggleMenu" @view-landlord="openLandlord" />
     </template>
     <template #skeleton><RowListSkeleton /></template>
 
     <template #tab-rooms><RoomsPane :preview="preview" @view-person="openBoarder" @photos="openPhotos" /></template>
     <template #tab-facilities><FacilitiesPane :preview="preview" @photos="openPhotos" /></template>
     <template #tab-permits><PermitsPane :preview="preview" @view="permitIndex = $event" /></template>
-    <template #tab-activity><ActivityPane :preview="preview" /></template>
+    <template #tab-activity><ActivityFeed :items="preview.activity ?? []" dense /></template>
     <template #tab-reviews><ReviewsPane :preview="preview" /></template>
 
     <PhotoLightbox
@@ -42,12 +42,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import RecordShell from '../record/RecordShell.vue'
+import { useAuthStore } from '@/stores/auth'
 import OverviewPanel from './OverviewPanel.vue'
 import RoomsPane from './RoomsPane.vue'
 import RowListSkeleton from './RowListSkeleton.vue'
 import FacilitiesPane from './FacilitiesPane.vue'
 import PermitsPane from './PermitsPane.vue'
-import ActivityPane from './ActivityPane.vue'
+import ActivityFeed from '../ActivityFeed.vue'
 import ReviewsPane from './ReviewsPane.vue'
 import PhotoLightbox from './PhotoLightbox.vue'
 import PermitViewer from './PermitViewer.vue'
@@ -70,13 +71,14 @@ defineEmits<{
   (e: 'manage', action: string): void
 }>()
 
-const TABS = [
+const authStore = useAuthStore()
+const tabs = computed(() => [
   { name: 'rooms', label: 'Rooms' },
   { name: 'facilities', label: 'Shared Facilities' },
   { name: 'permits', label: 'Permits' },
   { name: 'activity', label: 'Activity' },
   { name: 'reviews', label: 'Ratings' },
-]
+].filter((t) => t.name !== 'activity' || authStore.can('activity')))
 
 const tab = ref(props.initialTab)
 // Asked to open on a tab again (another "View all"), follow it.

@@ -1,8 +1,12 @@
 import { defineStore } from 'pinia';
 import { supabase } from '@/utils/supabase';
 import { roleLabel } from '@/utils/format';
+import { NO_ACCESS, PATH_AREAS, SUPERADMIN_PATHS, normalizeLevels, type AccessLevels, type Area } from '@/utils/access';
 
 function sanitizeError(error: unknown): Error {
+  const raw = (error as { message?: unknown } | null)?.message;
+  // check_session's own message is the one worth showing.
+  if (typeof raw === 'string' && raw.includes('admin access has expired')) return new Error(raw);
   if (error instanceof Error) {
     if (
       error.message.includes('23505') ||
@@ -46,9 +50,28 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     cachedRole: null as string | null,
     user: null as AppUser | null,
+    /** Own admin_access levels; the system admin's are ignored (always edit). */
+    access: NO_ACCESS as AccessLevels,
+    accessPreset: null as string | null,
+    accessExpiresAt: null as string | null,
   }),
   getters: {
     isSuperadmin: (state) => !!state.user?.is_superadmin,
+    /** Mirrors can_view()/can_edit(); the database enforces the same rule. */
+    can: (state) => (area: Area, level: 'view' | 'edit' = 'view'): boolean => {
+      if (state.user?.is_superadmin) return true
+      const has = state.access[area]
+      return level === 'view' ? has === 'view' || has === 'edit' : has === 'edit'
+    },
+    /** Whether a console page is open to this admin. */
+    canOpen(): (path: string) => boolean {
+      return (path: string) => {
+        if (this.isSuperadmin) return true
+        if (SUPERADMIN_PATHS.has(path)) return false
+        const areas = PATH_AREAS[path]
+        return !areas || areas.some((a) => this.can(a))
+      }
+    },
     needsOnboarding: (state) =>
       !!state.user && state.user.role === 'admin' && !state.user.onboarding_complete,
   },
@@ -65,7 +88,22 @@ export const useAuthStore = defineStore('auth', {
       const row = data as unknown as AppUser;
       this.user = row ?? null;
       this.cachedRole = row?.role ?? null;
+      await this.loadAccess();
       return row;
+    },
+
+    async loadAccess() {
+      const id = this.user?.id;
+      if (!id || this.user?.is_superadmin) {
+        this.access = NO_ACCESS;
+        this.accessPreset = null;
+        this.accessExpiresAt = null;
+        return;
+      }
+      const { data } = await supabase.from('admin_access').select('preset, levels, expires_at').eq('user_id', id).maybeSingle();
+      this.access = normalizeLevels(data?.levels);
+      this.accessPreset = data?.preset ?? null;
+      this.accessExpiresAt = data?.expires_at ?? null;
     },
 
     async login(email: string, password: string) {
@@ -77,7 +115,12 @@ export const useAuthStore = defineStore('auth', {
       if (authError) throw sanitizeError(authError);
       if (!authData?.user) throw new Error('Login failed: No user returned.');
 
-      const profile = await this.loadProfileById(authData.user.id);
+      // An expired admin gets a session from Auth that the database then refuses;
+      // don't leave it behind.
+      const profile = await this.loadProfileById(authData.user.id).catch(async (e: unknown) => {
+        await this.logout();
+        throw e;
+      });
 
       // Sign the rejected session out, or it lingers and the router guard keeps
       // bouncing this browser off the login page.
@@ -106,6 +149,9 @@ export const useAuthStore = defineStore('auth', {
       await supabase.auth.signOut();
       this.cachedRole = null;
       this.user = null;
+      this.access = NO_ACCESS;
+      this.accessPreset = null;
+      this.accessExpiresAt = null;
     },
 
     clearCachedRole() {

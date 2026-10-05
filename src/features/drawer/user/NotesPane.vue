@@ -2,7 +2,7 @@
   <!-- OSAS's private notes on an account: what was said at the desk, what was
        promised. Only admins can read them; the person never sees this. -->
   <div class="np">
-    <form class="np-compose" @submit.prevent="add">
+    <form v-if="auth.can('accounts', 'edit')" class="np-compose" @submit.prevent="add">
       <q-input
         v-model="draft"
         type="textarea"
@@ -30,7 +30,7 @@
         <div class="np-meta">
           <span class="np-author">{{ n.authorName }}</span>
           <span class="np-when">{{ when(n.createdAt) }}</span>
-          <button v-if="n.authorId === me" type="button" class="np-del" aria-label="Delete note" @click="remove(n.id)">
+          <button v-if="n.authorId === me && auth.can('accounts', 'edit')" type="button" class="np-del" aria-label="Delete note" @click="remove(n.id)">
             <Icon icon="lucide:trash-2" width="13" height="13" />
           </button>
         </div>

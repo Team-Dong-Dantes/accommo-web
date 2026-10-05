@@ -74,6 +74,9 @@ import { Icon } from '@iconify/vue'
 import { boardLane, isOverdue, waitingSince, type BoardLane } from '@/utils/ticketTriage'
 import type { Ticket } from '@/composables/useTickets'
 import BoardCard from './BoardCard.vue'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 
 const props = defineProps<{ tickets: Ticket[]; selectedId: string | null }>()
 const emit = defineEmits<{
@@ -133,6 +136,11 @@ const dragged = ref<Ticket | null>(null)
 const dropLane = ref<BoardLane | null>(null)
 
 function onDragStart(e: DragEvent, g: Ticket) {
+  // A drop changes the ticket; view-only Support access can't.
+  if (!authStore.can('support', 'edit')) {
+    e.preventDefault()
+    return
+  }
   dragged.value = g
   // Firefox won't start a drag without data on the transfer.
   e.dataTransfer?.setData('text/plain', g.ref)

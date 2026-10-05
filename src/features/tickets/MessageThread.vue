@@ -69,7 +69,7 @@
       </template>
     </div>
 
-    <Composer :ticket="ticket" :sending="sending" @send="(body, opts) => $emit('send', body, opts)" />
+    <Composer v-if="authStore.can('support', 'edit')" :ticket="ticket" :sending="sending" @send="(body, opts) => $emit('send', body, opts)" />
   </section>
 </template>
 
@@ -83,6 +83,9 @@ import { formatDateTime, roleLabel, dayLabel } from '@/utils/format'
 import Composer from './Composer.vue'
 import type { MsgGroup } from './types'
 import type { Ticket, TicketMessage } from '@/composables/useTickets'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 
 const props = defineProps<{
   ticket: Ticket

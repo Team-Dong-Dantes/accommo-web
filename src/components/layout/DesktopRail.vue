@@ -45,6 +45,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { dashboardLeaf, navGroups } from './nav-config';
+import { useAuthStore } from '@/stores/auth';
 import CommandPalette from '@/components/ui/CommandPalette.vue';
 import { supabase } from '@/utils/supabase';
 
@@ -54,6 +55,7 @@ const router = useRouter();
 // Hover opens it, and only a mouse's hover: read per event, not per device —
 // a tablet with a paired trackpad answers `(hover: hover)` yes, and the tap's
 // synthetic pointerenter used to half-open the rail.
+const authStore = useAuthStore();
 const open = ref(false);
 function onPointer(e: PointerEvent, entering: boolean) {
   if (e.pointerType === 'mouse') open.value = entering;
@@ -85,7 +87,9 @@ const leafRow = (leaf: { id: string; icon: string; label: string; to: string }):
 
 const groups = computed<Row[][]>(() => [
   [leafRow(dashboardLeaf)],
-  ...navGroups.map((g) => g.children.map(leafRow)),
+  ...navGroups
+    .map((g) => g.children.filter((c) => authStore.canOpen(c.to)).map(leafRow))
+    .filter((rows) => rows.length),
 ]);
 
 async function loadWorkCounts() {

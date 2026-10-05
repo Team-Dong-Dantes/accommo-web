@@ -45,6 +45,7 @@
 import { ref, computed, nextTick, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { flattenNav, type FlatNavItem } from '@/components/layout/nav-config';
+import { useAuthStore } from '@/stores/auth';
 
 defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>();
@@ -54,12 +55,14 @@ const query = ref('');
 const activeIndex = ref(0);
 const inputRef = ref<HTMLInputElement | null>(null);
 
-const allItems = flattenNav();
+const authStore = useAuthStore();
+// Only pages this admin can open.
+const allItems = computed(() => flattenNav().filter((i) => authStore.canOpen(i.to)));
 
 const filtered = computed<FlatNavItem[]>(() => {
   const q = query.value.trim().toLowerCase();
-  if (!q) return allItems;
-  return allItems.filter(
+  if (!q) return allItems.value;
+  return allItems.value.filter(
     (i) => i.label.toLowerCase().includes(q) || (i.group ?? '').toLowerCase().includes(q)
   );
 });

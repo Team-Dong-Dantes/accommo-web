@@ -8,7 +8,10 @@ import { escapeHtml, fmtDate, humanizeEnum } from '@/utils/format'
 import type { StatusTone } from '@/utils/status.config'
 import type { AccountEvent } from '@/api/accounts'
 
-export interface ActivityLine { text: string; time: string; ts: number; icon: string; tone: StatusTone }
+export interface ActivityLine {
+  text: string; time: string; ts: number; icon: string; tone: StatusTone
+  logId?: string; kind?: string; by?: string
+}
 
 const RESTRICTION_LABEL: Record<string, [on: string, off: string]> = {
   apply: ['paused their room applications', 'restored their room applications'],
@@ -55,18 +58,19 @@ export function accountActivity(events: AccountEvent[]): ActivityLine[] {
     const b = e.before ?? {}
     const a = e.after ?? {}
     const time = fmtDate(e.createdAt)
+    const ref = { logId: e.id, ...(e.actorName ? { by: e.actorName } : {}) }
 
     const signIn = SIGN_IN[e.action]
     if (signIn) {
       const to = e.action === 'account.email_changed' && typeof a.email === 'string' ? ` to <strong>${escapeHtml(a.email)}</strong>` : ''
-      out.push({ text: `${signIn.text}${to}${by(e.actorName)}`, time, ts, icon: signIn.icon, tone: 'info' })
+      out.push({ text: `${signIn.text}${to}${by(e.actorName)}`, time, ts, icon: signIn.icon, tone: 'info', kind: 'Sign-in & security', ...ref })
       continue
     }
 
     if (e.table === 'users') {
       if (b.status !== a.status && a.status) {
         const st = STATUS_STYLE[String(a.status)] ?? { icon: 'lucide:circle-dot', tone: 'neutral' as StatusTone }
-        out.push({ text: `Account set to <strong>${escapeHtml(humanizeEnum(String(a.status)))}</strong>${by(e.actorName)}${quote(reasonNear(ts))}`, time, ts, ...st })
+        out.push({ text: `Account set to <strong>${escapeHtml(humanizeEnum(String(a.status)))}</strong>${by(e.actorName)}${quote(reasonNear(ts))}`, time, ts, ...st, kind: 'Status', ...ref })
         continue
       }
       // An e-mail change is logged by name above; its sync onto users (no actor) is not news.
@@ -74,7 +78,7 @@ export function accountActivity(events: AccountEvent[]): ActivityLine[] {
         && JSON.stringify(a[k]) !== JSON.stringify(b[k]))
       if (edited.length) {
         const what = edited.map((k) => PROFILE_LABEL[k] ?? humanizeEnum(k).toLowerCase()).join(', ')
-        out.push({ text: `Updated ${escapeHtml(what)}${by(e.actorName)}`, time, ts, icon: 'lucide:user-pen', tone: 'info' })
+        out.push({ text: `Updated ${escapeHtml(what)}${by(e.actorName)}`, time, ts, icon: 'lucide:user-pen', tone: 'info', kind: 'Profile', ...ref })
       }
       continue
     }
@@ -83,13 +87,13 @@ export function accountActivity(events: AccountEvent[]): ActivityLine[] {
     const before = list(b.restrictions)
     const after = list(a.restrictions)
     for (const r of after.filter((x) => !before.includes(x))) {
-      out.push({ text: `OSAS ${RESTRICTION_LABEL[r]?.[0] ?? `restricted ${escapeHtml(r)}`}${by(e.actorName)}${quote(a.reason)}`, time, ts, icon: 'lucide:shield-minus', tone: 'warning' })
+      out.push({ text: `OSAS ${RESTRICTION_LABEL[r]?.[0] ?? `restricted ${escapeHtml(r)}`}${by(e.actorName)}${quote(a.reason)}`, time, ts, icon: 'lucide:shield-minus', tone: 'warning', kind: 'Restrictions', ...ref })
     }
     for (const r of before.filter((x) => !after.includes(x))) {
-      out.push({ text: `OSAS ${RESTRICTION_LABEL[r]?.[1] ?? `lifted ${escapeHtml(r)}`}${by(e.actorName)}`, time, ts, icon: 'lucide:shield-check', tone: 'success' })
+      out.push({ text: `OSAS ${RESTRICTION_LABEL[r]?.[1] ?? `lifted ${escapeHtml(r)}`}${by(e.actorName)}`, time, ts, icon: 'lucide:shield-check', tone: 'success', kind: 'Restrictions', ...ref })
     }
     if (b.suspended_until && !a.suspended_until && !e.actorName) {
-      out.push({ text: 'Suspension ended on schedule', time, ts, icon: 'lucide:timer-reset', tone: 'success' })
+      out.push({ text: 'Suspension ended on schedule', time, ts, icon: 'lucide:timer-reset', tone: 'success', kind: 'Restrictions', ...ref, by: 'System' })
     }
   }
   return out

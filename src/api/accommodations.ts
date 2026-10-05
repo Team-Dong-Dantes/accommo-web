@@ -1,6 +1,7 @@
 // Data access for accommodations — pure fetchers, no reactive state.
 // Query shapes lifted verbatim from the former useDashboardStats.load().
 
+import { fetchRecordAuditRows } from '@/api/audit'
 import { supabase } from '@/utils/supabase'
 import { resolveAsset } from '@/utils/cloudinaryUrl'
 
@@ -61,6 +62,8 @@ export async function fetchPendingAccommodations(): Promise<PendingAccommodation
 
 /** One audit-trail entry for an accommodation. */
 export interface AccommodationEventRow {
+  id: string
+  actor_name: string | null
   action: string
   created_at: string
   before_status: string | null
@@ -74,26 +77,23 @@ export interface AccommodationEventRow {
  */
 export async function fetchAccommodationEvents(
   accommodationId: string,
-  limit = 8,
+  limit = 100,
 ): Promise<AccommodationEventRow[]> {
-  const { data, error } = await supabase
-    .from('audit_logs')
-    .select('action, created_at, before_json, after_json')
-    // PropertyHub's own actions have always logged `accommodation` (singular)
-    // while other writers use the table name, so reading only one spelling left
-    // every suspend and restore out of the Activity tab.
-    .in('entity_type', ['accommodations', 'accommodation'])
-    .eq('entity_id', accommodationId)
-    .order('created_at', { ascending: false })
-    .limit(limit)
-  if (error) throw error
-  const rows = (data ?? []) as Array<{
+  // PropertyHub's own actions have always logged `accommodation` (singular)
+  // while other writers use the table name, so reading only one spelling left
+  // every suspend and restore out of the Activity tab. Through record_activity():
+  // empty without Activity history access.
+  const rows = (await fetchRecordAuditRows(['accommodations', 'accommodation'], accommodationId, limit)) as Array<{
+    id: string
+    actor: { full_name: string | null } | null
     action: string
     created_at: string
     before_json: { status?: string } | null
     after_json: { status?: string } | null
   }>
   return rows.map((r) => ({
+    id: r.id,
+    actor_name: r.actor?.full_name ?? null,
     action: r.action,
     created_at: r.created_at,
     before_status: r.before_json?.status ?? null,

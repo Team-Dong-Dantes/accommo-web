@@ -225,7 +225,12 @@
                 <b><i class="tw-dot" />{{ checksRef?.verdict.label ?? 'Ready to verify' }}</b>
                 <span v-if="checksRef?.verdict.detail">{{ checksRef.verdict.detail }}</span>
               </div>
+              <p v-if="!canDecide" class="tw-viewonly">
+                <Icon icon="lucide:eye" width="15" height="15" />
+                View only — your access doesn't include {{ isAccommodation ? 'accreditation' : 'verification' }} decisions.
+              </p>
               <DecisionForm
+                v-else
                 ref="decisionRef"
                 :has-blocking-fail="checksRef?.hasBlockingFail ?? false"
                 :allow-override="true"
@@ -262,6 +267,7 @@ import DecisionForm from '@/features/verifications/DecisionForm.vue'
 import VerificationChecks from '@/features/verifications/VerificationChecks.vue'
 import { fileIcon } from '@/features/verifications/fileUtils'
 import { ROUND_KIND_LABEL, type RoundInfo } from '@/composables/useVerifications'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps({
   request: {
@@ -480,6 +486,8 @@ const infoGroups = computed(() => {
 
 const isLandlord = computed(() => props.request?.id?.startsWith('REQ-AM'))
 const isAccommodation = computed(() => props.request?.id?.startsWith('REQ-AC'))
+const authStore = useAuthStore()
+const canDecide = computed(() => authStore.can(isAccommodation.value ? 'accreditation' : 'verification', 'edit'))
 
 /** The four permits, in the order the landlord/landlady uploads them. */
 const PERMITS = [
@@ -962,6 +970,14 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
 
 /* ── decision ── */
 /* Sits on the floor of the rail, under everything it is a judgement about. */
+.tw-viewonly {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--c-muted);
+  font-size: 13px;
+}
 .tw-decide {
   position: sticky;
   bottom: 0;

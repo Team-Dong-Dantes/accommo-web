@@ -247,11 +247,16 @@ export function useVerifications() {
     activeFilters.value = { readiness: [] }
   }
 
-  const tabs = [
+  // People are Verification's; accommodations are Accreditation's.
+  const access = useAuthStore()
+  const tabs = computed(() => [
     { name: 'student', label: 'Student' },
     { name: 'landlord', label: 'Landlord/Landlady' },
     { name: 'accommodation', label: 'Accommodation' },
-  ]
+  ].filter((t) => access.can(t.name === 'accommodation' ? 'accreditation' : 'verification')))
+  watch(tabs, (list) => {
+    if (list.length && !list.some((t) => t.name === activeTab.value)) activeTab.value = list[0]!.name as typeof activeTab.value
+  }, { immediate: true })
 
   const searchPlaceholder = computed(() => {
     if (activeTab.value === 'student') return 'Search student name...'
@@ -666,6 +671,8 @@ export function useVerifications() {
    */
   async function setRequestStatus(row: VerificationRequest, next: 'pending' | 'reviewing') {
     const table = row.id.startsWith('REQ-AC') ? 'accommodations' : 'users'
+    // Opening a request claims it for review; view-only access just looks.
+    if (!auth.can(table === 'accommodations' ? 'accreditation' : 'verification', 'edit')) return
     const taking = next === 'reviewing'
     const reviewingAt = taking ? new Date().toISOString() : null
     const reviewingBy = taking ? auth.user?.id ?? (await supabase.auth.getUser()).data.user?.id ?? null : null

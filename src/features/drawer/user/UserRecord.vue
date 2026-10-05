@@ -13,7 +13,7 @@
     @manage="$emit('manage', $event)"
   >
     <template #overview="{ toggleMenu }">
-      <UserOverview :preview="preview" :loading="loading" @menu="toggleMenu" @go-hub="openStay" />
+      <UserOverview :preview="preview" :loading="loading" :has-menu="managementActions.length > 0" @menu="toggleMenu" @go-hub="openStay" />
     </template>
     <template #skeleton><RowListSkeleton /></template>
 
@@ -27,7 +27,7 @@
     <template #tab-accommodations><PortfolioPane :preview="preview" @go-hub="goHub" /></template>
     <template #tab-documents><FilesTab :preview="preview" /></template>
     <template #tab-reviews><ReviewsTab :preview="preview" /></template>
-    <template #tab-activity><ActivityTab :preview="preview" /></template>
+    <template #tab-activity><ActivityFeed :items="preview.activity ?? []" /></template>
     <template #tab-notes><NotesPane :user-id="preview.userOverview?.userId ?? ''" /></template>
   </RecordShell>
 </template>
@@ -35,6 +35,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import RecordShell from '../record/RecordShell.vue'
+import { useAuthStore } from '@/stores/auth'
 import RowListSkeleton from '../accommodation/RowListSkeleton.vue'
 import UserOverview from './UserOverview.vue'
 import PortfolioPane from './PortfolioPane.vue'
@@ -44,7 +45,7 @@ import StayPane from './StayPane.vue'
 import NotesPane from './NotesPane.vue'
 import FilesTab from '../FilesTab.vue'
 import ReviewsTab from '../ReviewsTab.vue'
-import ActivityTab from '../ActivityTab.vue'
+import ActivityFeed from '../ActivityFeed.vue'
 import type { DrawerPreview, HubKind } from '../preview'
 
 const props = withDefaults(
@@ -76,7 +77,16 @@ const LANDLORD = [
   { name: 'activity', label: 'Activity' },
   { name: 'notes', label: 'Notes' },
 ]
-const tabs = computed(() => (props.preview.userOverview?.role === 'landlord' ? LANDLORD : STUDENT))
+// Tabs whose data the admin's access doesn't cover are left out (the database
+// would return nothing for them anyway).
+const authStore = useAuthStore()
+const TAB_ACCESS: Record<string, () => boolean> = {
+  activity: () => authStore.can('activity'),
+  notes: () => authStore.can('accounts'),
+  documents: () => authStore.can('accounts') || authStore.can('verification'),
+}
+const tabs = computed(() => (props.preview.userOverview?.role === 'landlord' ? LANDLORD : STUDENT)
+  .filter((t) => TAB_ACCESS[t.name]?.() ?? true))
 
 const tab = ref(tabs.value[0]!.name)
 // A stay's map, accommodation, room or payments open over Boarding History

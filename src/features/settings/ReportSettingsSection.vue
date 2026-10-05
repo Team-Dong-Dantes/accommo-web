@@ -11,8 +11,8 @@
       <div class="field-label">Noted by</div>
       <p class="hint">Usually the OSAS Director. Left blank, the report prints an empty line to sign on.</p>
       <div class="form-grid">
-        <q-input v-model="form.notedByName" outlined dense label="Full name" class="field" :disable="loading" />
-        <q-input v-model="form.notedByPosition" outlined dense label="Position" placeholder="Director, Office of Student Affairs and Services" class="field" :disable="loading" />
+        <q-input v-model="form.notedByName" outlined dense label="Full name" class="field" :disable="loading" :readonly="!canEdit" />
+        <q-input v-model="form.notedByPosition" outlined dense label="Position" placeholder="Director, Office of Student Affairs and Services" class="field" :disable="loading" :readonly="!canEdit" />
       </div>
     </div>
 
@@ -20,12 +20,12 @@
       <div class="field-label">Approved by <span class="optional">optional</span></div>
       <p class="hint">A third signature, such as the Campus Executive Officer. Left blank, reports carry only two.</p>
       <div class="form-grid">
-        <q-input v-model="form.approvedByName" outlined dense label="Full name" class="field" :disable="loading" />
-        <q-input v-model="form.approvedByPosition" outlined dense label="Position" class="field" :disable="loading" />
+        <q-input v-model="form.approvedByName" outlined dense label="Full name" class="field" :disable="loading" :readonly="!canEdit" />
+        <q-input v-model="form.approvedByPosition" outlined dense label="Position" class="field" :disable="loading" :readonly="!canEdit" />
       </div>
     </div>
 
-    <div class="actions">
+    <div v-if="canEdit" class="actions">
       <q-btn unelevated color="primary" no-caps class="text-weight-bold" :loading="saving" :disable="loading || !dirty" @click="save">
         <Icon icon="lucide:save" class="on-left" width="18" height="18" />Save
       </q-btn>
@@ -43,6 +43,8 @@ import { fetchReportSettings, saveReportSettings, type ReportSettings } from '@/
 
 const notify = useNotify()
 const auth = useAuthStore()
+// View-level Reports access shows who signs; edit changes it.
+const canEdit = computed(() => auth.can('reports', 'edit'))
 
 const blank: ReportSettings = { notedByName: '', notedByPosition: '', approvedByName: '', approvedByPosition: '' }
 const form = reactive<ReportSettings>({ ...blank })

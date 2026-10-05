@@ -4,6 +4,7 @@
 // the reason, writes the decision trail and notifies the person in one step, so
 // no caller can do half of it.
 
+import { fetchRecordAuditRows } from '@/api/audit'
 import { supabase } from '@/utils/supabase'
 import { callEdgeFunction } from '@/utils/edgeFunction'
 import type { Database } from '@/types/database.gen'
@@ -50,6 +51,7 @@ export async function setAccountStatus(
 
 /** One change to the account, from `audit_logs`, newest first. */
 export interface AccountEvent {
+  id: string
   /** UPDATE for a row change, or account.* for a sign-in action. */
   action: string
   table: string
@@ -59,19 +61,15 @@ export interface AccountEvent {
   after: Record<string, unknown> | null
 }
 
-export async function fetchAccountEvents(userId: string, limit = 30): Promise<AccountEvent[]> {
-  const { data, error } = await supabase
-    .from('audit_logs')
-    .select('action, entity_type, created_at, before_json, after_json, actor:users!audit_logs_actor_id_fkey(full_name)')
-    .in('entity_type', ['users', 'account_standing'])
-    .eq('entity_id', userId)
-    .in('action', ['UPDATE', 'account.sign_out_everywhere', 'account.disconnect_google', 'account.email_changed', 'account.temp_password', 'account.mfa_reset', 'account.closed'])
-    .order('created_at', { ascending: false })
-    .limit(limit)
-  if (error) throw error
-  return (data ?? []).map((r) => {
-    const actor = Array.isArray(r.actor) ? r.actor[0] : r.actor
+const ACCOUNT_ACTIONS = new Set(['UPDATE', 'account.sign_out_everywhere', 'account.disconnect_google', 'account.email_changed', 'account.temp_password', 'account.mfa_reset', 'account.closed'])
+
+export async function fetchAccountEvents(userId: string, limit = 100): Promise<AccountEvent[]> {
+  // Through record_activity(): empty without Activity history access.
+  const rows = await fetchRecordAuditRows(['users', 'account_standing'], userId, limit)
+  return rows.filter((r) => ACCOUNT_ACTIONS.has(r.action)).map((r) => {
+    const actor = r.actor
     return {
+      id: r.id,
       action: r.action,
       table: r.entity_type,
       createdAt: r.created_at,

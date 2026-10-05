@@ -8,7 +8,7 @@ import type { DrawerPreview, PreviewChip } from '@/components/ui/DetailDrawer.vu
 import type { PreviewAccommodationOverview } from '@/features/drawer/preview'
 import { getTone, type StatusTone } from '@/utils/status.config'
 import { supabase } from '@/utils/supabase'
-import { cap, composeAddress, escapeHtml, fmtDate, formatDateTime, humanizeEnum, landlordTitle } from '@/utils/format'
+import { cap, composeAddress, escapeHtml, fmtDate, formatDateTime, humanizeEnum, landlordTitle, utcMs } from '@/utils/format'
 import {
   fetchAccommodationDrawerExtras,
   fetchAccommodationEvents,
@@ -318,16 +318,19 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
       time: r.createdAt ? formatDateTime(r.createdAt) : '',
     }))
     // Real events from the audit trail. `text` is rendered with v-html by
-    // ActivityTab.vue, so anything spliced in is escaped — see escapeHtml() in
+    // ActivityFeed.vue, so anything spliced in is escaped — see escapeHtml() in
     // utils/format.ts. An empty trail leaves the Activity tab hidden.
     const activity = accommodationEvents.value.map((e) => {
       const changed = e.after_status && e.before_status !== e.after_status
+      const meta = { ts: utcMs(e.created_at) ?? 0, logId: e.id, ...(e.actor_name ? { by: e.actor_name } : {}) }
       if (e.action === 'CREATE') {
         return {
           text: `<strong>${escapeHtml(p.name)}</strong> was listed`,
           time: formatDateTime(e.created_at),
           icon: 'lucide:circle-plus',
           tone: 'primary' as StatusTone,
+          kind: 'Listing',
+          ...meta,
         }
       }
       if (e.action === 'accommodation.hide' || e.action === 'accommodation.unhide') {
@@ -337,6 +340,8 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
           time: formatDateTime(e.created_at),
           icon: hidden ? 'lucide:eye-off' : 'lucide:eye',
           tone: (hidden ? 'warning' : 'success') as StatusTone,
+          kind: 'Visibility',
+          ...meta,
         }
       }
       if (changed) {
@@ -345,6 +350,8 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
           time: formatDateTime(e.created_at),
           icon: 'lucide:arrow-left-right',
           tone: getTone(e.after_status || ''),
+          kind: 'Status',
+          ...meta,
         }
       }
       return {
@@ -352,6 +359,8 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
         time: formatDateTime(e.created_at),
         icon: 'lucide:pencil',
         tone: 'neutral' as StatusTone,
+        kind: 'Edits',
+        ...meta,
       }
     })
 

@@ -3,7 +3,10 @@
     <div class="page-head-top">
       <div class="page-head-lead">
         <div v-if="eyebrow" class="text-caption text-muted q-mb-xs uptag">{{ eyebrow }}</div>
-        <h1 class="page-title">{{ resolvedTitle }}</h1>
+        <h1 class="page-title">
+          {{ resolvedTitle }}
+          <BadgePill v-if="viewOnly" tone="neutral" icon="lucide:eye" label="View only" class="page-viewonly" />
+        </h1>
         <p v-if="resolvedSubtitle" class="page-sub text-muted">{{ resolvedSubtitle }}</p>
       </div>
       <div v-if="$slots.actions" class="page-actions">
@@ -16,6 +19,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import BadgePill from '@/components/user/BadgePill.vue'
+import { useAuthStore } from '@/stores/auth'
+import { PATH_AREAS } from '@/utils/access'
 
 const props = defineProps({
   title: { type: String, default: '' },
@@ -28,12 +34,22 @@ const route = useRoute()
 const resolvedTitle = computed(
   () => props.title || (route.meta.title as string | undefined) || 'Accommo',
 )
+// A page whose areas this admin can see but not change.
+const auth = useAuthStore()
+const viewOnly = computed(() => {
+  const areas = PATH_AREAS[route.path]
+  return !!areas && !areas.some((a) => auth.can(a, 'edit'))
+})
 const resolvedSubtitle = computed(
   () => props.subtitle || (route.meta.subtitle as string | undefined) || '',
 )
 </script>
 
 <style scoped>
+.page-viewonly {
+  margin-left: 8px;
+  vertical-align: middle;
+}
 .page-head {
   margin-bottom: var(--sp-4);
 }

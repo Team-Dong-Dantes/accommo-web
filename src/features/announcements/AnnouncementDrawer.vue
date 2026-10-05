@@ -32,7 +32,7 @@
       </InfoCard>
     </template>
 
-    <template v-if="row" #footer>
+    <template v-if="row && authStore.can('announcements', 'edit')" #footer>
       <div class="row justify-end q-gutter-x-sm">
         <q-btn v-if="!row.archived" flat no-caps color="grey-7" label="Archive" @click="$emit('archive', row)" />
         <q-btn v-else flat no-caps color="primary" label="Restore" @click="$emit('restore', row)" />
@@ -53,6 +53,9 @@ import InfoRow from '@/components/ui/InfoRow.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import { formatDateTime } from '@/utils/format'
 import { STATUS_META, audienceMeta, pct, utcIso, type AnnouncementStatus } from './shared'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 
 const props = defineProps<{ row: any | null }>()
 defineEmits<{

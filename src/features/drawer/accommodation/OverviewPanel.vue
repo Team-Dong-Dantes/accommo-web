@@ -2,7 +2,7 @@
   <div class="ov-cover">
     <img v-if="o?.coverUrl && !coverBroken" :src="o.coverUrl" alt="" class="ov-cover-img" @error="coverBroken = true" />
     <div class="ov-fade"></div>
-    <button type="button" class="ov-dots" aria-label="More options" aria-haspopup="menu" @click="$emit('menu')">
+    <button v-if="hasMenu" type="button" class="ov-dots" aria-label="More options" aria-haspopup="menu" @click="$emit('menu')">
       <Icon icon="lucide:ellipsis-vertical" width="16" height="16" />
     </button>
     <div class="ov-head">
@@ -82,7 +82,8 @@ import type { DrawerPreview } from '../preview'
 
 // While loading, the name, address, type and landlord/landlady are already
 // known from the table row; only the charts wait, as skeletons.
-const props = defineProps<{ preview: DrawerPreview; loading?: boolean }>()
+// No actions (view-only access) means no ⋮ button.
+const props = withDefaults(defineProps<{ preview: DrawerPreview; loading?: boolean; hasMenu?: boolean }>(), { hasMenu: true })
 defineEmits<{ (e: 'menu'): void; (e: 'view-landlord'): void }>()
 
 const o = computed(() => props.preview.overview)

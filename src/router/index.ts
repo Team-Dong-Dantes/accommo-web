@@ -26,6 +26,8 @@ export default defineRouter(() => {
   });
 
   let roleFetchInProgress: Promise<string | null> | null = null;
+  // Set when check_session refuses the session because admin access ran out.
+  let accessExpired = false;
 
   // Deliberately NOT cached across navigations. `status` has to be re-read, or a
   // session minted before a suspension keeps the run of the admin console until
@@ -43,10 +45,12 @@ export default defineRouter(() => {
            .eq('id', session.user.id)
            .maybeSingle();
 
+         if (error?.message?.includes('admin access has expired')) accessExpired = true;
          if (error || !data) return null;
 
          authStore.user = data as unknown as AppUser;
          authStore.cachedRole = data.role;
+         await authStore.loadAccess();
          return data.role;
        } catch {
         return null;
@@ -77,6 +81,13 @@ export default defineRouter(() => {
 
     // Authenticated: load the role/profile so we can check onboarding state.
     const role = await fetchUserRole(session);
+
+    // Time-limited access ran out: every request is refused, so sign out and say why.
+    if (accessExpired) {
+      accessExpired = false;
+      await authStore.logout();
+      return '/auth/login?access=expired';
+    }
 
     // Suspension has to bite on every navigation, not just at sign-in — an admin
     // suspended mid-session would otherwise keep working until their token ran
@@ -138,6 +149,11 @@ export default defineRouter(() => {
 
     if (requiredRole && role !== requiredRole) {
       return '/auth/login';
+    }
+
+    // Pages outside this admin's access (the database refuses their data anyway).
+    if (!authStore.canOpen(to.path)) {
+      return '/dashboard';
     }
 
     return true;

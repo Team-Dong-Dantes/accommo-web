@@ -22,7 +22,14 @@
             </div>
 
 
-            <div class="tw-controls">
+            <!-- View-only Support access sees the same chips, without the menus. -->
+            <div v-if="!canEdit" class="tw-controls">
+              <BadgePill :tone="getStatus(ticket.status).tone" :icon="getStatus(ticket.status).icon ?? ''" :label="stLabel(ticket.status)" />
+              <BadgePill :tone="getStatus(ticket.priority).tone" :icon="getStatus(ticket.priority).icon ?? ''" :label="stLabel(ticket.priority)" />
+              <BadgePill tone="neutral" icon="lucide:user-round" :label="ticket.assignee || 'Unassigned'" />
+              <BadgePill tone="neutral" icon="lucide:eye" label="View only" />
+            </div>
+            <div v-else class="tw-controls">
               <q-btn unelevated no-caps padding="none" class="chip-trigger" :ripple="false" aria-label="Change status">
                 <BadgePill :tone="getStatus(ticket.status).tone" :icon="getStatus(ticket.status).icon ?? ''" :label="stLabel(ticket.status)" />
                 <Icon icon="lucide:chevron-down" width="14" height="14" class="chip-caret" />
@@ -97,6 +104,7 @@ import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { getStatus, toneVar } from '@/utils/status.config'
 import { capitalize } from '@/utils/format'
+import { useAuthStore } from '@/stores/auth'
 import BadgePill from '@/components/user/BadgePill.vue'
 import TabNav from '@/components/ui/TabNav.vue'
 import type { Ticket } from '@/composables/useTickets'
@@ -135,11 +143,13 @@ defineEmits<{
 const tab = ref('conversation')
 watch(() => props.ticket?.id, () => { tab.value = 'conversation' })
 
+const authStore = useAuthStore()
+const canEdit = computed(() => authStore.can('support', 'edit'))
 const tabs = computed(() => [
   { name: 'conversation', label: `Conversation (${(props.ticket?.messages.length ?? 0) + 1})` },
   { name: 'details', label: 'Details' },
   { name: 'activity', label: 'Activity' },
-])
+].filter((t) => t.name !== 'activity' || authStore.can('activity')))
 </script>
 
 <style scoped>

@@ -56,6 +56,14 @@ export interface PreviewActivity {
   active?: boolean
   icon?: string
   tone?: StatusTone
+  /** When it happened (ms) — the detail view's timestamp. */
+  ts?: number
+  /** The audit_logs row behind the line; clicking it opens that entry. */
+  logId?: string
+  /** Filter group, e.g. "Status" or "Profile". */
+  kind?: string
+  /** Who did it, for the "By" filter and search. */
+  by?: string
 }
 export interface PreviewReview {
   author: string

@@ -67,13 +67,14 @@
             <q-item class="toggle-item">
               <q-item-section>
                 <div class="text-weight-medium text-ink" style="font-size: 14px">New sign-in alerts</div>
-                <div class="text-muted" style="font-size: 12px">Notify me whenever someone signs in to this account.</div>
+                <div class="text-muted" style="font-size: 12px">Notify me when this account signs in from a new device or network.</div>
               </q-item-section>
               <q-item-section side>
                 <q-toggle :model-value="loginAlerts" color="primary" :disable="loginAlerts === null" @update:model-value="setLoginAlerts" />
               </q-item-section>
             </q-item>
           </q-list>
+          <SignInsSetting class="q-mb-md" />
 
           <div class="field-label">Change password</div>
           <div class="form-grid">
@@ -121,6 +122,7 @@ import { type StatusTone } from '@/utils/status.config'
 import AdministratorsSection from '@/features/settings/AdministratorsSection.vue'
 import ReportSettingsSection from '@/features/settings/ReportSettingsSection.vue'
 import TwoFactorSetting from '@/features/settings/TwoFactorSetting.vue'
+import SignInsSetting from '@/features/settings/SignInsSetting.vue'
 import { useRoute } from 'vue-router'
 import { passwordProblem } from '@/utils/format'
 
@@ -135,8 +137,8 @@ const sections = computed(() => {
     { id: 'profile', label: 'Profile', icon: 'lucide:circle-user' },
     { id: 'notifications', label: 'Notifications', icon: 'lucide:bell' },
     { id: 'security', label: 'Security', icon: 'lucide:shield' },
-    { id: 'reports', label: 'Reports', icon: 'lucide:file-chart-column' },
   ]
+  if (authStore.can('reports')) list.push({ id: 'reports', label: 'Reports', icon: 'lucide:file-chart-column' })
   if (authStore.isSuperadmin) {
     list.push({ id: 'administrators', label: 'Administrators', icon: 'lucide:user-cog' })
   }
@@ -310,6 +312,10 @@ async function savePassword() {
 .settings-layout {
   flex: 1 1 0;
   min-height: 0;
+  /* Quasar's .row wraps, and a wrapped line is as tall as its content, so the
+     section column outgrew the page and could not scroll. One line keeps it
+     at the page's height; .section-content scrolls inside it. */
+  flex-wrap: nowrap;
 }
 
 .action-row {
@@ -368,6 +374,8 @@ async function savePassword() {
 
 .section-content {
   min-width: 0;
+  min-height: 0;
+  max-height: 100%;
   overflow: auto;
   padding-right: 4px;
 }
@@ -469,6 +477,9 @@ async function savePassword() {
   }
   .section-nav {
     width: 100%;
+  }
+  .section-content {
+    flex: 1 1 0;
   }
   .form-grid {
     grid-template-columns: 1fr;

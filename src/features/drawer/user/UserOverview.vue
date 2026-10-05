@@ -5,7 +5,7 @@
        quickly they reply — and how to reach them. -->
   <div class="rc-band uo-band" :class="`uo-band--${o?.role ?? 'other'}`">
     <div class="rc-fade"></div>
-    <button type="button" class="rc-dots" aria-label="More options" aria-haspopup="menu" @click="$emit('menu')">
+    <button v-if="hasMenu" type="button" class="rc-dots" aria-label="More options" aria-haspopup="menu" @click="$emit('menu')">
       <Icon icon="lucide:ellipsis-vertical" width="16" height="16" />
     </button>
     <div class="rc-head uo-head">
@@ -139,7 +139,8 @@ import { formatPhone } from '@/utils/format'
 import { fmtMonthYear, type DrawerPreview, type HubKind } from '../preview'
 import { watchLine, type Tone } from '../accommodation/standing'
 
-const props = defineProps<{ preview: DrawerPreview; loading?: boolean }>()
+// No actions (view-only access) means no ⋮ button.
+const props = withDefaults(defineProps<{ preview: DrawerPreview; loading?: boolean; hasMenu?: boolean }>(), { hasMenu: true })
 const emit = defineEmits<{ (e: 'menu'): void; (e: 'go-hub', kind: HubKind, id?: string): void }>()
 
 const o = computed(() => props.preview.userOverview)

@@ -234,7 +234,7 @@
                 </q-tab-panel>
 
                 <q-tab-panel name="activity" class="dd-panel">
-                  <ActivityTab :preview="preview" />
+                  <ActivityFeed :items="preview.activity ?? []" />
                 </q-tab-panel>
 
                 <q-tab-panel name="reviews" class="dd-panel">
@@ -254,13 +254,14 @@
   import { Icon } from '@iconify/vue'
   import BadgePill from '@/components/user/BadgePill.vue'
   import TabNav from '@/components/ui/TabNav.vue'
+  import { useAuthStore } from '@/stores/auth'
   import HistoryTab from './HistoryTab.vue'
   import FilesTab from './FilesTab.vue'
   import RoomsTab from './RoomsTab.vue'
   import FacilitiesTab from './FacilitiesTab.vue'
   import OccupantsTab from './OccupantsTab.vue'
   import PhotosTab from './PhotosTab.vue'
-  import ActivityTab from './ActivityTab.vue'
+  import ActivityFeed from './ActivityFeed.vue'
   import ReviewsTab from './ReviewsTab.vue'
   import PaymentsTab from './PaymentsTab.vue'
   import type { DrawerPreview, HubKind, PreviewRoom, PreviewStat } from './preview'
@@ -335,7 +336,8 @@
   watch(() => props.preview.avatar, () => { heroAvatarBroken.value = false })
   const heroAvatarColor = computed(() => (props.preview.kind === 'accommodation' ? 'teal-6' : 'indigo-5'))
   const showPhotosTab = computed(() => props.preview.photos !== undefined && !props.loading)
-  const showActivityTab = computed(() => props.preview.activity !== undefined)
+  const authStore = useAuthStore()
+  const showActivityTab = computed(() => props.preview.activity !== undefined && authStore.can('activity'))
   const showReviewsTab = computed(() => props.preview.reviews !== undefined && !props.loading)
   const multiTab = computed(
     () => [showHistoryTab.value, showDocsTab.value, showRoomsTab.value, showFacilitiesTab.value, showOccupantsTab.value, showPhotosTab.value, showActivityTab.value, showReviewsTab.value].filter(Boolean).length >= 2

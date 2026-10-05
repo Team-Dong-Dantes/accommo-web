@@ -62,6 +62,9 @@ onMounted(() => {
   if (route.query.suspended === 'true') {
     $q.notify({ message: 'This account has been suspended.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' });
   }
+  if (route.query.access === 'expired') {
+    notify.error('Your admin access has expired. Ask the system admin to extend it.');
+  }
   if (route.query.reset === 'expired') {
     notify.error('That reset link has expired or was already used. Request a new one.');
   }

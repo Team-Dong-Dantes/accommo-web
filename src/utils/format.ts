@@ -229,7 +229,7 @@ export function formatDateTime(iso: string): string {
  * Escapes a value for interpolation into a string that will be rendered with
  * `v-html`.
  *
- * The drawer's activity feed (features/users/userPreview.ts → ActivityTab.vue)
+ * The drawer's activity feed (features/users/userPreview.ts → ActivityFeed.vue)
  * composes short HTML fragments so a name can be bolded, and the values going
  * into them are user-written: `full_name` is whatever someone typed at
  * registration, accommodation names are whatever a landlord/landlady typed. Unescaped,
@@ -284,4 +284,15 @@ export function passwordProblem(pw: string): string | null {
     return 'Use an uppercase and a lowercase letter, a number and a symbol.'
   }
   return null
+}
+
+// ponytail: coarse user-agent sniffing — enough to tell a phone from a laptop.
+/** "Chrome on Android" from a user-agent string. */
+export function deviceName(ua: string | null | undefined): string {
+  if (!ua) return 'Unknown device'
+  const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox'
+    : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : /Deno\//.test(ua) ? 'Server function' : 'Browser'
+  const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Windows/.test(ua) ? 'Windows'
+    : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : null
+  return os ? `${browser} on ${os}` : browser
 }

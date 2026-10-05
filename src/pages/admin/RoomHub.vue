@@ -51,7 +51,18 @@
               </div>
             </q-td>
             <q-td key="boarders" :props="props" class="num-cell col-occupants col-split">
-              <span class="text-ink text-weight-bold" style="font-size: 13px;">{{ props.row.occupants }}/{{ props.row.capacity ?? '—' }}</span>
+              <span class="occupants-cell">
+                <span class="text-ink text-weight-bold">{{ props.row.occupants }}</span>
+                <span class="gender-split">
+                  <span class="gender-figure is-male"><Icon icon="lucide:mars" width="12" height="12" />{{ props.row.maleCount }}</span>
+                  <span class="gender-figure is-female"><Icon icon="lucide:venus" width="12" height="12" />{{ props.row.femaleCount }}</span>
+                </span>
+              </span>
+            </q-td>
+            <q-td key="beds" :props="props" class="num-cell col-num-wide text-ink">
+              <span class="beds-cell">
+                <Icon icon="lucide:bed-single" width="13" height="13" />{{ props.row.capacity ?? '—' }}
+              </span>
             </q-td>
             <q-td key="rent" :props="props" class="col-rent num-right">
               <span class="rent-cell">
@@ -126,6 +137,8 @@ interface RoomTableRow {
   floor: number | null
   capacity: number | null
   occupants: number
+  maleCount: number
+  femaleCount: number
   rent: number | null
   perBoarder: boolean
   status: string | null
@@ -193,7 +206,7 @@ async function fetchRoomDetail(raw: any) {
   try {
     const { data: room, error } = await supabase
       .from('rooms')
-       .select('id, label, room_number, room_type, custom_room_type, floor, capacity, current_pax, monthly_rent, advance_months, deposit_months, rent_basis, status, accommodation_id, accommodation:accommodation_id ( name, landlord:landlord_id ( id, full_name, sex, phone, initials, avatar_url ) )')
+       .select('id, label, room_number, room_type, custom_room_type, floor, capacity, current_pax, monthly_rent, advance_months, deposit_months, rent_basis, status, accommodation_id, accommodation:accommodation_id ( name, landlord:users_full!accommodations_landlord_id_fkey ( id, full_name, sex, phone, initials, avatar_url ) )')
       .eq('id', raw.id)
       .single()
     if (error) throw error
@@ -301,7 +314,8 @@ const peso = (n: number) => `₱${amount(n)}`
 const columns = [
   { name: 'room', align: 'left', label: 'Room', field: 'name', headerClasses: 'col-title' },
   { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'accommodation', headerClasses: 'col-person' },
-  { name: 'boarders', align: 'center', label: 'Boarders / Beds', field: 'occupants', headerClasses: 'num-cell col-occupants col-split' },
+  { name: 'boarders', align: 'center', label: 'Boarders', field: 'occupants', headerClasses: 'num-cell col-occupants col-split' },
+  { name: 'beds', align: 'center', label: 'Beds', field: 'capacity', headerClasses: 'num-cell col-num-wide' },
   { name: 'rent', align: 'right', label: 'Monthly Rent', field: 'rent', headerClasses: 'col-rent num-right' },
   { name: 'status', align: 'left', label: 'Status', field: 'status', headerClasses: 'col-badge' },
 ]
@@ -318,7 +332,7 @@ async function fetchRooms() {
         .order('room_number', { ascending: true }),
       supabase
         .from('leases')
-        .select('room_id, student:users!leases_student_id_fkey(full_name)')
+        .select('room_id, student:users!leases_student_id_fkey(full_name, sex)')
         .in('status', ['active', 'leave_requested']),
     ])
     const { data, error } = roomsRes
@@ -327,12 +341,13 @@ async function fetchRooms() {
       return
     }
     const leases = (leasesRes.data || []) as any[]
-    const occMap = new Map<string, string[]>()
+    const occMap = new Map<string, { name: string; sex: string }[]>()
     for (const l of leases) {
       const student = Array.isArray(l.student) ? l.student[0] : l.student
       if (student && l.room_id) {
         if (!occMap.has(l.room_id)) occMap.set(l.room_id, [])
-        occMap.get(l.room_id)!.push(student.full_name ?? '')
+        // users.sex is M/F; older rows spelled it out.
+        occMap.get(l.room_id)!.push({ name: student.full_name ?? '', sex: String(student.sex ?? '').charAt(0).toUpperCase() })
       }
     }
     rooms.value = (data || []).map((r: RoomQueryRow) => {
@@ -356,10 +371,12 @@ async function fetchRooms() {
         accommodation: accommodationName,
         accommodationId: r.accommodation_id,
         landlord: landlordName,
-        occupantNames: occ.filter(Boolean),
+        occupantNames: occ.map((o) => o.name).filter(Boolean),
         floor: r.floor,
         capacity: r.capacity,
         occupants: occ.length,
+        maleCount: occ.filter((o) => o.sex === 'M').length,
+        femaleCount: occ.filter((o) => o.sex === 'F').length,
         rent: r.monthly_rent,
         perBoarder,
         status: r.status,
@@ -541,6 +558,33 @@ onMounted(async () => {
    are flex boxes (DataTable.vue), hence justify-content, not text-align alone. */
 .prop-hub-body :deep(thead th.num-right),
 .prop-hub-body :deep(tbody td.num-right) { justify-content: flex-end; text-align: right; }
+
+/* Same boarder count + mars/venus split as the Accommodation Hub (PropertyHub.vue). */
+.occupants-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font-size: 13px;
+}
+.gender-split { display: inline-flex; gap: 6px; }
+.gender-figure {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.gender-figure.is-male { color: #42a5f5; }
+.gender-figure.is-female { color: #e91e63; }
+.beds-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--c-ink);
+}
+.beds-cell .iconify { color: var(--c-muted); }
 
 .rent-cell {
   display: inline-flex;

@@ -4,7 +4,7 @@
     <div class="row justify-between items-end non-shrink">
       <TabNav v-model="activeTab" :tabs="tabs" />
 
-      <q-btn unelevated color="teal-7" no-caps class="text-weight-bold rounded-button q-mb-md" @click="reportOpen = true">
+      <q-btn v-if="auth.can('reports')" unelevated color="teal-7" no-caps class="text-weight-bold rounded-button q-mb-md" @click="reportOpen = true">
         <Icon icon="lucide:file-chart-column" class="on-left" width="18" height="18" />Report
       </q-btn>
     </div>

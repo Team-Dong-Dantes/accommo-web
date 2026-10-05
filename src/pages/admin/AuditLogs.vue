@@ -93,20 +93,16 @@ import TabNav from '@/components/ui/TabNav.vue'
 import TableCard from '@/components/table/TableCard.vue'
 import DateRangeButton from '@/features/audit/DateRangeButton.vue'
 import AuditDrawer from '@/features/audit/AuditDrawer.vue'
+import { AUDIT_COLUMNS, fetchAuditEvent, fillNames } from '@/api/audit'
 import AuditRail, { type RailPerson } from '@/features/audit/AuditRail.vue'
 import {
-  AREA_LABEL, dayLabelOf, getActionColor, mapLog, nameSource, withName, type AuditArea, type AuditEvent,
+  AREA_LABEL, dayLabelOf, getActionColor, mapLog, type AuditArea, type AuditEvent,
 } from '@/features/audit/logMapping'
 import { toneVar } from '@/utils/status.config'
 import { downloadCsv } from '@/utils/csv'
 
 const PAGE = 15
 const BATCH = 1000
-const COLUMNS = `
-  id, action, created_at, actor_id, entity_id, entity_type, ip_address, user_agent,
-  before_json, after_json,
-  actor:users ( full_name, initials, role, avatar_color )
-`
 
 const tabs = [{ name: 'audit-logs', label: 'Audit Logs' }]
 const activeTab = ref('audit-logs')
@@ -139,7 +135,7 @@ function windowBounds(): { from: string; to: string | null } {
 
 async function fetchBatch(before: string | null) {
   const { from, to } = windowBounds()
-  let q = supabase.from('audit_logs').select(COLUMNS).gte('created_at', from)
+  let q = supabase.from('audit_logs').select(AUDIT_COLUMNS).gte('created_at', from)
   if (to) q = q.lt('created_at', to)
   if (before) q = q.lt('created_at', before)
   const { data, error } = await q.order('created_at', { ascending: false }).limit(BATCH)
@@ -148,23 +144,6 @@ async function fetchBatch(before: string | null) {
   hasMore.value = rows.length === BATCH
   if (rows.length) oldestRaw.value = rows[rows.length - 1].created_at
   return fillNames(rows.map(mapLog))
-}
-
-// Name the records that hand-written entries left nameless — one query per table.
-async function fillNames(events: AuditEvent[]): Promise<AuditEvent[]> {
-  const ids = { users: new Set<string>(), accommodations: new Set<string>() }
-  for (const ev of events) {
-    const src = nameSource(ev)
-    if (src) ids[src].add(ev.entityId)
-  }
-  const names = new Map<string, string>()
-  const [users, accs] = await Promise.all([
-    ids.users.size ? supabase.from('users').select('id, full_name').in('id', [...ids.users]) : null,
-    ids.accommodations.size ? supabase.from('accommodations').select('id, name').in('id', [...ids.accommodations]) : null,
-  ])
-  for (const u of users?.data ?? []) names.set(u.id, u.full_name)
-  for (const a of accs?.data ?? []) names.set(a.id, a.name)
-  return events.map((ev) => (nameSource(ev) && names.has(ev.entityId) ? withName(ev, names.get(ev.entityId)!) : ev))
 }
 
 async function fetchLogs() {
@@ -299,10 +278,9 @@ onUnmounted(() => {
 })
 
 async function upsertLog(id: string) {
-  const { data, error } = await supabase.from('audit_logs').select(COLUMNS).eq('id', id).maybeSingle()
-  if (error || !data) return
-  const [ev] = await fillNames([mapLog(data)])
-  logs.value = [ev!, ...logs.value.filter((l) => l.id !== id)]
+  const ev = await fetchAuditEvent(id).catch(() => null)
+  if (!ev) return
+  logs.value = [ev, ...logs.value.filter((l) => l.id !== id)]
 }
 </script>
 

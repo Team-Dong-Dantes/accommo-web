@@ -1,5 +1,5 @@
 <template>
-  <DetailDrawer :model-value="!!event" title="Audit event" close-on-backdrop @update:model-value="$emit('close')">
+  <DetailDrawer :model-value="!!event" :title="event?.entityId ? 'Audit event' : 'Activity'" close-on-backdrop @update:model-value="$emit('close')">
     <template v-if="event">
       <div class="ad-sentence">
         <BadgePill :tone="getActionColor(event)" :label="event.verb" />
@@ -12,7 +12,7 @@
         <InfoRow icon="lucide:badge" label="Role" :value="event.actor.role || '—'" last />
       </InfoCard>
 
-      <InfoCard title="Record">
+      <InfoCard v-if="event.entityId" title="Record">
         <InfoRow icon="lucide:folder" label="Type" :value="event.entityLabel" />
         <InfoRow v-if="event.name" icon="lucide:tag" label="Name" :value="event.name" />
         <InfoRow icon="lucide:hash" label="ID" :value="event.entityId" mono :last="!event.link" />
@@ -23,7 +23,7 @@
         </div>
       </InfoCard>
 
-      <InfoCard :title="`Changes (${event.changes.length})`">
+      <InfoCard v-if="event.entityId" :title="`Changes (${event.changes.length})`">
         <div v-if="!event.changes.length" class="text-muted q-py-xs">
           {{ event.action === 'CREATE' ? 'A new record — nothing existed before.' : 'No field changes recorded.' }}
         </div>
@@ -37,9 +37,17 @@
         </div>
       </InfoCard>
 
-      <InfoCard title="Technical">
-        <InfoRow icon="lucide:globe" label="IP address" :value="event.ip" mono />
-        <InfoRow icon="lucide:monitor" label="Device" :value="event.userAgent" last />
+      <InfoCard title="Device">
+        <template v-if="recorded">
+          <InfoRow icon="lucide:monitor-smartphone" label="Device" :value="deviceName(event.userAgent)" />
+          <InfoRow icon="lucide:globe" label="IP address" :value="event.ip" mono />
+          <InfoRow icon="lucide:code" label="User agent" :value="event.userAgent" mono last />
+        </template>
+        <div v-else class="text-muted q-py-xs">
+          {{ !event.entityId ? 'Not recorded for this kind of activity.'
+            : !authStore.can('activity', 'edit') ? 'Your access shows changes only, not device details.'
+            : 'Not recorded. Device details are kept for activity from 5 Oct 2026 onwards.' }}
+        </div>
       </InfoCard>
     </template>
   </DetailDrawer>
@@ -53,11 +61,17 @@ import InfoCard from '@/components/ui/InfoCard.vue'
 import InfoRow from '@/components/ui/InfoRow.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import { getActionColor, type AuditEvent } from './logMapping'
+import { deviceName } from '@/utils/format'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 
 const props = defineProps<{ event: AuditEvent | null }>()
 defineEmits<{ (e: 'close'): void }>()
 
-const when = computed(() => props.event
+const recorded = computed(() => !!props.event && (props.event.ip !== '—' || props.event.userAgent !== '—'))
+
+const when = computed(() => props.event?.at
   ? new Date(props.event.at).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'medium' })
   : '')
 </script>

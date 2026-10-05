@@ -6,7 +6,7 @@ import { getTone, type StatusTone } from '@/utils/status.config'
 import { cap, composeAddress, escapeHtml, fmtDate, humanizeEnum, landlordTitle } from '@/utils/format'
 import { PERMIT_STATE, expiryLabel, permitStateOf } from '@/utils/permitExpiry'
 import type { DrawerPreview, PreviewChip, PreviewLease, PreviewPayment } from '@/features/drawer/preview'
-import { accountActivity } from './accountActivity'
+import { accountActivity, type ActivityLine } from './accountActivity'
 import { NO_STANDING, type AccountEvent, type AccountStanding } from '@/api/accounts'
 
 const DOC_LABELS: Record<string, string> = {
@@ -306,12 +306,11 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
   // Activity feed — what the user has actually done / experienced in the app,
   // derived from real lifecycle events (most recent first).
   //
-  // `text` is rendered with v-html by ActivityTab.vue so the names can be
+  // `text` is rendered with v-html by ActivityFeed.vue so the names can be
   // bolded, which makes every value spliced in here an injection point: names
   // and accommodation names are typed by users. escapeHtml() on each one; the
   // <strong> tags are ours and stay literal.
-  type ActivityEvent = { text: string; time: string; ts: number; icon: string; tone: StatusTone }
-  const events: ActivityEvent[] = []
+  const events: ActivityLine[] = []
 
   if (u.joined) {
     const ts = new Date(u.joined).getTime()
@@ -322,6 +321,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         ts,
         icon: 'lucide:user-plus',
         tone: 'primary',
+        kind: 'Account',
       })
     }
   }
@@ -335,6 +335,8 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         ts,
         icon: 'lucide:shield-check',
         tone: 'success',
+        kind: 'Status',
+        by: 'OSAS',
       })
     }
   }
@@ -348,6 +350,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         ts,
         icon: 'lucide:house',
         tone: 'success',
+        kind: 'Housing',
       })
     }
   }
@@ -361,6 +364,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
       ts,
       icon: 'lucide:history',
       tone: 'neutral',
+      kind: 'Housing',
     })
   })
 
@@ -374,6 +378,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
       ts,
       icon: 'lucide:star',
       tone: 'warning',
+      kind: 'Ratings',
     })
   })
 
@@ -387,6 +392,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         ts: uploadedTs,
         icon: 'lucide:file-up',
         tone: 'info',
+        kind: 'Documents',
       })
     }
     const reviewedTs = doc.verified_at ? new Date(doc.verified_at).getTime() : NaN
@@ -397,6 +403,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         ts: reviewedTs,
         icon: doc.status === 'approved' ? 'lucide:badge-check' : 'lucide:octagon-x',
         tone: doc.status === 'approved' ? 'success' : 'danger',
+        kind: 'Documents',
       })
     }
   }
@@ -405,7 +412,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
 
   events.sort((a, b) => b.ts - a.ts)
 
-  const activity = events.map((e) => ({ text: e.text, time: e.time, icon: e.icon, tone: e.tone }))
+  const activity = events
 
   // Uploads live in `verification_documents`, which is also the only place a
   // landlord/landlady's business permit exists. The profile URL columns are kept as a

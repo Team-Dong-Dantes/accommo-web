@@ -37,7 +37,7 @@
         <RoomsPane v-if="tab === 'rooms'" :preview="trimmed" @view-person="$emit('view-all', 'rooms')" @photos="$emit('view-all', 'rooms')" />
         <FacilitiesPane v-else-if="tab === 'facilities'" :preview="trimmed" @photos="$emit('view-all', 'facilities')" />
         <PermitsPane v-else-if="tab === 'permits'" :preview="trimmed" @view="$emit('view-all', 'permits')" />
-        <ActivityPane v-else-if="tab === 'activity'" :preview="trimmed" />
+        <ActivityFeed v-else-if="tab === 'activity'" :items="trimmed.activity ?? []" dense :toolbar="false" />
         <ReviewsPane v-else :preview="trimmed" />
       </template>
     </div>
@@ -56,10 +56,11 @@
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import TabNav from '@/components/ui/TabNav.vue'
+import { useAuthStore } from '@/stores/auth'
 import RoomsPane from '@/features/drawer/accommodation/RoomsPane.vue'
 import FacilitiesPane from '@/features/drawer/accommodation/FacilitiesPane.vue'
 import PermitsPane from '@/features/drawer/accommodation/PermitsPane.vue'
-import ActivityPane from '@/features/drawer/accommodation/ActivityPane.vue'
+import ActivityFeed from '@/features/drawer/ActivityFeed.vue'
 import ReviewsPane from '@/features/drawer/accommodation/ReviewsPane.vue'
 import RowListSkeleton from '@/features/drawer/accommodation/RowListSkeleton.vue'
 import type { DrawerPreview } from '@/components/ui/DetailDrawer.vue'
@@ -88,6 +89,7 @@ const totals = computed<Record<TabName, number>>(() => ({
   reviews: props.preview.reviews?.length ?? 0,
 }))
 
+const authStore = useAuthStore()
 // Counts ride in the labels, the way the mockup shows them ("Rooms 12").
 const tabs = computed(() => [
   { name: 'rooms', label: `Rooms ${totals.value.rooms}` },
@@ -95,7 +97,7 @@ const tabs = computed(() => [
   { name: 'permits', label: `Permits ${totals.value.permits}` },
   { name: 'activity', label: 'Activity' },
   { name: 'reviews', label: `Ratings ${totals.value.reviews}` },
-])
+].filter((t) => t.name !== 'activity' || authStore.can('activity')))
 
 const trimmed = computed<DrawerPreview>(() => ({
   ...props.preview,

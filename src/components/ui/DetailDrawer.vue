@@ -7,6 +7,7 @@
         @click="onBackdropClick"
       >
         <aside
+          ref="panelEl"
           class="dd-panel"
           :class="[anchored ? 'dd-panel--anchored' : '', size === 'full' ? 'dd-panel--full' : '']"
           :style="panelStyle"
@@ -241,8 +242,16 @@ function modalIsOpen(): boolean {
   return document.querySelector('.q-dialog') !== null
 }
 
+// A drawer opened from inside another (an activity's detail over its record)
+// is later in <body>; Escape closes only that top one.
+const panelEl = ref<HTMLElement | null>(null)
+function isTopDrawer(): boolean {
+  const panels = document.querySelectorAll('.dd-panel')
+  return panels[panels.length - 1] === panelEl.value
+}
+
 function onKeydown(e: KeyboardEvent) {
-  if (modalIsOpen()) return
+  if (modalIsOpen() || !isTopDrawer()) return
   if (e.key === 'Escape' && props.modelValue) close()
 }
 // When an anchored drawer is opened by an outside click (e.g. a table row),
@@ -264,7 +273,7 @@ watch(
 )
 function onDocClick(e: MouseEvent) {
   if (!props.anchored || !props.modelValue || !props.closeOnBackdrop) return
-  if (suppressClose.value || modalIsOpen()) return
+  if (suppressClose.value || modalIsOpen() || !isTopDrawer()) return
   const target = e.target as HTMLElement | null
   if (target?.closest('.dd-panel') || target?.closest('.q-menu') || target?.closest('.q-dialog')) return
   close()

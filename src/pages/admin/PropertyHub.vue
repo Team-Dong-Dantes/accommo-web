@@ -5,6 +5,7 @@
       <TabNav v-model="activeTab" :tabs="tabs" />
 
       <q-btn
+        v-if="authStore.can('reports')"
         unelevated
         color="teal-7"
         no-caps
@@ -184,6 +185,7 @@ import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import { getStatus } from '@/utils/status.config'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
+import { useAuthStore } from '@/stores/auth'
 import { humanizeEnum } from '@/utils/format'
 import ReportDialog from '@/features/reports/ReportDialog.vue'
 import type { ReportId } from '@/features/reports/reports'
@@ -280,11 +282,14 @@ type ManagementAction = { label: string; action: string; danger?: boolean }
  * status rather than another meaning loaded onto `rejected`. Same shape as the
  * account actions in Users.vue.
  */
+const authStore = useAuthStore()
 const accommodationActions = computed<ManagementAction[]>(() => {
   const a = selectedAccommodation.value
   if (!a) return []
   const status = String(a.status || '').toLowerCase()
-  const actions: ManagementAction[] = [{ label: 'Status report', action: 'export' }]
+  const actions: ManagementAction[] = authStore.can('reports') ? [{ label: 'Status report', action: 'export' }] : []
+  // Hide, suspend and restore are Accommodations edit (the database checks too).
+  if (!authStore.can('accommodations', 'edit')) return actions
   if (status === 'accredited') {
     actions.push(
       a.hiddenFromListings

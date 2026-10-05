@@ -51,7 +51,7 @@
       </InfoCard>
     </template>
 
-    <template v-if="row" #footer>
+    <template v-if="row && authStore.can('announcements', 'edit')" #footer>
       <div class="row justify-end q-gutter-x-sm">
         <q-btn v-if="!row.archived" flat no-caps color="grey-7" label="Archive" @click="$emit('archive', row)" />
         <q-btn v-else flat no-caps color="primary" label="Restore" @click="$emit('restore', row)" />
@@ -71,6 +71,9 @@ import BadgePill from '@/components/user/BadgePill.vue'
 import { useNotify } from '@/utils/notify'
 import { fetchPendingUsers, fetchPolicyVersions } from '@/api/announcements'
 import { STATUS_META, fmtDate, pct, versionLabel, type PolicyStatus } from './shared'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 
 const props = defineProps<{ row: any | null }>()
 defineEmits<{
