@@ -174,6 +174,7 @@ import { useQuasar } from 'quasar'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import TabNav from '@/components/ui/TabNav.vue'
+import { counted } from '@/utils/filterOptions'
 import TableCard from '@/components/table/TableCard.vue'
 import DataTable from '@/components/table/DataTable.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
@@ -303,35 +304,26 @@ watch(activeFilters, () => {
   currentPage.value = 1
 })
 
+// Options come from the rows on this tab (active or archived), each with its
+// count, so nothing is offered that would show an empty list.
 const filterConfig = computed(() => {
+  const base = (isAnn.value ? announcements.value : policies.value)
+    .filter((item) => showArchived.value ? !!item.archived : !item.archived)
+    .map((item) => ({
+      status: String(item.status ?? ''),
+      source: item.accommodation_id ? 'landlord' : 'osas',
+      audience: item.accommodation_id ? '' : String(item.audience ?? ''),
+    }))
+  const statusLabel = (s: string) => STATUS_META[s as keyof typeof STATUS_META]?.label ?? s
   if (isAnn.value) {
     return [
-      {
-        label: 'Source',
-        key: 'source',
-        options: [
-          { label: 'OSAS', value: 'osas' },
-          { label: 'Landlord/Landlady notices', value: 'landlord' },
-        ],
-      },
-      {
-        label: 'Status',
-        key: 'status',
-        options: (['live', 'scheduled', 'draft', 'expired'] as const).map((s) => ({ label: STATUS_META[s].label, value: s })),
-      },
-      {
-        label: 'Audience',
-        key: 'audience',
-        options: ['all', 'students', 'landlords'].map((a) => ({ label: audienceMeta(a).label, value: a })),
-      },
+      { label: 'Source', key: 'source', options: counted(base, 'source', (v) => (v === 'osas' ? 'OSAS' : 'Landlord/Landlady notices'), ['osas', 'landlord']) },
+      { label: 'Status', key: 'status', options: counted(base, 'status', statusLabel, ['live', 'scheduled', 'draft', 'expired']) },
+      { label: 'Audience', key: 'audience', options: counted(base, 'audience', (v) => audienceMeta(v).label, ['all', 'students', 'landlords']) },
     ]
   }
   return [
-    {
-      label: 'Status',
-      key: 'status',
-      options: (['in_effect', 'scheduled'] as const).map((s) => ({ label: STATUS_META[s].label, value: s })),
-    },
+    { label: 'Status', key: 'status', options: counted(base, 'status', statusLabel, ['in_effect', 'scheduled']) },
   ]
 })
 

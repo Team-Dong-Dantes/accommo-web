@@ -9,6 +9,7 @@ import { fetchAccommodationExtras, type AccommodationExtras } from '@/api/accomm
 import { fetchReviewProfile, fetchApplicantDetails, type ApplicantDetails, type ReviewProfile } from '@/api/users'
 import { useReviewPresence } from '@/composables/useReviewPresence'
 import { useAuthStore } from '@/stores/auth'
+import { counted } from '@/utils/filterOptions'
 
 /**
  * The property behind an accreditation request. An accommodation is not an
@@ -232,16 +233,17 @@ export function useVerifications() {
   // Whether a request is still in review is on the row already (the lock note),
   // so the one filter left worth having is whether it can be decided now.
   const activeFilters = ref<{ readiness: string[] }>({ readiness: [] })
-  const filterConfig = [
-    {
+  // Counted from the open tab's requests, so an option never shows an empty list.
+  const READINESS: Record<string, string> = { ready: 'Ready to decide', waiting: 'Waiting on the applicant' }
+  const filterConfig = computed(() => {
+    const rows = activeTab.value === 'landlord' ? landlordRequests.value
+      : activeTab.value === 'accommodation' ? accommodationRequests.value : studentRequests.value
+    return [{
       label: 'Readiness',
       key: 'readiness',
-      options: [
-        { label: 'Ready to decide', value: 'ready' },
-        { label: 'Waiting on the applicant', value: 'waiting' },
-      ],
-    },
-  ]
+      options: counted(rows.map((r) => ({ readiness: r.ready ? 'ready' : 'waiting' })), 'readiness', (v) => READINESS[v] ?? v, ['ready', 'waiting']),
+    }]
+  })
 
   function clearFilters() {
     activeFilters.value = { readiness: [] }

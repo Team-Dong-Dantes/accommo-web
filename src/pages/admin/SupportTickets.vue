@@ -84,6 +84,7 @@ import TicketTable from '@/features/tickets/TicketTable.vue'
 import TicketWindow from '@/features/tickets/TicketWindow.vue'
 import { PRIORITY_OPTS, type MsgGroup } from '@/features/tickets/types'
 import { capitalize } from '@/utils/format'
+import { counted } from '@/utils/filterOptions'
 import type { DrillKind } from '@/features/tickets/TicketWindow.vue'
 
 const {
@@ -210,15 +211,23 @@ const tabs = computed(() => {
   ]
 })
 
-const filterConfig = computed(() => [
-  { key: 'show', label: 'Show', options: [
+// Counted over the open tab's tickets: an option that would show nothing isn't offered.
+const filterConfig = computed(() => {
+  const lane = rows.value.filter((t) => laneTab.value === 'all' || boardLane(t) === laneTab.value)
+  const SHOW = [
     { label: 'Assigned to me', value: 'mine' },
     { label: 'Unassigned', value: 'unassigned' },
     { label: 'Overdue', value: 'overdue' },
-  ] },
-  { key: 'category', label: 'Category', options: [...new Set(rows.value.map((t) => t.category))].sort().map((c) => ({ label: capitalize(c), value: c })) },
-  { key: 'priority', label: 'Priority', options: PRIORITY_OPTS.map((o) => ({ label: o.label, value: o.value })) },
-])
+  ]
+  return [
+    { key: 'show', label: 'Show', options: SHOW
+      .map((o) => ({ ...o, n: lane.filter((t) => inView(t, o.value as BoardView)).length }))
+      .filter((o) => o.n > 0)
+      .map((o) => ({ label: `${o.label} (${o.n})`, value: o.value })) },
+    { key: 'category', label: 'Category', options: counted(lane, 'category', capitalize) },
+    { key: 'priority', label: 'Priority', options: counted(lane, 'priority', (v) => PRIORITY_OPTS.find((o) => o.value === v)?.label ?? capitalize(v), PRIORITY_OPTS.map((o) => o.value)) },
+  ]
+})
 
 /** Any ticked option within a group, every group that has one ticked. */
 const tableRows = computed(() => {

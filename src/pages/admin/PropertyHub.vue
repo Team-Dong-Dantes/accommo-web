@@ -186,6 +186,7 @@ import { getStatus } from '@/utils/status.config'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { useAuthStore } from '@/stores/auth'
+import { counted } from '@/utils/filterOptions'
 import { humanizeEnum } from '@/utils/format'
 import ReportDialog from '@/features/reports/ReportDialog.vue'
 import type { ReportId } from '@/features/reports/reports'
@@ -220,16 +221,12 @@ const filterConfig = computed(() => [
     // Derived from the loaded rows, like the type filter below it: the fixed
     // pair offered Verified/Pending against eight real statuses, so filtering
     // for a rejected or expired property was not possible at all.
-    label: 'Status', key: 'status', options: [
-      ...new Set(accommodations.value.map((p) => String(p.status ?? '')).filter(Boolean)),
-    ].sort().map((v) => ({ label: humanizeEnum(v), value: v })),
+    label: 'Status', key: 'status', options: counted(accommodations.value, 'status', humanizeEnum),
   },
   {
     label: 'Accommodation Type',
     key: 'type',
-    options: [...new Set(accommodations.value.map((p) => p.type).filter(Boolean))]
-      .sort()
-      .map((t) => ({ label: t, value: t })),
+    options: counted(accommodations.value, 'type'),
   },
 ])
 

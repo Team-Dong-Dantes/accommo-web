@@ -38,6 +38,7 @@
         type="button"
         class="ar-item"
         :class="{ 'is-on': person === p.key }"
+        :disabled="!p.count && person !== p.key"
         @click="person = person === p.key ? null : p.key"
       >
         <q-avatar size="20px" font-size="10px" :color="p.color" text-color="white" class="ar-av text-weight-bold">

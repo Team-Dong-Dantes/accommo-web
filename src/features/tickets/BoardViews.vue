@@ -9,6 +9,7 @@
       class="view"
       :class="{ 'is-on': view === v.value }"
       :aria-pressed="view === v.value"
+      :disabled="v.value !== 'all' && !v.count && view !== v.value"
       @click="$emit('update:view', v.value)"
     >
       <Icon :icon="v.icon" width="16" height="16" />
@@ -54,7 +55,8 @@ defineEmits<{ (e: 'update:view', v: BoardView): void; (e: 'update:category', v: 
 .views { display: flex; flex-direction: column; gap: 2px; width: 176px; flex-shrink: 0; overflow-y: auto; padding-right: var(--sp-2); }
 .views-head { margin: var(--sp-4) 0 var(--sp-1); padding: 0 var(--sp-3); color: var(--c-muted); font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .view { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: 7px var(--sp-3); border: none; border-radius: var(--radius-sm); background: transparent; color: var(--c-text); cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; text-align: left; transition: background var(--t-fast); }
-.view:hover { background: var(--c-surface-2); }
+.view:hover:not(:disabled) { background: var(--c-surface-2); }
+.view:disabled { opacity: 0.45; cursor: default; }
 .view.is-on { background: var(--c-primary-soft); color: var(--c-primary-ink); }
 .view-label { overflow: hidden; flex: 1; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }
 .view-count { color: var(--c-muted); font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
