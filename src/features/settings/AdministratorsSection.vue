@@ -140,7 +140,7 @@ const admins = ref<AdminRow[]>([])
 
 async function loadAdmins() {
   const { data, error } = await supabase
-    .from('users')
+    .from('users_full')
     .select('id, full_name, email, initials, avatar_url, is_superadmin, onboarding_complete')
     .eq('role', 'admin')
     .order('is_superadmin', { ascending: false })

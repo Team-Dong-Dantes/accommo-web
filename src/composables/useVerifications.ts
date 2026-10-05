@@ -418,7 +418,7 @@ export function useVerifications() {
              id, name, status, landlord_id, accommodation_type, gender_policy,
              purok, barangay, city, description, lat, lng, reviewing_at, reviewing_by,
              accreditation_expires_at,
-             landlord:landlord_id ( full_name, email, phone, status )
+             landlord:users_full!accommodations_landlord_id_fkey ( full_name, email, phone, status )
            )`,
         )
         .is('decided_at', null)
@@ -974,7 +974,7 @@ export function useVerifications() {
       .from('users')
       .update({ status: newStatus as any, reviewing_by: null, reviewing_at: null } as never)
       .eq('id', rawId)
-      .select()
+      .select('id')
 
     if (error) {
       notify.error('Database error', error.message)

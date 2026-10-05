@@ -186,7 +186,7 @@ export interface EditableProfile {
 
 export async function fetchEditableProfile(userId: string): Promise<EditableProfile> {
   const [u, sp] = await Promise.all([
-    supabase.from('users').select('full_name, sex, date_of_birth, phone, role').eq('id', userId).single(),
+    supabase.from('users_full').select('full_name, sex, date_of_birth, phone, role').eq('id', userId).single(),
     supabase.from('student_profiles').select('college, program, year_level, student_id').eq('user_id', userId).maybeSingle(),
   ])
   if (u.error) throw u.error

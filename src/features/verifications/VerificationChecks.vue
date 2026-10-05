@@ -151,7 +151,7 @@ async function runAutoChecks() {
 
   try {
     if (!props.isAccommodation && r.email) {
-      const { data } = await supabase.from('users').select('id, status').eq('email', r.email).neq('id', r.rawId)
+      const { data } = await supabase.from('users_full').select('id, status').eq('email', r.email).neq('id', r.rawId)
       const dup = (data ?? []).find((u: any) => u.status === 'verified' || u.status === 'rejected')
       list.push(dup
         ? { label: 'Duplicate account', status: 'fail', detail: `Another account with this email is already ${dup.status}.` }

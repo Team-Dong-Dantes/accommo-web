@@ -151,7 +151,7 @@ export function useUserDirectory() {
       // list of user ids, which put every id in the URL and would overrun its
       // length limit at a few hundred users.
       const data = await fetchAll((from, to) => supabase
-        .from('users')
+        .from('users_full')
         .select(
           `id, full_name, email, phone, sex, role, status, created_at, registered_at, updated_at,
            date_of_birth, avatar_url, email_verified_at, last_login_at, terms_accepted_at,
@@ -187,7 +187,8 @@ export function useUserDirectory() {
       const stays = staysByStudent((leaseRes.data ?? []) as never)
       const portfolios = portfoliosByLandlord((accRes.data ?? []) as never)
 
-      const mapped = (data ?? []).map((u) => {
+      // users_full is a view, so its generated types call every column nullable.
+      const mapped = (data ?? []).map((u) => ({ ...u, id: u.id! })).map((u) => {
         const row = mapUserData(u, profileByUser.get(u.id) ?? {})
         if (u.role === 'student') {
           row.stay = stays.get(u.id) ?? null

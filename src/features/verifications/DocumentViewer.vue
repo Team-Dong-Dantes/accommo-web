@@ -60,9 +60,8 @@
                is Cloudinary's /download endpoint, which serves the file as an
                attachment — the frame would have downloaded, not previewed. An
                explicit affordance is both honest and doesn't widen the CSP. -->
-          <!-- Fetched as a blob above, so the browser previews it in place —
-               PDFs in its own PDF viewer, anything else it can render natively.
-               The panel below is only for what it cannot. -->
+          <!-- Fetched as a blob above, so the browser previews it in place in
+               its own PDF viewer. The panel below is for everything else. -->
           <iframe
             v-else-if="blobUrl"
             :src="blobUrl"
@@ -198,6 +197,11 @@ const imgLoading = ref(false)
  * a cross-origin frame was refused outright. Fetching the bytes ourselves solves
  * both: we choose the type, and `frame-src 'self' blob:` is a far narrower hole
  * than allowing a third-party origin to be framed.
+ *
+ * "We choose the type" has to be literal. A blob URL has this page's origin, so
+ * an uploaded .html file re-served with the server's own type would render as
+ * a page of the OSAS console. Only bytes that really are a PDF are framed, and
+ * always as application/pdf; anything else gets the "Open document" panel.
  */
 const blobUrl = ref('')
 const blobLoading = ref(false)
@@ -219,10 +223,12 @@ async function loadBlob(url: string) {
   try {
     const res = await fetch(url, { credentials: 'omit' })
     if (!res.ok) throw new Error(String(res.status))
-    blobUrl.value = URL.createObjectURL(await res.blob())
+    const bytes = await res.arrayBuffer()
+    if (new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error('not a PDF')
+    blobUrl.value = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
   } catch {
-    // Cross-origin fetch refused, link expired, or the network failed — the
-    // explicit "Open document" panel is the fallback.
+    // Cross-origin fetch refused, link expired, the network failed, or not a
+    // PDF — the explicit "Open document" panel is the fallback.
     blobFailed.value = true
   } finally {
     blobLoading.value = false

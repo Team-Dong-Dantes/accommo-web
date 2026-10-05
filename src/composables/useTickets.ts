@@ -67,11 +67,11 @@ const ENRICHED_SELECT = `
   id, ticket_no, subject, description, category, priority, status, assignee_id, reporter_name, reported_at, updated_at, resolved_at, photo_urls, lease_id, student_id, accommodation_id, landlord_id,
   lease:lease_id (
     id,
-    student:student_id ( id, full_name, email, phone, avatar_url, student_profiles ( program, college ) ),
+    student:users_full!leases_student_id_fkey ( id, full_name, email, phone, avatar_url, student_profiles ( program, college ) ),
     room:room_id ( id, label, accommodation:accommodation_id ( id, name, landlord:landlord_id ( full_name ) ) )
   ),
-  reporter:student_id ( id, full_name, email, phone, role, avatar_url ),
-  landlord:landlord_id ( id, full_name, email, phone, role, avatar_url ),
+  reporter:users_full!tickets_student_id_fkey ( id, full_name, email, phone, role, avatar_url ),
+  landlord:users_full!tickets_landlord_id_fkey ( id, full_name, email, phone, role, avatar_url ),
   accommodation:accommodation_id ( id, name, landlord:landlord_id ( full_name ) ),
   assignee:assignee_id ( id, full_name ),
   ticket_messages (

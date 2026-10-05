@@ -110,13 +110,14 @@ export async function fetchApplicantDetails(userIds: string[]): Promise<Map<stri
   const details = new Map<string, ApplicantDetails>()
   if (!userIds.length) return details
   const [users, profiles] = await Promise.all([
-    supabase.from('users').select('id, phone').in('id', userIds),
+    supabase.from('users_full').select('id, phone').in('id', userIds),
     supabase.from('student_profiles').select('user_id, student_id, college, year_level').in('user_id', userIds),
   ])
   if (users.error) throw users.error
   if (profiles.error) throw profiles.error
   for (const user of users.data ?? []) {
-    details.set(user.id, { phone: user.phone ?? null, student_id: null, college: null, year_level: null })
+    // users_full is a view, so its generated types call every column nullable.
+    details.set(user.id!, { phone: user.phone ?? null, student_id: null, college: null, year_level: null })
   }
   for (const profile of profiles.data ?? []) {
     const entry = details.get(profile.user_id) ?? { phone: null, student_id: null, college: null, year_level: null }
@@ -157,7 +158,7 @@ export interface ReviewProfile {
  */
 export async function fetchReviewProfile(userId: string, role: string): Promise<ReviewProfile | null> {
   const { data: user, error } = await supabase
-    .from('users')
+    .from('users_full')
     .select('phone, sex, date_of_birth, email_verified_at, registered_at, created_at, last_login_at, terms_accepted_at, privacy_accepted_at, onboarding_complete')
     .eq('id', userId)
     .maybeSingle()
@@ -287,7 +288,7 @@ export interface PersonSummary {
 export async function fetchPersonSummary(userId: string, role: 'student' | 'landlord'): Promise<PersonSummary | null> {
   const [userRes, profileRes] = await Promise.all([
     supabase
-      .from('users')
+      .from('users_full')
       .select('id, full_name, initials, avatar_url, sex, date_of_birth, phone, email, status, registered_at')
       .eq('id', userId)
       .maybeSingle(),

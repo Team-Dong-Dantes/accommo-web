@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       accommodation_amenities: {
@@ -355,6 +380,13 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "accommodation_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
         ]
       }
       accommodations: {
@@ -460,10 +492,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "accommodations_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "accommodations_reviewing_by_fkey"
             columns: ["reviewing_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accommodations_reviewing_by_fkey"
+            columns: ["reviewing_by"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -499,10 +545,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "account_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "account_notes_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -541,10 +601,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "account_standing_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "account_standing_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_standing_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -614,10 +688,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "accreditation_rounds_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "accreditation_rounds_submitted_by_fkey"
             columns: ["submitted_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accreditation_rounds_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -647,6 +735,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -719,6 +814,13 @@ export type Database = {
             columns: ["author_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcements_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -807,6 +909,13 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "audit_logs_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
         ]
       }
       boarding_history: {
@@ -853,6 +962,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boarding_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -976,8 +1092,29 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "conversations_last_sender_id_fkey"
+            columns: ["last_sender_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "conversations_user_a_id_fkey"
             columns: ["user_a_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_user_a_id_fkey"
+            columns: ["user_a_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_user_b_id_fkey"
+            columns: ["user_b_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -986,7 +1123,7 @@ export type Database = {
             foreignKeyName: "conversations_user_b_id_fkey"
             columns: ["user_b_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -1056,6 +1193,13 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "landlord_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
         ]
       }
       landlord_reviews: {
@@ -1095,6 +1239,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "landlord_reviews_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "landlord_reviews_lease_id_fkey"
             columns: ["lease_id"]
             isOneToOne: true
@@ -1106,6 +1257,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -1192,6 +1350,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "leases_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "leases_room_id_fkey"
             columns: ["room_id"]
             isOneToOne: false
@@ -1203,6 +1368,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -1250,6 +1422,13 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
         ]
       }
       notifications: {
@@ -1295,6 +1474,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -1367,6 +1553,13 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "payments_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
         ]
       }
       policies: {
@@ -1411,6 +1604,13 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "policies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
         ]
       }
       policy_acceptances: {
@@ -1445,6 +1645,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_acceptances_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -1493,6 +1700,39 @@ export type Database = {
           },
         ]
       }
+      push_tokens: {
+        Row: {
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       qr_scans: {
         Row: {
           id: string
@@ -1527,10 +1767,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "qr_scans_scanner_id_fkey"
+            columns: ["scanner_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "qr_scans_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qr_scans_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -1587,6 +1841,13 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -1760,6 +2021,13 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "student_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tenant_reviews: {
@@ -1799,6 +2067,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tenant_reviews_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tenant_reviews_lease_id_fkey"
             columns: ["lease_id"]
             isOneToOne: true
@@ -1810,6 +2085,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -1851,6 +2133,13 @@ export type Database = {
             columns: ["author_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
           {
@@ -1939,6 +2228,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tickets_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tickets_concern_id_fkey"
             columns: ["concern_id"]
             isOneToOne: true
@@ -1953,6 +2249,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tickets_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tickets_lease_id_fkey"
             columns: ["lease_id"]
             isOneToOne: false
@@ -1964,6 +2267,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -1996,6 +2306,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_pins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -2088,6 +2405,13 @@ export type Database = {
             columns: ["reviewing_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "users_reviewing_by_fkey"
+            columns: ["reviewing_by"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -2185,10 +2509,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "verification_documents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "verification_documents_verified_by_fkey"
             columns: ["verified_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_documents_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -2236,6 +2574,13 @@ export type Database = {
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users_full"
             referencedColumns: ["id"]
           },
         ]
@@ -2296,6 +2641,105 @@ export type Database = {
           rating: number | null
         }
         Relationships: []
+      }
+      users_full: {
+        Row: {
+          avatar_color: string | null
+          avatar_url: string | null
+          closed_at: string | null
+          created_at: string | null
+          date_of_birth: string | null
+          email: string | null
+          email_verified_at: string | null
+          full_name: string | null
+          id: string | null
+          initials: string | null
+          is_superadmin: boolean | null
+          last_login_at: string | null
+          login_alerts: boolean | null
+          notification_prefs: Json | null
+          onboarding_complete: boolean | null
+          phone: string | null
+          privacy_accepted_at: string | null
+          registered_at: string | null
+          reviewing_at: string | null
+          reviewing_by: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          sex: string | null
+          status: Database["public"]["Enums"]["user_status"] | null
+          terms_accepted_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_color?: string | null
+          avatar_url?: string | null
+          closed_at?: string | null
+          created_at?: string | null
+          date_of_birth?: never
+          email?: string | null
+          email_verified_at?: string | null
+          full_name?: string | null
+          id?: string | null
+          initials?: string | null
+          is_superadmin?: boolean | null
+          last_login_at?: string | null
+          login_alerts?: boolean | null
+          notification_prefs?: Json | null
+          onboarding_complete?: boolean | null
+          phone?: string | null
+          privacy_accepted_at?: string | null
+          registered_at?: string | null
+          reviewing_at?: string | null
+          reviewing_by?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          sex?: string | null
+          status?: Database["public"]["Enums"]["user_status"] | null
+          terms_accepted_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_color?: string | null
+          avatar_url?: string | null
+          closed_at?: string | null
+          created_at?: string | null
+          date_of_birth?: never
+          email?: string | null
+          email_verified_at?: string | null
+          full_name?: string | null
+          id?: string | null
+          initials?: string | null
+          is_superadmin?: boolean | null
+          last_login_at?: string | null
+          login_alerts?: boolean | null
+          notification_prefs?: Json | null
+          onboarding_complete?: boolean | null
+          phone?: string | null
+          privacy_accepted_at?: string | null
+          registered_at?: string | null
+          reviewing_at?: string | null
+          reviewing_by?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          sex?: string | null
+          status?: Database["public"]["Enums"]["user_status"] | null
+          terms_accepted_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_reviewing_by_fkey"
+            columns: ["reviewing_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "users_reviewing_by_fkey"
+            columns: ["reviewing_by"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -2366,6 +2810,7 @@ export type Database = {
       archive_expired_announcements: { Args: never; Returns: number }
       assert_admin_over: { Args: { p_user: string }; Returns: undefined }
       can_notify: { Args: { target: string }; Returns: boolean }
+      check_session: { Args: never; Returns: undefined }
       check_student_id_exists: {
         Args: { p_student_id: string }
         Returns: boolean
@@ -2426,6 +2871,7 @@ export type Database = {
         Args: { p_conversation: string }
         Returns: undefined
       }
+      may_message: { Args: { p_other: string }; Returns: boolean }
       mfa_ok: { Args: { p_uid: string }; Returns: boolean }
       my_accommodation_ids: {
         Args: never
@@ -2439,6 +2885,17 @@ export type Database = {
           p_link_url: string
           p_title: string
           p_type: string
+        }
+        Returns: undefined
+      }
+      notify_peer: {
+        Args: {
+          p_body: string
+          p_from: string
+          p_link: string
+          p_title: string
+          p_type: string
+          p_user: string
         }
         Returns: undefined
       }
@@ -2466,6 +2923,7 @@ export type Database = {
         Args: { p_acc: string; p_doc: string }
         Returns: boolean
       }
+      peso: { Args: { p: number }; Returns: string }
       pin_attempt: { Args: { p_pin: string }; Returns: boolean }
       policy_acceptance_stats: {
         Args: never
@@ -2502,6 +2960,7 @@ export type Database = {
         Returns: undefined
       }
       record_consent: { Args: { p_documents: string[] }; Returns: undefined }
+      register_push_token: { Args: { p_token: string }; Returns: undefined }
       remind_accreditation_expiry: { Args: never; Returns: undefined }
       remind_stale_drafts: { Args: never; Returns: undefined }
       remind_utility_bills: { Args: never; Returns: undefined }
@@ -2515,7 +2974,12 @@ export type Database = {
         Returns: number
       }
       resubmit_verification: { Args: never; Returns: undefined }
+      room_display: { Args: { p_room: string }; Returns: string }
       rotate_qr_token: { Args: never; Returns: string }
+      send_push: {
+        Args: { p_payload: Json; p_user: string }
+        Returns: undefined
+      }
       set_audit_context: {
         Args: { p_ip_address?: string; p_user_agent?: string }
         Returns: undefined
@@ -2725,6 +3189,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       accommodation_status: [

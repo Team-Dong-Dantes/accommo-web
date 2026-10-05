@@ -72,7 +72,7 @@ export interface LandlordRow {
 
 export async function fetchLandlords(): Promise<LandlordRow[]> {
   const { data, error } = await supabase
-    .from('users')
+    .from('users_full')
     .select(`id, full_name, sex, status, email, phone, created_at,
       landlord_profiles(response_rate, avg_response_minutes),
       accommodations!accommodations_landlord_id_fkey(id, name, status, accreditation_expires_at, rooms(capacity, current_pax))`)
@@ -83,7 +83,8 @@ export async function fetchLandlords(): Promise<LandlordRow[]> {
   return (data ?? []).map((u) => {
     const prof = one(u.landlord_profiles)
     return {
-      id: u.id,
+      // users_full is a view, so its generated types call every column nullable.
+      id: u.id!,
       name: u.full_name ?? '—',
       sex: u.sex ?? null,
       status: String(u.status ?? ''),
@@ -129,7 +130,7 @@ export async function fetchBoarders(): Promise<BoarderRow[]> {
   const { data, error } = await supabase
     .from('leases')
     .select(`start_date,
-      student:users!leases_student_id_fkey(id, full_name, sex, phone,
+      student:users_full!leases_student_id_fkey(id, full_name, sex, phone,
         student_profiles(student_id, college, program, year_level, emergency_contact_json)),
       room:rooms!leases_room_id_fkey(room_number, label,
         accommodation:accommodations!rooms_accommodation_id_fkey(id, name, accommodation_type, address, barangay, city))`)

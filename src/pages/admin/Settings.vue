@@ -122,6 +122,7 @@ import AdministratorsSection from '@/features/settings/AdministratorsSection.vue
 import ReportSettingsSection from '@/features/settings/ReportSettingsSection.vue'
 import TwoFactorSetting from '@/features/settings/TwoFactorSetting.vue'
 import { useRoute } from 'vue-router'
+import { passwordProblem } from '@/utils/format'
 
 const notify = useNotify()
 const authStore = useAuthStore()
@@ -278,8 +279,9 @@ async function savePassword() {
     notify.error('New passwords do not match')
     return
   }
-  if (password.next && password.next.length < 8) {
-    notify.error('Password must be at least 8 characters')
+  const weak = password.next ? passwordProblem(password.next) : null
+  if (weak) {
+    notify.error(weak)
     return
   }
   try {

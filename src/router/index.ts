@@ -38,7 +38,7 @@ export default defineRouter(() => {
     roleFetchInProgress = (async () => {
        try {
          const { data, error } = await supabase
-           .from('users')
+           .from('users_full')
             .select('id, full_name, email, initials, avatar_color, phone, is_superadmin, onboarding_complete, role, status')
            .eq('id', session.user.id)
            .maybeSingle();

@@ -10,6 +10,7 @@ import {
   formatPhone,
   getInitials,
   getInitialsWide,
+  passwordProblem,
   roleLabel,
 } from './format';
 
@@ -159,5 +160,19 @@ describe('formatPhone', () => {
 
   it('leaves anything else as typed', () => {
     expect(formatPhone('(078) 305-1234')).toBe('(078) 305-1234');
+  });
+});
+
+describe('passwordProblem', () => {
+  it('accepts what the auth rule accepts', () => {
+    expect(passwordProblem('Accommo#2026')).toBeNull();
+  });
+  it('names the length before the mix', () => {
+    expect(passwordProblem('Ab1!')).toMatch(/8 characters/);
+  });
+  it('refuses each missing class', () => {
+    for (const pw of ['accommo#2026', 'ACCOMMO#2026', 'Accommo#same', 'Accommo2026x']) {
+      expect(passwordProblem(pw)).toMatch(/symbol/);
+    }
   });
 });

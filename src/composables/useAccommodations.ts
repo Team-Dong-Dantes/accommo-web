@@ -184,7 +184,7 @@ export function useAccommodations() {
             total_rooms, total_floors, description, status, rating_avg,
             reviews_count, landlord_id, business_name, accreditation_status,
             accredited_at, accreditation_expires_at, gender_policy, hidden_from_listings,
-            landlord:users!accommodations_landlord_id_fkey(id, full_name, phone, initials, avatar_url, sex)`
+            landlord:users_full!accommodations_landlord_id_fkey(id, full_name, phone, initials, avatar_url, sex)`
         ),
         supabase.from('rooms').select(
           `id, room_number, label, floor, capacity, current_pax, status, monthly_rent, accommodation_id,

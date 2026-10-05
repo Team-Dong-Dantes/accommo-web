@@ -47,7 +47,7 @@
           <AuthInput v-model="password" :type="showPassword ? 'text' : 'password'" autocomplete="new-password"
             :rules="[
               (val: string) => !!val || 'Password is required',
-              (val: string) => val.length >= 8 || 'At least 8 characters',
+              (val: string) => passwordProblem(val) ?? true,
               (val: string) => /[a-z]/.test(val) || 'Must include a lowercase letter',
               (val: string) => /[A-Z]/.test(val) || 'Must include an uppercase letter',
               (val: string) => /\d/.test(val) || 'Must include a number',
@@ -109,6 +109,7 @@ import { useAuthStore } from '@/stores/auth';
 import { supabase } from '@/utils/supabase';
 import AuthInput from '@/components/auth/AuthInput.vue';
 import AuthButton from '@/components/auth/AuthButton.vue';
+import { passwordProblem } from '@/utils/format';
 
 const router = useRouter();
 const $q = useQuasar();

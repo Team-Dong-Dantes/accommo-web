@@ -272,3 +272,16 @@ export function formatPhone(raw: string): string {
           : null
   return local ? `+63 ${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}` : raw
 }
+
+/**
+ * Why a new password would be refused, or null. Mirrors the project's auth rule
+ * (8+ characters with a lowercase and an uppercase letter, a digit and a
+ * symbol) so the reason shows here instead of Supabase's generic "weak password".
+ */
+export function passwordProblem(pw: string): string | null {
+  if (pw.length < 8) return 'Password must be at least 8 characters.'
+  if (!/[a-z]/.test(pw) || !/[A-Z]/.test(pw) || !/\d/.test(pw) || !/[!@#$%^&*()_+\-=[\]{};'\\:"|<>?,./`~]/.test(pw)) {
+    return 'Use an uppercase and a lowercase letter, a number and a symbol.'
+  }
+  return null
+}

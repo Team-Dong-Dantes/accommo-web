@@ -227,7 +227,7 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
       case 'sign-out':
         spec.value = {
           title: 'Sign out everywhere', name, icon: 'lucide:log-out', reason: 'none', confirm: 'Sign out',
-          blurb: 'Ends every session, for a lost or shared phone. A device already open can keep working for up to an hour, until its sign-in refreshes.',
+          blurb: 'Ends every session, for a lost or shared phone. A device already open is refused on its next request.',
           run: async () => {
             const n = await signOutEverywhere(s.rawId)
             notify.success(n ? `Signed out of ${n} session${n === 1 ? '' : 's'}` : 'They were not signed in anywhere', name)

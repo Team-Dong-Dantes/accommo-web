@@ -169,7 +169,7 @@ export async function fetchStaySummary(accommodationId: string, leaseId: string 
       .from('accommodations')
       .select(
         `id, name, address, barangay, city, lat, lng, accommodation_type, status, rating_avg, reviews_count, total_rooms,
-         landlord:users!accommodations_landlord_id_fkey(full_name, sex, phone)`,
+         landlord:users_full!accommodations_landlord_id_fkey(full_name, sex, phone)`,
       )
       .eq('id', accommodationId)
       .single(),

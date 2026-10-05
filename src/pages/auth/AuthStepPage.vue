@@ -49,6 +49,7 @@ import { useNotify } from '@/utils/notify'
 import { useAuthStore } from '@/stores/auth'
 import AuthInput from '@/components/auth/AuthInput.vue'
 import AuthButton from '@/components/auth/AuthButton.vue'
+import { passwordProblem } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -72,7 +73,8 @@ async function submit() {
       const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code.value })
       if (error) throw error
     } else {
-      if (password.value.length < 8) throw new Error('Password must be at least 8 characters.')
+      const weak = passwordProblem(password.value)
+      if (weak) throw new Error(weak)
       if (password.value !== confirm.value) throw new Error('The passwords do not match.')
       const { error } = await supabase.auth.updateUser({ password: password.value })
       if (error) throw error
