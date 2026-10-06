@@ -54,7 +54,8 @@ function leaseStatusTone(status: string): StatusTone {
 
 function paymentStatusTone(status: string): StatusTone {
   switch (status) {
-    case 'paid': return 'success'
+    case 'paid':
+    case 'waived': return 'success'
     case 'overdue': return 'danger'
     case 'due':
     case 'pending_verification': return 'warning'
@@ -559,7 +560,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
       amountLabel: fmtCurrency(p.amount),
       status: p.status,
       statusTone: paymentStatusTone(p.status),
-      statusLabel: cap(p.status),
+      statusLabel: p.status === 'waived' ? 'Forgiven' : p.status === 'pending_verification' ? 'Pending' : cap(p.status),
       paidAt: p.paid_at,
       method: p.method,
       methodLabel: paymentMethodLabel(p.method),
@@ -636,6 +637,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
        result.history = history
        result.historyCards = historyCards
        if (placement) result.placement = placement
+       result.studentId = u.id
        result.leases = leaseRows
        result.payments = paymentRows
        result.kind = 'user'

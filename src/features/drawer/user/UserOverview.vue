@@ -166,6 +166,7 @@ const PAY: Record<string, { tone: string; label: string }> = {
   pending_verification: { tone: 'pending', label: 'Pending' },
   due: { tone: 'due', label: 'Due' },
   overdue: { tone: 'overdue', label: 'Overdue' },
+  waived: { tone: 'paid', label: 'Forgiven' },
 }
 /** The six most recent billing months, oldest first, one cell each. */
 const months = computed(() => {

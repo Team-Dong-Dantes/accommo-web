@@ -1,5 +1,17 @@
 <template>
   <div class="dd-payments">
+    <!-- Unpaid balance on ended stays: it blocks the student from a new one. -->
+    <section v-if="pastOwed.length && !filterAccommodationId" class="dd-owed border-all rounded-borders">
+      <Icon icon="lucide:triangle-alert" width="18" height="18" class="dd-owed-icon" />
+      <div class="col min-width-0">
+        <div class="dd-owed-title">Owes {{ peso(pastOwedTotal) }} on {{ pastOwed.length === 1 ? 'a past stay' : 'past stays' }}</div>
+        <div v-for="o in pastOwed" :key="o.lease_id" class="dd-owed-row">
+          {{ o.accommodation }} · {{ o.room }}{{ o.ended_on ? ` · ended ${o.ended_on}` : '' }} — {{ peso(Number(o.balance)) }}
+        </div>
+        <div class="dd-owed-note">Can't start a new stay until this is paid or the landlord/landlady forgives it.</div>
+      </div>
+    </section>
+
     <!-- Active-lease summary -->
     <section v-if="activeLease" class="dd-summary border-all rounded-borders">
       <div class="dd-summary-head">
@@ -98,7 +110,8 @@
 
 <script setup lang="ts">
 import TabEmptyState from './TabEmptyState.vue'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { supabase } from '@/utils/supabase'
 import { Icon } from '@iconify/vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import PhotoLightbox from './accommodation/PhotoLightbox.vue'
@@ -120,6 +133,21 @@ const byStay = <T extends { accommodationId: string }>(rows: T[]) =>
   props.filterAccommodationId ? rows.filter((r) => r.accommodationId === props.filterAccommodationId) : rows
 const payments = computed(() => byStay(props.preview.payments ?? []))
 const leases = computed(() => byStay(props.preview.leases ?? []))
+
+// What the student still owes on ended stays (student_past_balance).
+const pastOwed = ref<{ lease_id: string; accommodation: string; room: string; ended_on: string | null; balance: number }[]>([])
+const pastOwedTotal = computed(() => pastOwed.value.reduce((s, o) => s + Number(o.balance), 0))
+watch(
+  () => props.preview.studentId,
+  async (id) => {
+    pastOwed.value = []
+    if (!id) return
+    const { data } = await supabase.rpc('student_past_balance', { p_student: id })
+    if (props.preview.studentId === id) pastOwed.value = data ?? []
+  },
+  { immediate: true },
+)
+const peso = (n: number) => `₱${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 // proof_url holds a private `cld:` reference, not a link, so it is signed on
 // demand. Images open in the viewer; a PDF proof can only open in a tab, and
@@ -196,6 +224,29 @@ function dotColor(pay: PreviewPayment): string {
 /* ---------- Summary ---------- */
 .dd-summary {
   background: var(--c-surface);
+}
+.dd-owed {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: var(--c-danger-soft);
+  color: var(--c-danger);
+}
+.dd-owed-icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+.dd-owed-title {
+  font-weight: 700;
+}
+.dd-owed-row,
+.dd-owed-note {
+  font-size: 12.5px;
+}
+.dd-owed-note {
+  margin-top: 4px;
+  opacity: 0.85;
 }
 .dd-summary-head {
   display: flex;

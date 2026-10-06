@@ -385,6 +385,7 @@ export interface DrawerPreview {
   reviews?: PreviewReview[]
   historyCards?: PreviewHistoryCard[]
   /** Student boarding history with payment data (student detail drawer). */
+  studentId?: string
   leases?: PreviewLease[]
   payments?: PreviewPayment[]
 }
