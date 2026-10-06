@@ -195,7 +195,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
   const roleChip: PreviewChip = isStudent
     ? { text: 'Student', tone: 'neutral', icon: 'lucide:graduation-cap' }
     : isLandlord
-      ? { text: 'Landlord/Landlady', tone: 'primary', icon: 'lucide:building-2' }
+      ? { text: landlordTitle(u.sex), tone: 'primary', icon: 'lucide:building-2' }
       : { text: cap(u.role), tone: 'neutral' }
 
   const chips: PreviewChip[] = [roleChip, statusChip(u.status, u.statusStyle?.tone ?? 'neutral', u.statusStyle?.icon)]

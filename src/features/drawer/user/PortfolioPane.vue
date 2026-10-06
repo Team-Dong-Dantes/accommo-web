@@ -23,7 +23,7 @@
       </button>
     </div>
   </div>
-  <TabEmptyState v-else icon="lucide:building-2" title="No accommodations" message="This landlord/landlady has not listed an accommodation yet." />
+  <TabEmptyState v-else icon="lucide:building-2" title="No accommodations" :message="`This ${(preview.userOverview?.roleLabel ?? 'landlord/landlady').toLowerCase()} has not listed an accommodation yet.`" />
 </template>
 
 <script setup lang="ts">

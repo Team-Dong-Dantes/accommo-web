@@ -39,7 +39,7 @@ import { Icon } from '@iconify/vue'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { fetchAccommodationPins, fetchPinDetails, type AccommodationPin, type PinDetails } from '@/api/accommodations'
-import { capitalize, humanizeEnum } from '@/utils/format'
+import { capitalize, humanizeEnum, landlordTitle } from '@/utils/format'
 import { CAMPUS, kmBetween } from '@/utils/geo'
 
 const props = defineProps<{
@@ -159,7 +159,7 @@ function pinPopup(id: string, name: string, lat: number, lng: number, offset: nu
         ['Type', d.type ? humanizeEnum(d.type) : '—'],
         ['Beds taken', d.beds ? `${d.taken} of ${d.beds}` : 'No rooms yet'],
         ['From campus', `${km.toFixed(1)} km`],
-        ['Landlord/Landlady', d.landlord || '—'],
+        [landlordTitle(d.landlordSex), d.landlord || '—'],
         ['Address', d.address || '—'],
       ]) {
         const row = el('div', '')

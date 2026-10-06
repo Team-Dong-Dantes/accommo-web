@@ -25,6 +25,8 @@ export interface MapItem {
   lat: number
   lng: number
   landlord: string
+  /** users.sex of the landlord/landlady, for their title. */
+  landlordSex: string | null
   address: string
   /** The record row it came from, for opening the full record. */
   row: unknown

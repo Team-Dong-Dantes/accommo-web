@@ -148,6 +148,7 @@ export interface PinDetails {
   type: string | null
   address: string
   landlord: string
+  landlordSex: string | null
   beds: number
   taken: number
   /** First exterior photo by sort order; empty when none was uploaded. */
@@ -159,7 +160,7 @@ export async function fetchPinDetails(id: string): Promise<PinDetails | null> {
   const { data, error } = await supabase
     .from('accommodations')
     .select(`name, status, accommodation_type, purok, barangay, city,
-      landlord:users!accommodations_landlord_id_fkey(full_name),
+      landlord:users!accommodations_landlord_id_fkey(full_name, sex),
       accommodation_images(url, sort_order),
       rooms(capacity, current_pax)`)
     .eq('id', id)
@@ -175,6 +176,7 @@ export async function fetchPinDetails(id: string): Promise<PinDetails | null> {
     type: d.accommodation_type ?? null,
     address: [d.purok, d.barangay, d.city].filter(Boolean).join(', '),
     landlord: d.landlord?.full_name ?? '',
+    landlordSex: d.landlord?.sex ?? null,
     beds: rooms.reduce((n, r) => n + (r.capacity ?? 0), 0),
     taken: rooms.reduce((n, r) => n + (r.current_pax ?? 0), 0),
     cover: images[0]?.url ?? '',

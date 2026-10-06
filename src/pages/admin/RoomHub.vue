@@ -460,7 +460,7 @@ const roomPreview = computed<DrawerPreview>(() => {
       icon: 'lucide:building-2',
       rows: [
         { label: 'Accommodation', value: selectedRoom.value?.accommodation || '—' },
-        { label: 'Landlord/Landlady', value: (selectedRoom.value?.landlord as string) || '—' },
+        { label: landlordTitle((selectedRoom.value?.landlordInfo as { sex?: string | null } | null | undefined)?.sex), value: (selectedRoom.value?.landlord as string) || '—' },
       ],
     },
   ]

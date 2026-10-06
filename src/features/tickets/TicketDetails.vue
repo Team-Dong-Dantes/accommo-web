@@ -22,7 +22,7 @@
         <h3 class="dl-title">People &amp; place</h3>
         <button class="dl-row dl-link" @click="$emit('open-drill', 'user')"><span>Reported by</span><span>{{ ticket.reporterName }}<Icon icon="lucide:chevron-right" width="15" height="15" /></span></button>
         <button v-if="ticket.accommodationName" class="dl-row dl-link" @click="$emit('open-drill', 'accommodation')"><span>Accommodation</span><span>{{ ticket.accommodationName }}<Icon icon="lucide:chevron-right" width="15" height="15" /></span></button>
-        <button v-if="ticket.landlordName && ticket.landlordName !== ticket.reporterName" class="dl-row dl-link" @click="$emit('open-drill', 'landlord')"><span>Landlord/Landlady</span><span>{{ ticket.landlordName }}<Icon icon="lucide:chevron-right" width="15" height="15" /></span></button>
+        <button v-if="ticket.landlordName && ticket.landlordName !== ticket.reporterName" class="dl-row dl-link" @click="$emit('open-drill', 'landlord')"><span>{{ landlordTitle(ticket.landlordSex) }}</span><span>{{ ticket.landlordName }}<Icon icon="lucide:chevron-right" width="15" height="15" /></span></button>
         <button v-if="ticket.accommodationName && ticket.room !== '—'" class="dl-row dl-link" @click="$emit('open-drill', 'room')"><span>Room</span><span>{{ ticket.room }}<Icon icon="lucide:chevron-right" width="15" height="15" /></span></button>
         <div v-if="ticket.reporterEmail" class="dl-row"><span>Email</span><span>{{ ticket.reporterEmail }}</span></div>
         <div v-if="ticket.reporterPhone" class="dl-row"><span>Phone</span><span>{{ ticket.reporterPhone }}</span></div>
@@ -92,7 +92,7 @@ const drillKindLabel = computed(() => {
   const k = props.drill?.kind
   if (k === 'user') return 'profile'
   if (k === 'accommodation') return 'accommodation'
-  if (k === 'landlord') return 'landlord/landlady profile'
+  if (k === 'landlord') return `${landlordTitle(props.ticket?.landlordSex).toLowerCase()} profile`
   if (k === 'room') return 'room'
   return 'record'
 })
@@ -111,20 +111,20 @@ const drillFields = computed(() => {
   if (props.drill.kind === 'accommodation') {
     return [
       { label: 'Accommodation', value: t.accommodationName ?? '' },
-      { label: 'Landlord/Landlady', value: t.landlordName ?? '' },
+      { label: landlordTitle(t.landlordSex), value: t.landlordName ?? '' },
       { label: 'Room', value: t.room },
     ]
   }
   if (props.drill.kind === 'landlord') {
     return [
-      { label: 'Landlord/Landlady', value: t.landlordName ?? '' },
+      { label: landlordTitle(t.landlordSex), value: t.landlordName ?? '' },
       { label: 'Accommodation', value: t.accommodationName ?? '' },
     ]
   }
   return [
     { label: 'Room', value: t.room },
     { label: 'Accommodation', value: t.accommodationName ?? '' },
-    { label: 'Landlord/Landlady', value: t.landlordName ?? '' },
+    { label: landlordTitle(t.landlordSex), value: t.landlordName ?? '' },
   ]
 })
 </script>

@@ -188,7 +188,7 @@ import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { useAuthStore } from '@/stores/auth'
 import { counted } from '@/utils/filterOptions'
-import { humanizeEnum } from '@/utils/format'
+import { humanizeEnum, landlordTitle } from '@/utils/format'
 import ReportDialog from '@/features/reports/ReportDialog.vue'
 import AccountActionDialog from '@/features/users/AccountActionDialog.vue'
 import type { AccountActionSpec } from '@/features/users/accountActions'
@@ -373,7 +373,7 @@ async function onManageAccommodation(action: string) {
     blurb: (boarders
       ? `${boarders} student${boarders === 1 ? ' stays' : 's stay'} here and will be notified. `
       : 'Nobody stays here right now. ')
-      + 'It leaves student listings until you restore it. The reason is recorded in the audit log and shown to the landlord/landlady.',
+      + `It leaves student listings until you restore it. The reason is recorded in the audit log and shown to the ${landlordTitle(a.landlordSex).toLowerCase()}.`,
     run: (i) => setStatus(a, 'suspend', 'suspended', i.reason ?? ''),
   }
 }

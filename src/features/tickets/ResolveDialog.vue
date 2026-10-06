@@ -40,18 +40,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { landlordTitle } from '@/utils/format'
 import { Icon } from '@iconify/vue'
 import type { Ticket } from '@/composables/useTickets'
 
 const props = defineProps<{ ticket: Ticket | null; busy?: boolean }>()
 defineEmits<{ (e: 'resolve', note: string): void; (e: 'cancel'): void }>()
 
-const RESOLVE_TEMPLATES = [
-  { key: 'fixed', label: 'Fixed', text: 'This has been fixed. Thank you for reporting it — reply here if the problem comes back.' },
-  { key: 'handled', label: 'Handled by landlord', text: 'Your landlord/landlady has confirmed this is resolved. Reply here if it is not.' },
-  { key: 'no-reply', label: 'No response', text: 'We are closing this since we have not heard back. Reply here any time to reopen it.' },
-]
+// The ticket's landlord/landlady, titled by their sex.
+const RESOLVE_TEMPLATES = computed(() => {
+  const who = landlordTitle(props.ticket?.landlordSex)
+  return [
+    { key: 'fixed', label: 'Fixed', text: 'This has been fixed. Thank you for reporting it — reply here if the problem comes back.' },
+    { key: 'handled', label: `Handled by ${who.toLowerCase()}`, text: `Your ${who.toLowerCase()} has confirmed this is resolved. Reply here if it is not.` },
+    { key: 'no-reply', label: 'No response', text: 'We are closing this since we have not heard back. Reply here any time to reopen it.' },
+  ]
+})
 
 const note = ref('')
 watch(() => props.ticket?.id, () => { note.value = '' })

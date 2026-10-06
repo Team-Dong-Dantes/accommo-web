@@ -1,3 +1,4 @@
+import { landlordTitle } from '@/utils/format'
 // What OSAS can do to a person's account from their record, and how each
 // action describes itself to AccountActionDialog. Users.vue only wires it up.
 
@@ -72,6 +73,8 @@ export interface AccountSubject {
   role: string
   status: string
   email: string
+  /** users.sex, for their landlord/landlady title. */
+  sex?: string | null
 }
 
 // The documents each role uploads, as OSAS can ask for them again.
@@ -147,7 +150,7 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
       out.push({ group: sign, label: 'Disconnect Google…', action: 'google', icon: 'lucide:unlink' })
     }
     const danger = 'Danger zone'
-    out.push({ group: danger, label: role.value === 'student' ? 'Change to landlord/landlady…' : 'Change to student…', action: 'role', icon: 'lucide:repeat', danger: true })
+    out.push({ group: danger, label: role.value === 'student' ? `Change to ${landlordTitle(subject.value?.sex).toLowerCase()}…` : 'Change to student…', action: 'role', icon: 'lucide:repeat', danger: true })
     if (state.isSuperadmin.value) {
       out.push({ group: danger, label: 'Close account…', action: 'close', icon: 'lucide:user-x', danger: true })
     }
@@ -171,7 +174,7 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
     const s = subject.value
     if (!s) return
     const name = s.name
-    const who = role.value === 'student' ? 'student' : 'landlord/landlady'
+    const who = role.value === 'student' ? 'student' : landlordTitle(s.sex).toLowerCase()
     switch (action) {
       case 'suspend':
         spec.value = {
@@ -287,7 +290,7 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
       case 'role': {
         const next = role.value === 'student' ? 'landlord' : 'student'
         spec.value = {
-          title: next === 'landlord' ? 'Change to landlord/landlady' : 'Change to student',
+          title: next === 'landlord' ? `Change to ${landlordTitle(s.sex).toLowerCase()}` : 'Change to student',
           name, icon: 'lucide:repeat', danger: true, reason: 'required', confirm: 'Change role', confirmPhrase: name,
           blurb: 'Their registration starts over as the new role: they are signed out, and on their next sign-in they register and upload that role’s requirements for OSAS to verify. Refused while they have a current stay or application, or own an accommodation.',
           run: async (i) => {

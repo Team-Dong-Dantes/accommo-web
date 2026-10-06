@@ -22,7 +22,7 @@
         <dt>Walk to campus</dt>
         <dd :class="{ 'is-pending': !walk }">{{ walk || 'Finding the route…' }}</dd>
       </div>
-      <div><dt>Landlord/Landlady</dt><dd>{{ item.landlord || '—' }}</dd></div>
+      <div><dt>{{ landlordTitle(item.landlordSex) }}</dt><dd>{{ item.landlord || '—' }}</dd></div>
       <div><dt>Address</dt><dd>{{ item.address || '—' }}</dd></div>
     </dl>
     <div class="card-foot">
@@ -35,6 +35,7 @@
 </template>
 
 <script setup lang="ts">
+import { landlordTitle } from '@/utils/format'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import { STATUS_GROUPS, type MapItem } from './mapPins'

@@ -25,6 +25,7 @@
 </template>
 
 <script setup lang="ts">
+import { landlordTitle } from '@/utils/format'
 import { ref, computed, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { supabase } from '@/utils/supabase'
@@ -119,9 +120,10 @@ async function runAutoChecks() {
     // An unverified owner can build a listing (by design), but OSAS should not
     // accredit a property for someone it has not verified without knowing.
     const ownerStatus = String(r.accommodation?.landlord_status ?? '')
+    const owner = landlordTitle(r.accommodation?.landlord_sex)
     list.push(ownerStatus === 'verified'
-      ? { label: 'Landlord/landlady verified', status: 'pass', detail: "The owner's account is verified by OSAS." }
-      : { label: 'Landlord/landlady verified', status: 'warn', detail: `The owner's account is ${ownerStatus || 'not verified'} — check it before accrediting.` })
+      ? { label: `${owner} verified`, status: 'pass', detail: "The owner's account is verified by OSAS." }
+      : { label: `${owner} verified`, status: 'warn', detail: `The owner's account is ${ownerStatus || 'not verified'} — check it before accrediting.` })
   } else {
     list.push({
       label: 'Requirements submitted',

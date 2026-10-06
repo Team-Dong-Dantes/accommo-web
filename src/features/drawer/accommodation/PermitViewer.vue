@@ -43,7 +43,7 @@ import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import type { PreviewFile } from '../preview'
 
-const props = defineProps<{ file: PreviewFile; landlordId: string; accommodationName: string }>()
+const props = defineProps<{ file: PreviewFile; landlordId: string; accommodationName: string; landlordTitle?: string | undefined }>()
 defineEmits<{ (e: 'close'): void }>()
 
 const notify = useNotify()
@@ -110,7 +110,7 @@ async function notifyLandlord(kind: 'renew' | 'reupload') {
       : `OSAS asks you to upload the ${props.file.name} for ${props.accommodationName} again.`,
   } as never)
   sending.value = false
-  if (error) notify.error('Could not notify the landlord/landlady', error.message)
+  if (error) notify.error(`Could not notify the ${(props.landlordTitle ?? 'landlord/landlady').toLowerCase()}`, error.message)
   else notify.success(renew ? 'Renewal reminder sent.' : 'Re-upload requested.')
 }
 

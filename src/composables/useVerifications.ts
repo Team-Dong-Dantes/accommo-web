@@ -3,7 +3,7 @@ import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { registerReset } from '@/utils/pageCache'
 import { getStatus } from '@/utils/status.config'
-import { getInitials, capitalize, getTimeAgo, ageInDays, formatPhone, humanizeEnum } from '@/utils/format'
+import { getInitials, capitalize, getTimeAgo, ageInDays, formatPhone, humanizeEnum, landlordTitle } from '@/utils/format'
 import { secureDocUrl } from '@/utils/docUrl'
 import { fetchAccommodationExtras, type AccommodationExtras } from '@/api/accommodations'
 import { fetchReviewProfile, fetchApplicantDetails, type ApplicantDetails, type ReviewProfile } from '@/api/users'
@@ -30,6 +30,7 @@ export interface AccommodationFacts {
   landlord_email: string | null
   landlord_phone: string | null
   landlord_status: string | null
+  landlord_sex: string | null
 }
 
 export interface VerificationRequest {
@@ -425,7 +426,7 @@ export function useVerifications() {
              id, name, status, landlord_id, accommodation_type, gender_policy,
              purok, barangay, city, description, lat, lng, reviewing_at, reviewing_by,
              accreditation_expires_at,
-             landlord:users_full!accommodations_landlord_id_fkey ( full_name, email, phone, status )
+             landlord:users_full!accommodations_landlord_id_fkey ( full_name, email, phone, status, sex )
            )`,
         )
         .is('decided_at', null)
@@ -562,6 +563,7 @@ export function useVerifications() {
               landlord_email: landlordRow?.email ?? null,
               landlord_phone: landlordRow?.phone ?? null,
               landlord_status: landlordRow?.status ?? null,
+              landlord_sex: landlordRow?.sex ?? null,
             },
           }
         }).sort(byQueueOrder)
@@ -933,7 +935,7 @@ export function useVerifications() {
           : kind === 'permit_update' ? 'Permit accepted' : 'Accommodation accredited'
         : decision === 'returned' ? 'Sent back for changes'
           : kind === 'appeal' ? 'Rejection upheld' : 'Refused'
-    notify.success(words, `${req.name} · status ${humanizeEnum(String(data))}. The landlord/landlady was notified.`)
+    notify.success(words, `${req.name} · status ${humanizeEnum(String(data))}. The ${landlordTitle(req.accommodation?.landlord_sex).toLowerCase()} was notified.`)
     return true
   }
 

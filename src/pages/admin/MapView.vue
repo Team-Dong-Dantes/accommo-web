@@ -137,6 +137,7 @@ const items = computed<MapItem[]>(() =>
       lat: r.lat as number,
       lng: r.lng as number,
       landlord: r.landlord,
+      landlordSex: r.landlordSex,
       address: r.address && r.address !== '—' ? r.address : '',
       row: r,
     })),

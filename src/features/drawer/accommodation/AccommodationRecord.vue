@@ -33,6 +33,7 @@
       v-if="openPermit"
       :file="openPermit"
       :landlord-id="preview.overview?.landlord.id ?? ''"
+      :landlord-title="preview.overview?.landlord.title"
       :accommodation-name="preview.name"
       @close="permitIndex = null"
     />

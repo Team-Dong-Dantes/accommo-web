@@ -234,7 +234,7 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
         icon: 'lucide:building-2',
         rows: [
           { label: 'Type', value: p.type },
-          { label: 'Landlord/Landlady', value: p.landlord },
+          { label: landlordTitle(p.landlordSex), value: p.landlord },
         ],
       },
       {
