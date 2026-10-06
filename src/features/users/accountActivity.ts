@@ -37,7 +37,8 @@ const SIGN_IN: Record<string, { text: string; icon: string }> = {
 
 const STATUS_STYLE: Record<string, { icon: string; tone: StatusTone }> = {
   suspended: { icon: 'lucide:ban', tone: 'danger' },
-  rejected: { icon: 'lucide:file-warning', tone: 'warning' },
+  needs_resubmission: { icon: 'lucide:file-warning', tone: 'warning' },
+  rejected: { icon: 'lucide:file-x', tone: 'danger' },
   verified: { icon: 'lucide:badge-check', tone: 'success' },
 }
 

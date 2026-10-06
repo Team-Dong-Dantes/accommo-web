@@ -70,7 +70,7 @@
                 <span class="rent-basis"><Icon :icon="props.row.perBoarder ? 'lucide:user' : 'lucide:door-closed'" width="12" height="12" />{{ props.row.perBoarder ? 'per boarder' : 'whole room' }}</span>
               </span>
             </q-td>
-            <q-td key="status" :props="props" class="col-badge">
+            <q-td key="status" :props="props" class="col-badge-wide">
               <BadgePill :tone="getStatus(props.row.status).tone" :icon="getStatus(props.row.status).icon ?? 'lucide:circle'" :label="roomStatusLabel(props.row.status)" />
             </q-td>
           </q-tr>
@@ -317,7 +317,7 @@ const columns = [
   { name: 'boarders', align: 'center', label: 'Boarders', field: 'occupants', headerClasses: 'num-cell col-occupants col-split' },
   { name: 'beds', align: 'center', label: 'Beds', field: 'capacity', headerClasses: 'num-cell col-num-wide' },
   { name: 'rent', align: 'right', label: 'Monthly Rent', field: 'rent', headerClasses: 'col-rent num-right' },
-  { name: 'status', align: 'left', label: 'Status', field: 'status', headerClasses: 'col-badge' },
+  { name: 'status', align: 'left', label: 'Status', field: 'status', headerClasses: 'col-badge-wide' },
 ]
 
 async function fetchRooms() {
@@ -431,7 +431,7 @@ const roomPreview = computed<DrawerPreview>(() => {
   const name = roomTypeName(r) || roomName(r)
   const statusTone = getTone(r.status)
   const chips: PreviewChip[] = [
-    { text: roomStatusLabel(r.status) || 'Unknown', tone: statusTone, icon: 'lucide:door-closed' },
+    { text: roomStatusLabel(r.status) || 'Unknown', tone: statusTone, icon: getStatus(r.status).icon ?? 'lucide:door-closed' },
     { text: r.floor != null ? `Floor ${r.floor}` : 'No floor', tone: 'neutral', icon: 'lucide:layers' },
   ]
   const detailGroups = [

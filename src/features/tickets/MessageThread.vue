@@ -8,7 +8,7 @@
       <div class="context-copy">
         <span>Request from</span>
         <strong>{{ ticket.reporterName }}</strong>
-        <small>{{ roleLabel(ticket.reporterRole) }} <span aria-hidden="true">&middot;</span> {{ ticket.reporterEmail || 'No email recorded' }}</small>
+        <small>{{ ticket.reporterTitle }} <span aria-hidden="true">&middot;</span> {{ ticket.reporterEmail || 'No email recorded' }}</small>
       </div>
       <time :datetime="ticket.reportedAt">Opened {{ formatDate(ticket.reportedAt) }}</time>
     </header>
@@ -79,7 +79,7 @@
 // and the requester's initials sat on a bare circle.
 import { nextTick, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
-import { formatDateTime, roleLabel, dayLabel } from '@/utils/format'
+import { formatDateTime, dayLabel } from '@/utils/format'
 import Composer from './Composer.vue'
 import type { MsgGroup } from './types'
 import type { Ticket, TicketMessage } from '@/composables/useTickets'

@@ -17,6 +17,7 @@ import {
 } from '@/api/accommodations'
 import { PERMIT_STATE, expiryLabel, permitStateOf } from '@/utils/permitExpiry'
 import type { RealAccommodation } from '@/composables/useAccommodations'
+import { AMENITY_META } from '@/utils/facilities'
 
 /**
  * The row a record opens from. Maps the real Supabase accommodation straight
@@ -203,7 +204,8 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
       ratingLabel: p.rating && p.rating !== '—' ? String(p.rating) : '—',
       reviewCount: drawerExtras.value?.reviews.length,
       responseLabel: p.responseRate != null ? `${p.responseRate}%` : '—',
-      amenities: drawerExtras.value?.amenities ?? [],
+      // Legacy chips (wifi, water, electric) stay in the table for old APKs; show only current ones.
+      amenities: (drawerExtras.value?.amenities ?? []).filter((a) => a in AMENITY_META),
       hidden: Boolean(p.hiddenFromListings),
       address: p.address,
       accredited: Boolean(p.verified),

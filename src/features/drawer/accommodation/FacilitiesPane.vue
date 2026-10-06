@@ -20,7 +20,7 @@
               <span v-for="rm in sharedBy(f)" :key="rm.id" class="fp-chip">{{ short(rm.name) }}</span>
             </span>
             <span class="rl-status">
-              <span v-if="f.status === 'under_repair'" class="rl-pill rl-pill--warn">Under repair</span>
+              <span v-if="f.status === 'under_repair'" class="rl-pill rl-pill--warn"><Icon icon="lucide:wrench" width="12" height="12" />Under repair</span>
               <span v-else class="rl-pill rl-pill--ok">Available</span>
             </span>
             <Icon :icon="expanded ? 'lucide:chevron-up' : 'lucide:chevron-down'" width="16" height="16" class="rl-chev" />

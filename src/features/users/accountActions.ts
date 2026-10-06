@@ -32,7 +32,8 @@ export interface AccountActionInput {
   reason: string | null
   until: string | null
   title: string
-  restrictions: Restriction[]
+  /** The ticked checkboxes: restrictions, or the documents to ask for again. */
+  restrictions: string[]
   /** The spec's single text field, when it has one. */
   value: string
 }
@@ -50,8 +51,10 @@ export interface AccountActionSpec {
   reason: 'required' | 'optional' | 'none'
   until?: boolean
   message?: boolean
-  restrictions?: { key: Restriction; label: string; hint: string }[]
-  picked?: Restriction[]
+  restrictions?: { key: string; label: string; hint: string }[]
+  picked?: string[]
+  /** Replaces the default "Restrict" label over the checkboxes. */
+  checksLabel?: string
   field?: { label: string; type: 'email' | 'text'; placeholder?: string; initial?: string }
   /** For what cannot easily be undone: the admin types this (the person's name) first. */
   confirmPhrase?: string
@@ -69,6 +72,18 @@ export interface AccountSubject {
   role: string
   status: string
   email: string
+}
+
+// The documents each role uploads, as OSAS can ask for them again.
+const DOC_OPTIONS: Record<string, { key: string; label: string; hint: string }[]> = {
+  student: [
+    { key: 'school_id', label: 'School ID', hint: 'Their current ISU school ID.' },
+    { key: 'assessment_of_fees', label: 'Assessment of fees', hint: 'This semester’s assessment from the registrar.' },
+  ],
+  landlord: [
+    { key: 'government_id', label: 'Government ID', hint: 'A valid government-issued ID.' },
+    { key: 'business_permit', label: 'Business permit', hint: 'Their current business permit.' },
+  ],
 }
 
 const RESTRICTION_OPTIONS: Record<string, { key: Restriction; label: string; hint: string }[]> = {
@@ -147,7 +162,7 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
 
   async function changeStatus(next: AccountStatus, input: AccountActionInput, done: string) {
     const s = subject.value!
-    await setAccountStatus(s.rawId, next, { reason: input.reason, until: input.until })
+    await setAccountStatus(s.rawId, next, { reason: input.reason, until: input.until, ...(next === 'needs_resubmission' && { docs: input.restrictions }) })
     notify.success(done, s.name)
     await onChanged(next)
   }
@@ -186,9 +201,11 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
         spec.value = {
           title: 'Request new requirements', name, icon: 'lucide:file-warning', reason: 'required', confirm: 'Send request',
           blurb: role.value === 'student'
-            ? 'Their verification is withdrawn until they upload again, so they cannot apply for a room meanwhile. Say which requirement and why.'
-            : 'Their verification is withdrawn and their accredited accommodations are delisted until they upload again. Say which requirement and why.',
-          run: (i) => changeStatus('rejected', i, 'New requirements requested'),
+            ? 'Their verification is withdrawn until they upload again, so they cannot apply for a room meanwhile. Say why.'
+            : 'Their verification is withdrawn and their accredited accommodations are delisted until they upload again. Say why.',
+          checksLabel: 'Upload again',
+          restrictions: DOC_OPTIONS[role.value] ?? [],
+          run: (i) => changeStatus('needs_resubmission', i, 'New requirements requested'),
         }
         break
       case 'restrict':
@@ -198,7 +215,7 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
           restrictions: RESTRICTION_OPTIONS[role.value] ?? [],
           picked: standing.value.restrictions,
           run: async (i) => {
-            await setAccountStatus(s.rawId, s.status.toLowerCase() as AccountStatus, { reason: i.reason, restrictions: i.restrictions })
+            await setAccountStatus(s.rawId, s.status.toLowerCase() as AccountStatus, { reason: i.reason, restrictions: i.restrictions as Restriction[] })
             notify.success(i.restrictions.length ? 'Restrictions saved' : 'Restrictions lifted', name)
             await onChanged(s.status.toLowerCase() as AccountStatus)
           },

@@ -971,10 +971,10 @@ export function useVerifications() {
   /** A student or landlord/landlady account. Throws on the status write. */
   async function decideAccount(req: VerificationRequest, decisionPayload: any) {
     const decision = decisionPayload?.decision || 'approve'
-    // Reject with "allow resubmission" lets the applicant re-upload; the status
-    // is `rejected` either way, and the flag changes only the notice and audit.
+    // Either way the applicant can re-upload; "allow resubmission" is OSAS
+    // asking again rather than refusing, so it has its own status.
     const allowResub = decision === 'reject' && decisionPayload?.allowResubmission === true
-    const newStatus = decision === 'approve' ? 'verified' : 'rejected'
+    const newStatus = decision === 'approve' ? 'verified' : allowResub ? 'needs_resubmission' : 'rejected'
 
     const rawId = req.rawId
     const actorId = (await supabase.auth.getUser()).data.user?.id || null

@@ -64,7 +64,7 @@
                   </q-avatar>
                   <span class="al-text">
                     <span class="al-sentence">
-                      <b>{{ ev.actor.name }}</b> {{ ev.verb }}<template v-if="ev.sentence !== ev.actor.name + ' ' + ev.verb"> {{ ev.entityLabel }}<b v-if="ev.name"> “{{ ev.name }}”</b></template>
+                      <b>{{ ev.actor.name }}</b> {{ ev.verb }}<template v-if="ev.sentence !== ev.actor.name + ' ' + ev.verb">{{ ' ' + ev.entityLabel }}<b v-if="ev.name"> “{{ ev.name }}”</b></template>
                     </span>
                     <span v-if="ev.hint" class="al-hint">{{ ev.hint }}</span>
                   </span>

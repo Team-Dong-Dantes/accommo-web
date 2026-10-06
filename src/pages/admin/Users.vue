@@ -154,6 +154,7 @@ import { useAuthStore } from '@/stores/auth'
 import { fetchAccountEvents, fetchAccountStanding, fetchClosedAt, fetchSignInMethods, NO_STANDING, type AccountEvent, type AccountStanding, type AccountStatus, type EditableProfile, type SignInMethods } from '@/api/accounts'
 import EditProfileDialog from '@/features/users/EditProfileDialog.vue'
 import { useAccountActions } from '@/features/users/accountActions'
+import { humanizeEnum } from '@/utils/format'
 import AccountActionDialog from '@/features/users/AccountActionDialog.vue'
 
 
@@ -186,7 +187,7 @@ const tabs = computed(() => [
 ])
 const tabRows = computed(() => (activeTab.value === 'students' ? students.value : landlords.value))
 
-const STATUS_ORDER = ['Pending', 'Reviewing', 'Verified', 'Rejected', 'Suspended', 'Unverified']
+const STATUS_ORDER = ['Pending', 'Reviewing', 'Verified', 'Needs Resubmission', 'Rejected', 'Suspended', 'Unverified']
 const LAST_ACTIVE: Record<string, string> = { week: 'This week', month: 'This month', stale: 'Over a month ago', never: 'Never signed in' }
 const EMAIL: Record<string, string> = { unconfirmed: 'Not confirmed', confirmed: 'Confirmed' }
 
@@ -503,7 +504,7 @@ async function onAccountChanged(next: AccountStatus) {
   const u = selectedUser.value
   if (!u) return
   const style = { tone: getTone(next), icon: getStatus(next).icon || 'lucide:circle-help' }
-  const label = next.charAt(0).toUpperCase() + next.slice(1)
+  const label = humanizeEnum(next)
   u.status = label
   u.statusStyle = style
   const row = allRows.value.find((r) => r.rawId === u.rawId)
@@ -537,7 +538,7 @@ const {
 async function onProfileSaved(p: EditableProfile) {
   const u = selectedUser.value
   if (!u) return
-  const initials = p.fullName.trim().split(/s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+  const initials = p.fullName.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
   for (const target of [u, allRows.value.find((r) => r.rawId === u.rawId)]) {
     if (!target) continue
     target.name = p.fullName.trim()

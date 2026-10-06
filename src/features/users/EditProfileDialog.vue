@@ -125,6 +125,9 @@ async function save() {
 
 <style scoped>
 .ep {
+  /* Quasar lets clicks through only to a div directly in the dialog; a form
+     got none, so every click fell to the backdrop and closed the dialog. */
+  pointer-events: all;
   display: flex;
   flex-direction: column;
   gap: 16px;

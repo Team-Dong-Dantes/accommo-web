@@ -152,9 +152,9 @@ async function runAutoChecks() {
   try {
     if (!props.isAccommodation && r.email) {
       const { data } = await supabase.from('users_full').select('id, status').eq('email', r.email).neq('id', r.rawId)
-      const dup = (data ?? []).find((u: any) => u.status === 'verified' || u.status === 'rejected')
+      const dup = (data ?? []).find((u: any) => ['verified', 'needs_resubmission', 'rejected'].includes(u.status))
       list.push(dup
-        ? { label: 'Duplicate account', status: 'fail', detail: `Another account with this email is already ${dup.status}.` }
+        ? { label: 'Duplicate account', status: 'fail', detail: `Another account with this email is already ${String(dup.status).replace(/_/g, ' ')}.` }
         : { label: 'No duplicate account', status: 'pass', detail: 'No conflicting account found.' })
     } else if (props.isAccommodation && r.name) {
        const { data } = await supabase.from('accommodations').select('id, status').eq('name', r.name).neq('id', r.rawId)

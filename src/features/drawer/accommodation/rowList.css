@@ -41,13 +41,14 @@
 .rl-name { color: var(--ar-ink); font-size: 13px; font-weight: 600; }
 .rl-sub { color: var(--ar-muted); font-size: 11px; }
 .rl-col { display: flex; align-items: center; gap: 4px; width: 110px; flex-shrink: 0; }
-.rl-status { display: flex; width: 90px; flex-shrink: 0; }
+/* Wide enough for the longest state, "Under maintenance" with its icon. */
+.rl-status { display: flex; width: 150px; flex-shrink: 0; }
 .rl-bed { width: 14px; height: 14px; border-radius: 4px; box-sizing: border-box; }
 .rl-bed--m { background: var(--ar-male); }
 .rl-bed--f { background: var(--ar-female); }
 .rl-bed--v { border: 1.5px dashed color-mix(in srgb, var(--ar-muted) 45%, var(--ar-border)); }
 .rl-count { margin-left: 4px; color: var(--ar-text); font-size: 12px; }
-.rl-pill { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.rl-pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .rl-pill--ok { background: color-mix(in srgb, var(--c-success) 14%, var(--ar-surface)); color: var(--c-success); }
 .rl-pill--full { background: var(--ar-soft); color: var(--ar-text); }
 .rl-pill--warn { background: color-mix(in srgb, var(--c-warning) 15%, var(--ar-surface)); color: var(--c-warning); }

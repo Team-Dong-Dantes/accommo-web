@@ -9,7 +9,7 @@ import { supabase } from '@/utils/supabase'
 import { fetchAll } from '@/utils/fetchAll'
 import { registerReset } from '@/utils/pageCache'
 import { getStatus, getTone, type StatusTone } from '@/utils/status.config'
-import { getTimeAgo, landlordTitle, roleLabel } from '@/utils/format'
+import { getTimeAgo, humanizeEnum, landlordTitle, roleLabel } from '@/utils/format'
 
 export interface Stay { accommodationId: string; accommodation: string; room: string }
 export interface Portfolio { count: number; accredited: number; beds: number; taken: number }
@@ -47,7 +47,7 @@ export function mapUserData(user: any, profile: any = {}): DirectoryRow {
   const role = String(user.role || '').toLowerCase()
   const isStudent = role === 'student'
   const status = String(user.status || 'unverified').toLowerCase()
-  const statusLabel = status.charAt(0).toUpperCase() + status.slice(1)
+  const statusLabel = humanizeEnum(status)
   const joined = user.created_at ? new Date(user.created_at) : null
 
   return {

@@ -50,6 +50,8 @@ export const STATUS_MAP: Record<string, StatusDef> = {
   draft: { tone: 'neutral', icon: 'lucide:file-text' },
   archived: { tone: 'neutral', icon: 'lucide:archive' },
 
+  // OSAS asked a person for their requirements again: they can fix it.
+  needs_resubmission: { tone: 'warning', icon: 'lucide:file-warning' },
   rejected: { tone: 'danger', icon: 'lucide:circle-x' },
   suspended: { tone: 'danger', icon: 'lucide:ban' },
   banned: { tone: 'danger', icon: 'lucide:ban' },

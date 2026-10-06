@@ -57,7 +57,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
-import { capitalize, formatDateTime, roleLabel } from '@/utils/format'
+import { capitalize, formatDateTime, landlordTitle } from '@/utils/format'
 import type { Ticket } from '@/composables/useTickets'
 import type { DrillKind } from './TicketWindow.vue'
 
@@ -77,13 +77,13 @@ const drillMeta = computed(() => {
   const k = props.drill?.kind
   if (!t || !k) return null
   if (k === 'user') {
-    return { title: t.reporterName, sub: roleLabel(t.reporterRole), initials: t.reporterName.slice(0, 2).toUpperCase(), color: 'var(--c-primary)' }
+    return { title: t.reporterName, sub: t.reporterTitle, initials: t.reporterName.slice(0, 2).toUpperCase(), color: 'var(--c-primary)' }
   }
   if (k === 'accommodation') {
     return { title: t.accommodationName || 'Accommodation', sub: 'Accommodation', initials: (t.accommodationName || 'A').slice(0, 2).toUpperCase(), color: 'var(--c-info)' }
   }
   if (k === 'landlord') {
-    return { title: t.landlordName || 'Landlord/Landlady', sub: 'Landlord/Landlady', initials: (t.landlordName || 'A').split(' ').map((p: string) => p[0]).slice(0, 2).join('').toUpperCase(), color: 'var(--c-warning)' }
+    return { title: t.landlordName || 'Landlord/Landlady', sub: landlordTitle(t.landlordSex), initials: (t.landlordName || 'A').split(' ').map((p: string) => p[0]).slice(0, 2).join('').toUpperCase(), color: 'var(--c-warning)' }
   }
   return { title: t.room, sub: 'Room', initials: (t.room || 'R').slice(0, 2).toUpperCase(), color: 'var(--c-success)' }
 })
@@ -105,7 +105,7 @@ const drillFields = computed(() => {
       { label: 'Name', value: t.reporterName },
       { label: 'Email', value: t.reporterEmail },
       { label: 'Phone', value: t.reporterPhone },
-      { label: 'Role', value: roleLabel(t.reporterRole) },
+      { label: 'Role', value: t.reporterTitle },
     ]
   }
   if (props.drill.kind === 'accommodation') {

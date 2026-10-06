@@ -403,6 +403,9 @@ const paddedRows = computed(() => {
 
 .custom-data-table :deep(thead th.col-badge),
 .custom-data-table :deep(tbody td.col-badge) { flex: 0 1 124px !important; }
+/* A badge whose longest state is two words plus its icon ("Under maintenance"). */
+.custom-data-table :deep(thead th.col-badge-wide),
+.custom-data-table :deep(tbody td.col-badge-wide) { flex: 0 1 172px !important; }
 
 /* A total plus a two-figure gender breakdown ("12  ♂5 ♀7"). */
 .custom-data-table :deep(thead th.col-occupants),

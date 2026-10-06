@@ -22,7 +22,7 @@
               <span class="rl-count">{{ boarders(rm).length }}/{{ rm.capacity ?? 0 }}</span>
             </span>
             <span class="rl-status">
-              <span class="rl-pill" :class="`rl-pill--${state(rm).tone}`">{{ state(rm).label }}</span>
+              <span class="rl-pill" :class="`rl-pill--${state(rm).tone}`"><Icon v-if="state(rm).icon" :icon="state(rm).icon!" width="12" height="12" />{{ state(rm).label }}</span>
             </span>
             <Icon :icon="expanded ? 'lucide:chevron-up' : 'lucide:chevron-down'" width="16" height="16" class="rl-chev" />
           </template>
@@ -81,8 +81,8 @@ function beds(rm: PreviewRoom): ('m' | 'f' | 'v')[] {
   return [...Array(m).fill('m'), ...Array(f).fill('f'), ...Array(vacant(rm)).fill('v')]
 }
 
-function state(rm: PreviewRoom): { label: string; tone: 'ok' | 'full' | 'warn' } {
-  if (String(rm.status ?? '').toLowerCase() === 'maintenance') return { label: 'Under maintenance', tone: 'warn' }
+function state(rm: PreviewRoom): { label: string; tone: 'ok' | 'full' | 'warn'; icon?: string } {
+  if (String(rm.status ?? '').toLowerCase() === 'maintenance') return { label: 'Under maintenance', tone: 'warn', icon: 'lucide:wrench' }
   const v = vacant(rm)
   return v > 0 ? { label: `${v} vacant`, tone: 'ok' } : { label: 'Full', tone: 'full' }
 }

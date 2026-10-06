@@ -209,7 +209,8 @@ const standing = computed<{ tone: Tone; title: string; sub: string; note: string
     const until = s.suspendedUntil ? `until ${fmtDay(s.suspendedUntil)}` : 'until OSAS reactivates it'
     return { tone: 'bad', title: 'Account suspended', sub: until, note }
   }
-  if (u.status === 'rejected') return { tone: 'bad', title: 'New requirements requested', sub: 'Waiting for them to upload again', note }
+  if (u.status === 'needs_resubmission') return { tone: 'bad', title: 'New requirements requested', sub: 'Waiting for them to upload again', note }
+  if (u.status === 'rejected') return { tone: 'bad', title: 'Requirements rejected', sub: 'They can upload again', note }
   const watch: string[] = s.restrictions.map((r) => RESTRICTED[r] ?? r)
   const verified = u.status === 'verified'
   if (!verified) watch.push('account not yet verified')

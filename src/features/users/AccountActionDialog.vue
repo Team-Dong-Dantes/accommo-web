@@ -32,7 +32,7 @@
       </label>
 
       <div v-if="spec.restrictions" class="aa-field">
-        <span class="aa-label">Restrict</span>
+        <span class="aa-label">{{ spec.checksLabel ?? 'Restrict' }}</span>
         <label v-for="r in spec.restrictions" :key="r.key" class="aa-check">
           <q-checkbox v-model="picked" :val="r.key" dense color="primary" />
           <span>
@@ -90,7 +90,6 @@
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import type { AccountActionSpec, AccountActionInput } from './accountActions'
-import type { Restriction } from '@/api/accounts'
 
 const props = defineProps<{ spec: AccountActionSpec | null }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
@@ -98,7 +97,7 @@ const emit = defineEmits<{ (e: 'close'): void }>()
 const reason = ref('')
 const until = ref('')
 const title = ref('')
-const picked = ref<Restriction[]>([])
+const picked = ref<string[]>([])
 const value = ref('')
 const typed = ref('')
 const revealed = ref<{ label: string; value: string; note: string } | null>(null)
@@ -173,6 +172,9 @@ async function submit() {
 
 <style scoped>
 .aa {
+  /* Quasar lets clicks through only to a div directly in the dialog; a form
+     got none, so every click fell to the backdrop and closed the dialog. */
+  pointer-events: all;
   display: flex;
   flex-direction: column;
   gap: 14px;

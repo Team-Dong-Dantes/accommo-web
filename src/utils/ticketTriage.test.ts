@@ -8,8 +8,8 @@ const iso = (hAgo: number, now = Date.parse('2026-09-26T12:00:00Z')) => new Date
 function t(p: Partial<Ticket> & { id: string }): Ticket {
   return {
     ref: '', subject: 'x', description: '', category: 'other', priority: 'medium', status: 'open',
-    assignee: null, assigneeId: null, reporterName: p.id, reporterEmail: '', reporterPhone: '', reporterRole: 'student',
-    accommodationName: null, accommodationId: null, room: '—', landlordName: null, initials: '', avatarColor: 'teal-6', avatarUrl: '',
+    assignee: null, assigneeId: null, reporterName: p.id, reporterEmail: '', reporterPhone: '', reporterTitle: 'Student',
+    accommodationName: null, accommodationId: null, room: '—', landlordName: null, landlordSex: null, initials: '', avatarColor: 'teal-6', avatarUrl: '',
     reportedAt: iso(10), updatedAt: iso(10), resolvedAt: null, photoUrls: [], messages: [], lastPreview: '', lastRequesterText: '', lastReplyAt: null,
     waitingSince: iso(10), unread: 0, ...p,
   }

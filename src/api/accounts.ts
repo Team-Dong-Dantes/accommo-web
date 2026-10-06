@@ -39,12 +39,13 @@ export async function fetchAccountStanding(userId: string): Promise<AccountStand
 export async function setAccountStatus(
   userId: string,
   status: AccountStatus,
-  opts: { reason?: string | null; until?: string | null; restrictions?: Restriction[] } = {},
+  opts: { reason?: string | null; until?: string | null; restrictions?: Restriction[]; docs?: string[] } = {},
 ): Promise<void> {
   const args: Database['public']['Functions']['admin_set_account_status']['Args'] = { p_user: userId, p_status: status }
   if (opts.reason) args.p_reason = opts.reason
   if (opts.until) args.p_until = opts.until
   if (opts.restrictions) args.p_restrictions = opts.restrictions
+  if (opts.docs) args.p_docs = opts.docs
   const { error } = await supabase.rpc('admin_set_account_status', args)
   if (error) throw error
 }

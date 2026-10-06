@@ -71,7 +71,7 @@
                       </span>
                     </span>
                   </q-td>
-                  <q-td key="status" :props="props" class="col-badge">
+                  <q-td key="status" :props="props" class="col-badge-wide">
                     <BadgePill :tone="props.row.statusStyle.tone" :icon="props.row.statusStyle.icon" :label="props.row.statusLabel" />
                   </q-td>
                 </q-tr>
@@ -170,6 +170,7 @@
       :preview="accommodationPreview"
       :record-id="selectedAccommodation?.id"
     />
+    <AccountActionDialog :spec="actionSpec" @close="actionSpec = null" />
   </q-page>
 </template>
 
@@ -189,6 +190,8 @@ import { useAuthStore } from '@/stores/auth'
 import { counted } from '@/utils/filterOptions'
 import { humanizeEnum } from '@/utils/format'
 import ReportDialog from '@/features/reports/ReportDialog.vue'
+import AccountActionDialog from '@/features/users/AccountActionDialog.vue'
+import type { AccountActionSpec } from '@/features/users/accountActions'
 import type { ReportId } from '@/features/reports/reports'
 import { PERMIT_STATE, REQUIRED_PERMITS, requiredPermitState, type PermitState } from '@/utils/permitExpiry'
 import { useAccommodations } from '@/composables/useAccommodations'
@@ -305,7 +308,6 @@ const accommodationActions = computed<ManagementAction[]>(() => {
  * an admin can flip the flag; a trigger on `accommodations` enforces that.
  */
 async function setHidden(a: any, hidden: boolean) {
-  if (hidden && !window.confirm(`Hide ${a.name} from student listings? Its current boarders are not affected.`)) return
   const { error } = await supabase
     .from('accommodations')
     .update({ hidden_from_listings: hidden } as never)
@@ -340,35 +342,46 @@ async function onManageAccommodation(action: string) {
     statusReportOpen.value = true
     return
   }
-  if (action === 'hide' || action === 'unhide') {
-    await setHidden(a, action === 'hide')
+  if (action === 'unhide') {
+    await setHidden(a, false)
     return
   }
-  const next = action === 'suspend' ? 'suspended' : action === 'restore' ? 'accredited' : null
-  if (!next) return
+  if (action === 'hide') {
+    actionSpec.value = {
+      title: 'Hide from listings', name: a.name, icon: 'lucide:eye-off', reason: 'none', confirm: 'Hide',
+      blurb: 'Students browsing accommodations stop seeing it. Its accreditation and current boarders are not affected, and you can show it again at any time.',
+      run: () => setHidden(a, true),
+    }
+    return
+  }
+  if (action === 'restore') {
+    await setStatus(a, 'restore', 'accredited', '')
+    return
+  }
+  if (action !== 'suspend') return
 
   // Suspending takes a property off Discover and tells everyone staying there
   // (tg_accreditation_status_change), so the reviewer sees how many first.
-  let boarders = 0
-  if (action === 'suspend') {
-    const { count } = await supabase
-      .from('leases')
-      .select('id, rooms!inner(accommodation_id)', { count: 'exact', head: true })
-      .eq('rooms.accommodation_id', a.id)
-      .in('status', ['active', 'leave_requested'])
-    boarders = count ?? 0
+  const { count } = await supabase
+    .from('leases')
+    .select('id, rooms!inner(accommodation_id)', { count: 'exact', head: true })
+    .eq('rooms.accommodation_id', a.id)
+    .in('status', ['active', 'leave_requested'])
+  const boarders = count ?? 0
+  actionSpec.value = {
+    title: 'Suspend accreditation', name: a.name, icon: 'lucide:ban', danger: true, reason: 'required', confirm: 'Suspend',
+    blurb: (boarders
+      ? `${boarders} student${boarders === 1 ? ' stays' : 's stay'} here and will be notified. `
+      : 'Nobody stays here right now. ')
+      + 'It leaves student listings until you restore it. The reason is recorded in the audit log and shown to the landlord/landlady.',
+    run: (i) => setStatus(a, 'suspend', 'suspended', i.reason ?? ''),
   }
-  const reason =
-    action === 'suspend'
-      ? (window.prompt(
-          (boarders
-            ? `${boarders} student${boarders === 1 ? '' : 's'} currently stay here and will be notified. `
-            : 'Nobody currently stays here. ') +
-            'Why is this property being suspended? This is recorded in the audit log and shown to the landlord/landlady.',
-        ) ?? '').trim()
-      : ''
-  if (action === 'suspend' && !reason) return
+}
 
+/** Hide's and Suspend's confirmation; null when closed. */
+const actionSpec = ref<AccountActionSpec | null>(null)
+
+async function setStatus(a: any, action: 'suspend' | 'restore', next: 'suspended' | 'accredited', reason: string) {
   const { error } = await supabase
     .from('accommodations')
     .update({ status: next } as never)
@@ -425,7 +438,7 @@ const overviewColumns = [
   // accommodation's gender split, so the table and its own detail drawer read
   // as the same visual language rather than two different ones.
   { name: 'occupants', align: 'center', label: 'Boarders', field: 'totalStudents', headerClasses: 'num-cell col-occupants' },
-  { name: 'status', align: 'left', label: 'Status', field: 'status', headerClasses: 'col-badge' },
+  { name: 'status', align: 'left', label: 'Status', field: 'status', headerClasses: 'col-badge-wide' },
 ]
 
 const complianceColumns = [

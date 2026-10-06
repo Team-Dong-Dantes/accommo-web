@@ -55,7 +55,7 @@
         </q-avatar>
         <div class="tk-stack">
           <div class="tk-line tk-strong" :title="props.row.reporterName">{{ props.row.reporterName }}</div>
-          <div class="tk-line tk-sub">{{ roleLabel(props.row.reporterRole) }}</div>
+          <div class="tk-line tk-sub">{{ props.row.reporterTitle }}</div>
         </div>
       </q-td>
 
@@ -107,7 +107,7 @@ import { Icon } from '@iconify/vue'
 import TableCard from '@/components/table/TableCard.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import { getStatus } from '@/utils/status.config'
-import { capitalize, getInitials, getTimeAgo, roleLabel } from '@/utils/format'
+import { capitalize, getInitials, getTimeAgo } from '@/utils/format'
 import { boardLane, isOverdue, waitAge } from '@/utils/ticketTriage'
 import type { Ticket } from '@/composables/useTickets'
 import { stLabel } from './types'

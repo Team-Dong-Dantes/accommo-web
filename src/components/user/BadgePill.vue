@@ -48,5 +48,9 @@ const resolvedLabel = computed(() => resolved.value.label)
   border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
+  /* A two-word state ("Needs Resubmission", "Under maintenance") stays one capsule. */
+  white-space: nowrap;
 }
+/* In a tight cell the label shrank the icon to nothing before it clipped. */
+.pill > svg { flex-shrink: 0; }
 </style>

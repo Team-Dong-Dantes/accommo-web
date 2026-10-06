@@ -287,7 +287,7 @@ const boarders: ReportDef = {
 }
 
 // ── 5. Landlords/Landladies Masterlist ──────────────────────────────────────
-const STATUS: Record<string, string> = { verified: 'Verified', pending: 'Pending', reviewing: 'Under review', rejected: 'Rejected', suspended: 'Suspended', unverified: 'Unverified' }
+const STATUS: Record<string, string> = { verified: 'Verified', pending: 'Pending', reviewing: 'Under review', needs_resubmission: 'Needs resubmission', rejected: 'Rejected', suspended: 'Suspended', unverified: 'Unverified' }
 const statusLabel = (s: string) => STATUS[s] ?? (s ? s.charAt(0).toUpperCase() + s.slice(1) : '—')
 
 const landlords: ReportDef = {

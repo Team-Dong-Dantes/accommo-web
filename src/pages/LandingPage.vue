@@ -88,7 +88,7 @@
         <p class="kicker">Get the app</p>
         <h2 class="title">Download Accommo for Android</h2>
         <p class="body" style="margin-bottom:24px;">
-          One APK, works on Android 8+. About 15 MB. Install, sign up,
+          One APK, works on Android 7.0 and later. About 15 MB. Install, sign up,
           and start browsing verified boarding houses near ISU Echague.
         </p>
 

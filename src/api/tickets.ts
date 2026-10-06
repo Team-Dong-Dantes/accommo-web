@@ -18,11 +18,16 @@ export interface StudentProfileRow {
  * Replaces the separate college and year-level queries. Both pulled the same
  * table for one column each, and neither could answer the question the
  * dashboard actually needs: how much of a student record is filled in.
+ *
+ * Only profiles whose account is still a student: a few landlords/landladies
+ * keep the profile from before their role changed, and counting them gave
+ * "49 of 48" against the student-account total.
  */
 export async function fetchStudentProfiles(): Promise<StudentProfileRow[]> {
   const { data, error } = await supabase
     .from('student_profiles')
-    .select('college, year_level, student_id, school_id_url, assessment_of_fees_url, osas_verified_at')
+    .select('college, year_level, student_id, school_id_url, assessment_of_fees_url, osas_verified_at, user:users!student_profiles_user_id_fkey!inner(role)')
+    .eq('user.role', 'student')
   if (error) throw error
   return (data ?? []) as unknown as StudentProfileRow[]
 }
