@@ -30,6 +30,8 @@
         :row-class="rowClass"
         :start-index="(page - 1) * rowsPerPage"
         :row-chevron="rowChevron"
+        :sort="sort"
+        @update:sort="$emit('update:sort', $event)"
         @row-click="$emit('row-click', $event)"
       >
         <template v-if="$slots.empty" #no-data>
@@ -57,6 +59,7 @@
 import TableToolbar from '@/components/table/TableToolbar.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import DataTable from '@/components/table/DataTable.vue'
+import type { SortState } from '@/composables/useSort'
 
 withDefaults(defineProps<{
   search: string
@@ -75,6 +78,8 @@ withDefaults(defineProps<{
   rowClass?: (row: any) => string
   /** See the same prop on DataTable.vue. */
   rowChevron?: boolean
+  /** See the same prop on DataTable.vue; single-table mode only. */
+  sort?: SortState
 }>(), {
   rowsPerPage: 10,
   rowChevron: false,
@@ -92,6 +97,7 @@ defineEmits<{
   (e: 'refresh'): void
   (e: 'update:page', value: number): void
   (e: 'row-click', value: any): void
+  (e: 'update:sort', value: SortState): void
 }>()
 </script>
 

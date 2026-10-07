@@ -3,7 +3,6 @@
 
 import { supabase } from '@/utils/supabase'
 import { composeAddress, humanizeEnum } from '@/utils/format'
-import type { Signatories } from '@/features/reports/document'
 
 export interface ReportSettings {
   notedByName: string
@@ -23,21 +22,6 @@ export async function fetchReportSettings(): Promise<ReportSettings> {
     notedByPosition: data?.noted_by_position ?? '',
     approvedByName: data?.approved_by_name ?? '',
     approvedByPosition: data?.approved_by_position ?? '',
-  }
-}
-
-/** Who signs a report: the admin generating it, and whoever Settings → Reports names. */
-export async function reportSignatories(preparedBy: string | undefined): Promise<Signatories> {
-  try {
-    const s = await fetchReportSettings()
-    return {
-      preparedBy,
-      notedBy: s.notedByName ? { name: s.notedByName, position: s.notedByPosition } : null,
-      approvedBy: s.approvedByName ? { name: s.approvedByName, position: s.approvedByPosition } : null,
-    }
-  } catch {
-    // The report still prints, with blank lines to sign on.
-    return { preparedBy }
   }
 }
 

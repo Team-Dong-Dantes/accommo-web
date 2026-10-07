@@ -27,6 +27,7 @@
         v-model:search="search"
         v-model:page="page"
         v-model:active-filters="tableFilters"
+        v-model:sort="sort"
         :filters="filterConfig"
         :rows="paginatedRows"
         :total-items="tableRows.length"
@@ -82,7 +83,8 @@ import BoardViews, { type BoardView } from '@/features/tickets/BoardViews.vue'
 import ResolveDialog from '@/features/tickets/ResolveDialog.vue'
 import TicketTable from '@/features/tickets/TicketTable.vue'
 import TicketWindow from '@/features/tickets/TicketWindow.vue'
-import { PRIORITY_OPTS, type MsgGroup } from '@/features/tickets/types'
+import { PRIORITY_OPTS, TICKET_COLUMNS, type MsgGroup } from '@/features/tickets/types'
+import { useSort } from '@/composables/useSort'
 import { capitalize } from '@/utils/format'
 import { counted } from '@/utils/filterOptions'
 import type { DrillKind } from '@/features/tickets/TicketWindow.vue'
@@ -248,15 +250,17 @@ const totalLabel = computed(() => {
  * Slice like every other table does — the table was once handed the whole list
  * while still rendering a pager, which then changed a `page` nothing read.
  */
+const { sort, sorted: sortedRows } = useSort(() => tableRows.value, () => TICKET_COLUMNS)
+
 const paginatedRows = computed(() => {
   const start = (page.value - 1) * 10
-  return tableRows.value.slice(start, start + 10)
+  return sortedRows.value.slice(start, start + 10)
 })
 
 // A new tab, filter or search starts at the first page. A live refetch must
 // not (it used to reset on every change to `tickets`); it only pulls the page
 // back if the list shrank past it.
-watch([laneTab, tableFilters, search], () => { page.value = 1 })
+watch([laneTab, tableFilters, search, sort], () => { page.value = 1 })
 watch(() => tableRows.value.length, (n) => {
   page.value = Math.min(page.value, Math.max(1, Math.ceil(n / 10)))
 })

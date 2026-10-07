@@ -37,6 +37,7 @@
                 :loading="loading"
                 :pagination="{ rowsPerPage: 10 }"
                 :start-index="(currentPage - 1) * 10"
+                v-model:sort="sort"
               >
                 <template #body="{ props, rowNumber }">
                   <QueueRow
@@ -97,6 +98,7 @@ const {
   selectedRequest,
   tabs,
   columns,
+  sort,
   studentRequests,
   landlordRequests,
   accommodationRequests,
@@ -231,8 +233,11 @@ fetch()
   height: 100%;
 }
 
+/* Transparent like every other page's panels: in dark mode Quasar paints
+   q-tab-panels with $dark, a teal that showed behind the empty state. */
 .verif-panels {
   height: 100%;
+  background: transparent;
 }
 
 /* Row hover, flash, lock note and "Take over" live with the row, in

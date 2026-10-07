@@ -220,9 +220,9 @@ async function open(index: number) {
 
 .dd-viewer-card {
   display: flex;
-  width: 92vw;
+  width: calc(92 * var(--vw, 1vw));
   max-width: 900px;
-  height: 86vh;
+  height: calc(86 * var(--vh, 1vh));
   flex-direction: column;
   background: var(--c-surface);
 }

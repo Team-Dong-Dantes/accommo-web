@@ -35,7 +35,7 @@
 
           <!-- OVERVIEW -->
           <q-tab-panel name="overview" class="q-pa-none">
-            <DataTable :rows="paginatedAccommodations" :columns="overviewColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron>
+            <DataTable :rows="paginatedAccommodations" :columns="overviewColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron v-model:sort="sort">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon icon="lucide:map-pin-house" width="48" height="48" class="q-mb-md" />
@@ -81,7 +81,7 @@
 
           <!-- COMPLIANCE (one row per house; a capsule per required permit) -->
           <q-tab-panel name="compliance" class="q-pa-none">
-            <DataTable :rows="paginatedAccommodations" :columns="complianceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron>
+            <DataTable :rows="paginatedAccommodations" :columns="complianceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron v-model:sort="sort">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon icon="lucide:file-check" width="48" height="48" class="q-mb-md" />
@@ -109,7 +109,7 @@
 
           <!-- PERFORMANCE -->
           <q-tab-panel name="performance" class="q-pa-none">
-            <DataTable :rows="paginatedAccommodations" :columns="performanceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron>
+            <DataTable :rows="paginatedAccommodations" :columns="performanceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron v-model:sort="sort">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon icon="lucide:chart-column" width="48" height="48" class="q-mb-md" />
@@ -195,6 +195,7 @@ import type { AccountActionSpec } from '@/features/users/accountActions'
 import type { ReportId } from '@/features/reports/reports'
 import { PERMIT_STATE, REQUIRED_PERMITS, requiredPermitState, type PermitState } from '@/utils/permitExpiry'
 import { useAccommodations } from '@/composables/useAccommodations'
+import { useSort } from '@/composables/useSort'
 import { useAccommodationRecord, toRecordRow } from '@/composables/useAccommodationRecord'
 
 const search = ref('')
@@ -441,12 +442,16 @@ const overviewColumns = [
   { name: 'status', align: 'left', label: 'Status', field: 'status', headerClasses: 'col-badge-wide' },
 ]
 
+// Sorting a permit column puts the ones needing attention first.
+const PERMIT_ORDER: PermitState[] = ['expired', 'missing', 'expiring', 'valid']
+const permitRank = (key: string) => (row: any) => PERMIT_ORDER.indexOf(permitStatus(row, key))
+
 const complianceColumns = [
   { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'name', headerClasses: 'col-title' },
-  { name: 'fire', align: 'center', label: 'Fire Permit', field: 'fire', headerClasses: 'col-badge col-split' },
-  { name: 'business', align: 'center', label: 'Business Permit', field: 'business', headerClasses: 'col-badge' },
-  { name: 'sanitary', align: 'center', label: 'Sanitary Permit', field: 'sanitary', headerClasses: 'col-badge' },
-  { name: 'building', align: 'center', label: 'Building Permit', field: 'building', headerClasses: 'col-badge' },
+  { name: 'fire', align: 'center', label: 'Fire Permit', field: 'fire', sortValue: permitRank('fire'), headerClasses: 'col-badge col-split' },
+  { name: 'business', align: 'center', label: 'Business Permit', field: 'business', sortValue: permitRank('business'), headerClasses: 'col-badge' },
+  { name: 'sanitary', align: 'center', label: 'Sanitary Permit', field: 'sanitary', sortValue: permitRank('sanitary'), headerClasses: 'col-badge' },
+  { name: 'building', align: 'center', label: 'Building Permit', field: 'building', sortValue: permitRank('building'), headerClasses: 'col-badge' },
 ]
 
 const performanceColumns = [
@@ -454,7 +459,8 @@ const performanceColumns = [
   // phone number underneath it.
   { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'name', headerClasses: 'col-title' },
   { name: 'landlord', align: 'left', label: 'Landlord/Landlady', field: 'landlord', headerClasses: 'col-person' },
-  { name: 'rating', align: 'left', label: 'Rating', field: 'rating', headerClasses: 'col-num-wide col-split' },
+  // `rating` is display text ("4.5", or "—" when unrated).
+  { name: 'rating', align: 'left', label: 'Rating', field: 'rating', sortValue: (r: any) => parseFloat(r.rating), headerClasses: 'col-num-wide col-split' },
   { name: 'response', align: 'left', label: 'Response', field: 'responseRate', headerClasses: 'col-num-wide' },
   { name: 'occupancy', align: 'center', label: 'Occupancy', field: 'totalStudents', headerClasses: 'num-cell col-badge' },
 ]
@@ -493,15 +499,20 @@ const filteredAccommodations = computed(() => {
   return result
 })
 
+const tabColumns = () => (activeTab.value === 'compliance' ? complianceColumns : activeTab.value === 'performance' ? performanceColumns : overviewColumns)
+const { sort, sorted: sortedAccommodations } = useSort(() => filteredAccommodations.value, tabColumns)
+
 const paginatedAccommodations = computed(() => {
   const start = (currentPage.value - 1) * 10
-  return filteredAccommodations.value.slice(start, start + 10)
+  return sortedAccommodations.value.slice(start, start + 10)
 })
 
 watch(activeTab, () => {
   search.value = ''
+  sort.value = null
   currentPage.value = 1
 })
+watch(sort, () => { currentPage.value = 1 })
 
 // The open record — its fetches and the DrawerPreview every pane reads — shared
 // with the Map View's detail panel.

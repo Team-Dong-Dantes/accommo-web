@@ -20,6 +20,7 @@
         row-key="id"
         :rows-per-page="10"
         :page="currentPage"
+        v-model:sort="sort"
         row-chevron
         @refresh="fetchRooms"
         @update:page="currentPage = $event"
@@ -70,6 +71,14 @@
                 <span class="rent-basis"><Icon :icon="props.row.perBoarder ? 'lucide:user' : 'lucide:door-closed'" width="12" height="12" />{{ props.row.perBoarder ? 'per boarder' : 'whole room' }}</span>
               </span>
             </q-td>
+            <q-td v-for="u in UTILITIES" :key="u.key" :props="props" class="col-utility">
+              <span class="util-cell">
+                <span class="text-ink text-weight-bold">{{ props.row.utilities[u.key].terms }}</span>
+                <span v-if="props.row.utilities[u.key].bill" class="util-bill" :class="`util-bill--${props.row.utilities[u.key].tone}`">
+                  <Icon :icon="TONE_ICON[props.row.utilities[u.key].tone]" width="12" height="12" />{{ props.row.utilities[u.key].bill }}
+                </span>
+              </span>
+            </q-td>
             <q-td key="status" :props="props" class="col-badge-wide">
               <BadgePill :tone="getStatus(props.row.status).tone" :icon="getStatus(props.row.status).icon ?? 'lucide:circle'" :label="roomStatusLabel(props.row.status)" />
             </q-td>
@@ -90,6 +99,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useSort } from '@/composables/useSort'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -103,7 +113,8 @@ import { getStatus, getTone } from '@/utils/status.config'
 import { resolveAsset } from '@/utils/cloudinaryUrl'
 import { counted } from '@/utils/filterOptions'
 import { avatarUrl, cap, getInitialsWide as initialsOf, humanizeEnum, landlordTitle, roomStatusLabel } from '@/utils/format'
-import { facilityIcon, facilityLabel } from '@/utils/facilities'
+import { facilityIcon, facilityLabel, manilaToday, UTILITIES, UTILITY_BILLING_LABEL, utilityStatus } from '@/utils/facilities'
+import type { PostedBill, UtilityKey, UtilityStatus } from '@/utils/facilities'
 
 /** A room row as the rooms query returns it, before mapping to a table row. */
 interface RoomQueryRow {
@@ -119,6 +130,12 @@ interface RoomQueryRow {
   rent_basis: string | null
   status: string | null
   accommodation_id: string | null
+  water_billing: string | null
+  water_flat_fee: number | null
+  electric_billing: string | null
+  electric_flat_fee: number | null
+  wifi_billing: string | null
+  wifi_flat_fee: number | null
   accommodation?: unknown
   room_images?: { url: string | null; sort_order: number | null }[]
 }
@@ -142,6 +159,7 @@ interface RoomTableRow {
   rent: number | null
   perBoarder: boolean
   status: string | null
+  utilities: Record<UtilityKey, UtilityStatus>
   // Filter buckets derived from the fields above.
   vacancy: 'empty' | 'partial' | 'full'
   floorKey: string
@@ -206,7 +224,7 @@ async function fetchRoomDetail(raw: any) {
   try {
     const { data: room, error } = await supabase
       .from('rooms')
-       .select('id, label, room_number, room_type, custom_room_type, floor, capacity, current_pax, monthly_rent, advance_months, deposit_months, rent_basis, status, accommodation_id, accommodation:accommodation_id ( name, landlord:users_full!accommodations_landlord_id_fkey ( id, full_name, sex, phone, initials, avatar_url ) )')
+       .select('id, label, room_number, room_type, custom_room_type, floor, capacity, current_pax, monthly_rent, advance_months, deposit_months, rent_basis, status, accommodation_id, water_billing, water_flat_fee, electric_billing, electric_flat_fee, wifi_billing, wifi_flat_fee, accommodation:accommodation_id ( name, landlord:users_full!accommodations_landlord_id_fkey ( id, full_name, sex, phone, initials, avatar_url ) )')
       .eq('id', raw.id)
       .single()
     if (error) throw error
@@ -246,6 +264,43 @@ async function fetchRoomDetail(raw: any) {
         }
       })
       selectedRoom.value = { ...selectedRoom.value, occupants: occ }
+
+      // Their posted utility bills, with whose each one is.
+      const boarderByLease = new Map((leases as any[]).map((l) => {
+        const student = Array.isArray(l.student) ? l.student[0] : l.student
+        return [l.id, student?.full_name || 'Unknown']
+      }))
+      const { data: bills } = boarderByLease.size
+        ? await supabase
+            .from('utility_bills')
+            .select('id, lease_id, utility, month, amount, due_date, payments ( status )')
+            .in('lease_id', [...boarderByLease.keys()])
+            .order('month', { ascending: false })
+        : { data: [] }
+      const today = manilaToday()
+      selectedRoom.value = {
+        ...selectedRoom.value,
+        bills: ((bills ?? []) as any[]).map((b) => ({
+          id: b.id,
+          utility: b.utility,
+          month: b.month,
+          amount: Number(b.amount),
+          dueDate: b.due_date,
+          paid: settles(b.payments),
+          boarder: boarderByLease.get(b.lease_id) ?? 'Unknown',
+          state: settles(b.payments) ? 'paid' : b.due_date < today ? 'overdue' : 'unpaid',
+        })),
+      }
+    }
+
+    if (room?.floor != null && room.accommodation_id) {
+      const { data: floor } = await supabase
+        .from('accommodation_floors')
+        .select('label')
+        .eq('accommodation_id', room.accommodation_id)
+        .eq('floor_number', room.floor)
+        .maybeSingle()
+      selectedRoom.value = { ...selectedRoom.value, floorName: floor?.label ?? null }
     }
 
     const { data: photos, error: photosError } = await supabase
@@ -310,6 +365,12 @@ function roomName(r: RoomQueryRow): string {
 const amount = (n: number) => n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const peso = (n: number) => `₱${amount(n)}`
 
+const TONE_ICON: Record<string, string> = { muted: 'lucide:clock', ok: 'lucide:check', warn: 'lucide:receipt', bad: 'lucide:triangle-alert' }
+const TONE_RANK: Record<UtilityStatus['tone'], number> = { bad: 0, warn: 1, muted: 2, ok: 3 }
+
+/** A payment against a bill settles it once it is paid or awaiting verification — the rule mobile uses. */
+const settles = (payments: { status: string }[] | null) => (payments ?? []).some((p) => p.status === 'paid' || p.status === 'pending_verification')
+
 // Same column classes as the Accommodation Hub, so the two tables read alike.
 const columns = [
   { name: 'room', align: 'left', label: 'Room', field: 'name', headerClasses: 'col-title' },
@@ -317,23 +378,37 @@ const columns = [
   { name: 'boarders', align: 'center', label: 'Boarders', field: 'occupants', headerClasses: 'num-cell col-occupants col-split' },
   { name: 'beds', align: 'center', label: 'Beds', field: 'capacity', headerClasses: 'num-cell col-num-wide' },
   { name: 'rent', align: 'right', label: 'Monthly Rent', field: 'rent', headerClasses: 'col-rent num-right' },
+  // Sorting a utility column brings the rooms that need attention up first.
+  ...UTILITIES.map((u) => ({
+    name: u.key,
+    align: 'left',
+    label: u.label,
+    field: (r: RoomTableRow) => r.utilities[u.key].terms,
+    sortValue: (r: RoomTableRow) => TONE_RANK[r.utilities[u.key].tone],
+    headerClasses: 'col-utility',
+  })),
   { name: 'status', align: 'left', label: 'Status', field: 'status', headerClasses: 'col-badge-wide' },
 ]
 
 async function fetchRooms() {
   loading.value = true
   try {
-    const [roomsRes, leasesRes] = await Promise.all([
+    const [roomsRes, leasesRes, billsRes] = await Promise.all([
       supabase
         .from('rooms')
         .select(
-           'id, label, room_number, room_type, custom_room_type, floor, capacity, current_pax, monthly_rent, rent_basis, status, accommodation_id, room_images ( url, sort_order ), accommodation:accommodation_id ( name, landlord:landlord_id ( full_name ) )',
+           'id, label, room_number, room_type, custom_room_type, floor, capacity, current_pax, monthly_rent, rent_basis, status, accommodation_id, water_billing, water_flat_fee, electric_billing, electric_flat_fee, wifi_billing, wifi_flat_fee, room_images ( url, sort_order ), accommodation:accommodation_id ( name, landlord:landlord_id ( full_name ) )',
         )
         .order('room_number', { ascending: true }),
       supabase
         .from('leases')
-        .select('room_id, student:users!leases_student_id_fkey(full_name, sex)')
+        .select('id, room_id, student:users!leases_student_id_fkey(full_name, sex)')
         .in('status', ['active', 'leave_requested']),
+      // The current boarders' posted bills; the lease join keeps them to this stay.
+      supabase
+        .from('utility_bills')
+        .select('utility, month, amount, due_date, payments ( status ), lease:leases!inner ( room_id, status )')
+        .in('lease.status', ['active', 'leave_requested']),
     ])
     const { data, error } = roomsRes
     if (error) {
@@ -350,6 +425,15 @@ async function fetchRooms() {
         occMap.get(l.room_id)!.push({ name: student.full_name ?? '', sex: String(student.sex ?? '').charAt(0).toUpperCase() })
       }
     }
+    const billMap = new Map<string, PostedBill[]>() // `${room_id}:${utility}`
+    for (const b of (billsRes.data || []) as any[]) {
+      const lease = Array.isArray(b.lease) ? b.lease[0] : b.lease
+      if (!lease?.room_id) continue
+      const k = `${lease.room_id}:${b.utility}`
+      if (!billMap.has(k)) billMap.set(k, [])
+      billMap.get(k)!.push({ month: b.month, amount: Number(b.amount), dueDate: b.due_date, paid: settles(b.payments) })
+    }
+    const today = manilaToday()
     rooms.value = (data || []).map((r: RoomQueryRow) => {
       const accommodation = Array.isArray(r.accommodation) ? r.accommodation[0] : r.accommodation
       const accommodationName = accommodation?.name || '—'
@@ -380,6 +464,10 @@ async function fetchRooms() {
         rent: r.monthly_rent,
         perBoarder,
         status: r.status,
+        utilities: Object.fromEntries(UTILITIES.map((u) => [
+          u.key,
+          utilityStatus(r[`${u.key}_billing`], r[`${u.key}_flat_fee`], occ.length, billMap.get(`${r.id}:${u.key}`) ?? [], today),
+        ])) as Record<UtilityKey, UtilityStatus>,
         vacancy: occ.length === 0 ? 'empty' : occ.length >= (r.capacity ?? 0) ? 'full' : 'partial',
         floorKey: r.floor != null ? String(r.floor) : '',
         rentBand: r.monthly_rent == null ? '' : r.monthly_rent < 2000 ? 'low' : r.monthly_rent < 3000 ? 'mid' : 'high',
@@ -417,11 +505,12 @@ const filteredRooms = computed(() => {
   }
   return result
 })
+const { sort, sorted: sortedRooms } = useSort(() => filteredRooms.value, () => columns)
 const paginatedRooms = computed(() => {
   const start = (currentPage.value - 1) * 10
-  return filteredRooms.value.slice(start, start + 10)
+  return sortedRooms.value.slice(start, start + 10)
 })
-watch(search, () => {
+watch([search, sort], () => {
   currentPage.value = 1
 })
 
@@ -483,6 +572,18 @@ const roomPreview = computed<DrawerPreview>(() => {
       rentBasis: r.rent_basis === 'person' && (r.capacity ?? 0) > 1 ? 'person' : 'room',
       advanceMonths: r.advance_months ?? null,
       depositMonths: r.deposit_months ?? null,
+      label: r.room_number && r.label ? r.label : null,
+      floorName: r.floorName ?? null,
+      utilities: UTILITIES.map((u) => {
+        const billing = r[`${u.key}_billing`] as string | null
+        const fee = r[`${u.key}_flat_fee`] as number | null
+        const bills = ((r.bills as (PostedBill & { utility: string })[] | undefined) ?? []).filter((b) => b.utility === u.key)
+        const s = utilityStatus(billing, fee, (r.occupants as unknown[] | undefined)?.length ?? 0, bills, manilaToday())
+        // The drawer has room for the full wording; the table keeps it short.
+        const terms = !billing ? 'Not specified' : billing === 'flat_fee' ? `Flat fee · ${s.terms}` : UTILITY_BILLING_LABEL[billing] ?? billing
+        return { key: u.key, label: u.label, icon: u.icon, terms, bill: billing === 'flat_fee' || !billing ? '' : s.bill, tone: s.tone }
+      }),
+      bills: (r.bills as any[]) ?? [],
       landlord: landlord
         ? {
             id: landlord.id,
@@ -602,6 +703,15 @@ onMounted(async () => {
   font-weight: 600;
   color: var(--c-muted);
 }
+
+/* Utility terms over where this month's bill stands. */
+.util-cell { display: inline-flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 13px; }
+.util-bill { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; color: var(--c-muted); white-space: nowrap; }
+.util-bill--ok { color: var(--c-success); }
+.util-bill--warn { color: var(--c-warning); }
+.util-bill--bad { color: var(--c-danger); }
+.prop-hub-body :deep(thead th.col-utility),
+.prop-hub-body :deep(tbody td.col-utility) { flex: 1 1 130px !important; min-width: 0; }
 
 /* Wide enough for "₱10,000.00" on one line. */
 .prop-hub-body :deep(thead th.col-rent),

@@ -19,9 +19,21 @@
           :key="col.name"
           :props="{ ...props, col }"
           class="text-muted text-weight-bold text-uppercase custom-th"
-          :class="col.headerClasses"
+          :class="[col.headerClasses, { 'sortable-th': canSort(col), 'sorted-th': sort?.by === col.name }]"
+          :aria-sort="canSort(col) ? (sort?.by !== col.name ? 'none' : sort?.desc ? 'descending' : 'ascending') : undefined"
+          :tabindex="canSort(col) ? 0 : undefined"
+          @click="toggleSort(col)"
+          @keydown.enter.prevent="toggleSort(col)"
+          @keydown.space.prevent="toggleSort(col)"
         >
           {{ col.label }}
+          <Icon
+            v-if="canSort(col)"
+            :icon="sort?.by === col.name && sort?.desc ? 'lucide:arrow-down' : 'lucide:arrow-up'"
+            width="12"
+            height="12"
+            class="sort-icon"
+          />
         </q-th>
         <q-th v-if="rowChevron" class="row-chevron-cell" scope="col"></q-th>
       </q-tr>
@@ -87,6 +99,7 @@
 
 <script setup lang="ts">
 import { computed, PropType } from 'vue'
+import type { SortState } from '@/composables/useSort'
 
 const props = defineProps({
   rows: { type: Array as PropType<any[]>, required: true },
@@ -108,12 +121,29 @@ const props = defineProps({
    * inline "Review →" link, an edit button) would show two affordances for
    * one thing, so this is opt-in per table rather than automatic everywhere.
    */
-  rowChevron: { type: Boolean, default: false }
+  rowChevron: { type: Boolean, default: false },
+  /**
+   * Header click-to-sort (`v-model:sort`, state from useSort). The caller does
+   * the sorting, before it slices out a page; this only draws and toggles it.
+   * Left unbound, headers stay plain.
+   */
+  sort: { type: Object as PropType<SortState | undefined>, default: undefined }
 })
 
 const emit = defineEmits<{
   (e: 'row-click', row: any): void
+  (e: 'update:sort', value: SortState): void
 }>()
+
+// Unlabelled columns hold actions, not values.
+const canSort = (col: any) => props.sort !== undefined && col.sortable !== false && !!col.label
+
+/** Ascending → descending → back to the list's own order. */
+function toggleSort(col: any) {
+  if (!canSort(col)) return
+  const s = props.sort
+  emit('update:sort', s?.by !== col.name ? { by: col.name, desc: false } : s?.desc ? null : { by: col.name, desc: true })
+}
 
 const paddedRows = computed(() => {
   const perPage = props.pagination.rowsPerPage || 10
@@ -159,6 +189,26 @@ const paddedRows = computed(() => {
   font-size: 11px !important;
   letter-spacing: 0.3px;
 }
+
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  gap: 4px;
+}
+.sortable-th:hover,
+.sortable-th:focus-visible,
+.sorted-th {
+  color: var(--c-text) !important;
+}
+/* Faint on hover so a header reads as clickable; solid once sorted. */
+.sort-icon {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--t-fast, 0.15s ease);
+}
+.sortable-th:hover .sort-icon,
+.sortable-th:focus-visible .sort-icon { opacity: 0.4; }
+.sorted-th .sort-icon { opacity: 1; color: var(--c-primary); }
 
 /* Row-number column. Every other cell is `flex: 1 1 0` (see the shared th/td
    rule below), so without a fixed basis this would claim an equal share of the
@@ -285,6 +335,11 @@ const paddedRows = computed(() => {
 /* Rows share the empty filler rows' surface; teal on hover. */
 .custom-data-table :deep(tbody tr.body-row:hover) {
   background-color: var(--c-primary-soft);
+}
+/* Filler rows aren't records and can't be opened: a neutral grey, not the
+   teal that says "click me". */
+.custom-data-table :deep(tbody tr.body-row.empty-row:hover) {
+  background-color: var(--c-surface-2);
 }
 
 /* Neutralize Quasar's per-cell :before/:after hover & selected overlays —

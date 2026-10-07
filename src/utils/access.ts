@@ -16,7 +16,7 @@ export const AREAS: { key: Area; label: string; hint: string; view: string; edit
   { key: 'accommodations', label: 'Accommodations', hint: 'Hubs and map — hide, suspend, restore', view: 'View only', edit: 'View & edit' },
   { key: 'support', label: 'Support tickets', hint: 'Reply, assign, resolve', view: 'View only', edit: 'View & edit' },
   { key: 'announcements', label: 'Announcements', hint: 'Announcements and policies', view: 'View only', edit: 'View & edit' },
-  { key: 'reports', label: 'Reports', hint: 'View exports · edit changes who signs', view: 'Export', edit: 'Export & settings' },
+  { key: 'reports', label: 'Reports', hint: 'View exports · edit changes who signs', view: 'Export', edit: 'Export & signatories' },
   { key: 'activity', label: 'Activity history', hint: 'View shows changes · edit adds the device', view: 'Changes only', edit: 'Changes & device' },
 ]
 

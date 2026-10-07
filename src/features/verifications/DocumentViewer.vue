@@ -112,6 +112,7 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue'
 import { isImage, fileIcon } from './fileUtils'
+import { consoleZoom } from '@/utils/consoleScale'
 
 export interface ViewerFile {
   name: string
@@ -176,8 +177,10 @@ function startPan(e: PointerEvent) {
 
 function movePan(e: PointerEvent) {
   if (!panning.value) return
-  panX.value = panFrom.originX + (e.clientX - panFrom.x)
-  panY.value = panFrom.originY + (e.clientY - panFrom.y)
+  // Pointer px are screen px; the viewer is drawn inside the console zoom.
+  const z = consoleZoom()
+  panX.value = panFrom.originX + (e.clientX - panFrom.x) / z
+  panY.value = panFrom.originY + (e.clientY - panFrom.y) / z
 }
 
 function endPan(e: PointerEvent) {

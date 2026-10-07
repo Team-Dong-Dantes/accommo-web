@@ -27,7 +27,7 @@
         <q-tab-panels v-model="activeTab" animated style="background: transparent; height: 100%;">
           <!-- Students -->
           <q-tab-panel name="students" class="q-pa-none">
-            <DataTable :rows="paginatedRows" :columns="studentColumns" row-key="rawId" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron>
+            <DataTable :rows="paginatedRows" :columns="studentColumns" row-key="rawId" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron v-model:sort="sort">
               <template #no-data><div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon :icon="loadError ? 'lucide:circle-alert' : 'lucide:user-x'" width="48" height="48" class="q-mb-md" />
                   <div class="text-h6 text-weight-bold">{{ loadError ? 'Could not load accounts' : 'No students match' }}</div>
@@ -64,7 +64,7 @@
 
           <!-- Landlords / landladies -->
           <q-tab-panel name="landlords" class="q-pa-none">
-            <DataTable :rows="paginatedRows" :columns="landlordColumns" row-key="rawId" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron>
+            <DataTable :rows="paginatedRows" :columns="landlordColumns" row-key="rawId" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron v-model:sort="sort">
               <template #no-data><div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon :icon="loadError ? 'lucide:circle-alert' : 'lucide:user-x'" width="48" height="48" class="q-mb-md" />
                   <div class="text-h6 text-weight-bold">{{ loadError ? 'Could not load accounts' : 'No landlords/landladies match' }}</div>
@@ -133,6 +133,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useSort } from '@/composables/useSort'
 import { useRoute } from 'vue-router'
 import { supabase } from '@/utils/supabase'
 
@@ -259,7 +260,7 @@ const totalLabel = computed(() => {
 })
 
 // A new tab starts unfiltered on its first page.
-watch(activeTab, () => { clearFilters(); search.value = ''; currentPage.value = 1 })
+watch(activeTab, () => { clearFilters(); search.value = ''; sort.value = null; currentPage.value = 1 })
 
 // Report: Boarders or Landlords/Landladies, opening on the one this tab lists.
 const reportOpen = ref(false)
@@ -443,12 +444,14 @@ const filteredRows = computed(() => {
   return result
 })
 
+const { sort, sorted: sortedRows } = useSort(() => filteredRows.value, () => (activeTab.value === 'students' ? studentColumns : landlordColumns))
+
 const paginatedRows = computed(() => {
   const start = (currentPage.value - 1) * 10
-  return filteredRows.value.slice(start, start + 10)
+  return sortedRows.value.slice(start, start + 10)
 })
 
-watch([search, activeFilters], () => { currentPage.value = 1 }, { deep: true })
+watch([search, activeFilters, sort], () => { currentPage.value = 1 }, { deep: true })
 
 // Drawer preview — construction lives in features/users/userPreview.ts.
 const userPreview = computed<DrawerPreview>(() =>

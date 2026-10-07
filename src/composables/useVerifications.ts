@@ -10,6 +10,7 @@ import { fetchReviewProfile, fetchApplicantDetails, type ApplicantDetails, type 
 import { useReviewPresence } from '@/composables/useReviewPresence'
 import { useAuthStore } from '@/stores/auth'
 import { counted } from '@/utils/filterOptions'
+import { sortRows, type SortState } from '@/composables/useSort'
 
 /**
  * The property behind an accreditation request. An accommodation is not an
@@ -270,9 +271,15 @@ export function useVerifications() {
   // Each header names exactly what sits under it, in that tab's own words. Only
   // `action` is left flexible: it holds either a chevron or a lock note with a
   // reviewer's name and "Take over", which is genuinely variable-width.
+  // Columns whose cell is drawn from other fields sort by what the cell shows.
+  const SORT_VALUE: Record<string, (r: VerificationRequest) => unknown> = {
+    entity: (r) => r.name,
+    requirements: (r) => r.requirements.filter((q) => q.ok).length,
+    waiting: (r) => r.ageDays,
+  }
   const columns = computed(() => {
     const col = (name: string, label: string, headerClasses: string) =>
-      ({ name, label, align: 'left', field: name, headerClasses })
+      ({ name, label, align: 'left', field: name, headerClasses, sortValue: SORT_VALUE[name] })
     const action = { name: 'action', label: '', align: 'right', field: 'action' }
     if (activeTab.value === 'student') {
       return [
@@ -592,6 +599,10 @@ export function useVerifications() {
     return filteredRows.value.slice(start, start + 10)
   })
 
+  // Applied with the filters so the review window's prev/next follows the
+  // table's order. Only the active tab's columns exist, and a tab change clears it.
+  const sort = ref<SortState>(null)
+
   function filterArr(arr: VerificationRequest[]) {
     let result = arr
     if (search.value) {
@@ -604,7 +615,7 @@ export function useVerifications() {
     if (readiness && readiness.length) {
       result = result.filter((row) => readiness.includes(row.ready ? 'ready' : 'waiting'))
     }
-    return result
+    return sortRows(result, sort.value, columns.value)
   }
   function paginateArr(arr: VerificationRequest[]) {
     const start = (currentPage.value - 1) * 10
@@ -898,8 +909,9 @@ export function useVerifications() {
     search.value = ''
     currentPage.value = 1
     selectedRequest.value = null
+    sort.value = null
   })
-  watch([search, activeFilters], () => {
+  watch([search, activeFilters, sort], () => {
     currentPage.value = 1
   }, { deep: true })
 
@@ -1114,6 +1126,7 @@ export function useVerifications() {
     selectedRequest,
     tabs,
     columns,
+    sort,
     studentRequests,
     landlordRequests,
     accommodationRequests,

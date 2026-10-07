@@ -8,7 +8,7 @@
       <span v-if="o" class="rc-pill"><Icon icon="lucide:bed-double" width="12" height="12" />{{ o.typeLabel }}</span>
       <h2 class="rc-name">{{ o?.title ?? preview.name }}</h2>
       <span v-if="o" class="rc-sub">
-        <Icon icon="lucide:building-2" width="13" height="13" />{{ o.accommodation.name }}<template v-if="o.floor != null"> · Floor {{ o.floor }}</template>
+        <Icon icon="lucide:building-2" width="13" height="13" />{{ o.accommodation.name }}<template v-if="o.floor != null"> · Floor {{ o.floor }}<template v-if="o.floorName"> ({{ o.floorName }})</template></template><template v-if="o.label"> · {{ o.label }}</template>
       </span>
     </div>
   </div>
@@ -64,10 +64,39 @@
         <div class="rc-sec-head"><span class="rc-title">Terms</span></div>
         <dl class="rc-facts">
           <div><dt>Monthly rent</dt><dd>{{ o.rent != null ? peso(o.rent) : '—' }}<span class="ro-basis">{{ o.rentBasis === 'person' ? ' per boarder' : ' whole room' }}</span></dd></div>
+          <div v-if="share != null && o.rentBasis === 'room' && o.capacity > 1"><dt>Each boarder's share</dt><dd>{{ peso(share) }}<span class="ro-basis"> / mo</span></dd></div>
           <div><dt>Status</dt><dd>{{ o.statusLabel }}</dd></div>
-          <div><dt>Advance</dt><dd>{{ months(o.advanceMonths) }}</dd></div>
-          <div><dt>Deposit</dt><dd>{{ months(o.depositMonths) }}</dd></div>
+          <div><dt>Advance</dt><dd>{{ months(o.advanceMonths) }}<span v-if="share != null && o.advanceMonths" class="ro-basis"> · {{ peso(share * o.advanceMonths) }}</span></dd></div>
+          <div><dt>Deposit</dt><dd>{{ months(o.depositMonths) }}<span v-if="share != null && o.depositMonths" class="ro-basis"> · {{ peso(share * o.depositMonths) }}</span></dd></div>
+          <div v-if="share != null"><dt>Due at move-in, per boarder</dt><dd>{{ peso(share * ((o.advanceMonths ?? 0) + (o.depositMonths ?? 0))) }}</dd></div>
         </dl>
+      </section>
+
+      <section class="rc-sec">
+        <div class="rc-sec-head"><span class="rc-title">Utilities</span></div>
+        <div class="ro-utils">
+          <div v-for="u in o.utilities ?? []" :key="u.key" class="ro-util">
+            <Icon :icon="u.icon" width="15" height="15" class="ro-util-icon" />
+            <span class="ro-util-name">{{ u.label }}</span>
+            <span class="ro-util-terms">{{ u.terms }}</span>
+            <span v-if="u.bill" class="ro-util-bill" :class="`ro-tone--${u.tone}`">{{ u.bill }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="bills.length" class="rc-sec">
+        <div class="rc-sec-head">
+          <span class="rc-title">Utility bills</span>
+          <span class="rc-meta">posted by the {{ o.landlord?.title.toLowerCase() ?? 'landlord/landlady' }}</span>
+        </div>
+        <div class="ro-bills">
+          <div v-for="b in bills" :key="b.id" class="ro-billrow">
+            <span class="ro-bill-what">{{ UTILITY_NAME[b.utility] ?? b.utility }} · {{ monthLabel(b.month) }}</span>
+            <span class="ro-bill-who">{{ b.boarder }}</span>
+            <span class="ro-bill-amt">{{ peso(b.amount) }}</span>
+            <span class="ro-bill-state" :class="`ro-tone--${STATE_TONE[b.state]}`">{{ b.state === 'paid' ? 'Paid' : b.state === 'overdue' ? `Overdue since ${dayLabel(b.dueDate)}` : `Due ${dayLabel(b.dueDate)}` }}</span>
+          </div>
+        </div>
       </section>
 
       <section class="rc-sec">
@@ -117,6 +146,19 @@ const facilities = computed(() => props.preview.facilities ?? [])
 
 const peso = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const months = (n: number | null) => (n == null ? '—' : `${n} month${n === 1 ? '' : 's'}`)
+const monthLabel = (iso: string) => new Date(`${iso.slice(0, 7)}-01T00:00:00`).toLocaleString('en-US', { month: 'short', year: 'numeric' })
+const dayLabel = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleString('en-US', { month: 'short', day: 'numeric' })
+
+const UTILITY_NAME: Record<string, string> = { water: 'Water', electric: 'Electricity', wifi: 'Wi-Fi' }
+const STATE_TONE = { paid: 'ok', unpaid: 'warn', overdue: 'bad' } as const
+const bills = computed(() => o.value?.bills ?? [])
+
+/** What one boarder pays a month: a whole-room rate split across its beds, as the lease will be. */
+const share = computed(() => {
+  const r = o.value
+  if (r?.rent == null) return null
+  return r.rentBasis === 'person' || r.capacity <= 1 ? r.rent : Math.round((r.rent / r.capacity) * 100) / 100
+})
 
 const standing = computed<{ tone: Tone; title: string; sub: string }>(() => {
   const status = o.value?.status.toLowerCase() ?? ''
@@ -171,6 +213,23 @@ button.ro-bed:focus-visible { outline: 2px solid var(--ar-accent); outline-offse
 .ro-bed--vacant .ro-bed-name { color: var(--ar-muted); font-weight: 500; }
 
 .ro-basis { color: var(--ar-muted); font-size: 11px; font-weight: 500; }
+
+/* One line per utility: what it is, how it is paid, where this month's bill stands. */
+.ro-utils, .ro-bills { display: flex; flex-direction: column; gap: 6px; }
+.ro-util { display: grid; grid-template-columns: 18px 76px minmax(0, 1fr) auto; align-items: center; gap: 6px; font-size: 12px; }
+.ro-util-icon { color: var(--ar-accent); }
+.ro-util-name { color: var(--ar-muted); font-size: 11.5px; }
+.ro-util-terms { overflow: hidden; color: var(--ar-ink); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.ro-util-bill, .ro-bill-state { font-size: 11px; font-weight: 600; white-space: nowrap; }
+.ro-billrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 8px; padding: 6px 8px; border: 1px solid var(--ar-border); border-radius: 8px; font-size: 12px; }
+.ro-bill-what { color: var(--ar-ink); font-weight: 600; }
+.ro-bill-amt { color: var(--ar-ink); font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.ro-bill-who { overflow: hidden; color: var(--ar-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.ro-bill-state { text-align: right; }
+.ro-tone--muted { color: var(--ar-muted); }
+.ro-tone--ok { color: var(--c-success); }
+.ro-tone--warn { color: var(--c-warning); }
+.ro-tone--bad { color: var(--c-danger); }
 .ro-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .ro-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; background: var(--ar-soft); color: var(--ar-ink); font-size: 11.5px; font-weight: 500; }
 .ro-chip :deep(svg) { color: var(--ar-accent); }

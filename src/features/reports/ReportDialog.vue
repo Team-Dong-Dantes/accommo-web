@@ -76,13 +76,29 @@
             </div>
 
             <div class="rd-group">
-              <div class="rd-group-title rd-group-title--link">
-                Signatories
-                <router-link to="/settings?section=reports" class="rd-link">Change</router-link>
+              <!-- Prepared by is this printout only. Noted/Approved by are shared by
+                   every administrator and saved when the report is printed. -->
+              <div class="rd-group-title">Signatories</div>
+              <div class="rd-row">
+                <span class="rd-label">Prepared by</span>
+                <q-input v-model="preparedBy" dense outlined class="rd-input" />
               </div>
-              <div class="rd-sign"><span>Prepared by</span><b>{{ signatories.preparedBy || '—' }}</b></div>
-              <div class="rd-sign"><span>Noted by</span><b>{{ signatories.notedBy?.name || 'Blank line' }}</b></div>
-              <div v-if="signatories.approvedBy?.name" class="rd-sign"><span>Approved by</span><b>{{ signatories.approvedBy.name }}</b></div>
+              <div class="rd-row">
+                <span class="rd-label">Noted by</span>
+                <q-input v-model="signers.notedByName" dense outlined placeholder="Blank line" class="rd-input" :readonly="!canEditSigners" />
+              </div>
+              <div class="rd-row">
+                <span class="rd-label rd-sub">Position</span>
+                <q-input v-model="signers.notedByPosition" dense outlined :placeholder="`Director, ${OFFICE}`" class="rd-input" :readonly="!canEditSigners" />
+              </div>
+              <div class="rd-row">
+                <span class="rd-label">Approved by</span>
+                <q-input v-model="signers.approvedByName" dense outlined placeholder="None" class="rd-input" :readonly="!canEditSigners" />
+              </div>
+              <div v-if="signers.approvedByName" class="rd-row">
+                <span class="rd-label rd-sub">Position</span>
+                <q-input v-model="signers.approvedByPosition" dense outlined class="rd-input" :readonly="!canEditSigners" />
+              </div>
             </div>
           </aside>
 
@@ -103,10 +119,11 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import TabNav from '@/components/ui/TabNav.vue'
 import { useAuthStore } from '@/stores/auth'
-import { fetchBoarders, fetchLandlords, reportSignatories, type BoarderRow, type LandlordRow } from '@/api/reports'
+import { useNotify } from '@/utils/notify'
+import { fetchBoarders, fetchLandlords, fetchReportSettings, saveReportSettings, type BoarderRow, type LandlordRow, type ReportSettings } from '@/api/reports'
 import type { RealAccommodation } from '@/composables/useAccommodations'
 import type { DrawerPreview } from '@/features/drawer/preview'
-import { renderReport, printWhenReady, sealUrl, type Orientation, type Paper, type Signatories } from './document'
+import { OFFICE, renderReport, printWhenReady, sealUrl, type Orientation, type Paper, type Signatories } from './document'
 import { REPORTS, type ReportField, type ReportId, type ReportInput } from './reports'
 
 const props = withDefaults(
@@ -144,15 +161,43 @@ watch(current, (id) => { orientation.value = id === 'renewals' || id === 'boarde
 const auth = useAuthStore()
 const boarders = ref<BoarderRow[] | null>(null)
 const landlords = ref<LandlordRow[] | null>(null)
-const signatories = ref<Signatories>({ preparedBy: auth.user?.full_name })
 const loadError = ref('')
+const notify = useNotify()
+// View-level Reports access prints with the shared signatories; edit changes them.
+const canEditSigners = computed(() => auth.can('reports', 'edit'))
+const preparedBy = ref(auth.user?.full_name ?? '')
+const blank: ReportSettings = { notedByName: '', notedByPosition: '', approvedByName: '', approvedByPosition: '' }
+const signers = reactive<ReportSettings>({ ...blank })
+let savedSigners: ReportSettings = { ...blank }
+const signatories = computed<Signatories>(() => ({
+  preparedBy: preparedBy.value,
+  notedBy: signers.notedByName ? { name: signers.notedByName, position: signers.notedByPosition } : null,
+  approvedBy: signers.approvedByName ? { name: signers.approvedByName, position: signers.approvedByPosition } : null,
+}))
 
 watch(() => props.modelValue, async (open) => {
   if (!open) return
   current.value = props.initial ?? props.reports[0]!
   loadError.value = ''
-  signatories.value = await reportSignatories(auth.user?.full_name)
+  preparedBy.value = auth.user?.full_name ?? ''
+  try {
+    savedSigners = await fetchReportSettings()
+    Object.assign(signers, savedSigners)
+  } catch {
+    // The report still prints, with blank lines to sign on.
+  }
 }, { immediate: true })
+
+/** Saves Noted/Approved by for every administrator, when they changed. */
+async function saveSigners() {
+  if (!canEditSigners.value || (Object.keys(blank) as (keyof ReportSettings)[]).every((k) => signers[k] === savedSigners[k])) return
+  try {
+    await saveReportSettings({ ...signers }, auth.user?.id)
+    savedSigners = { ...signers }
+  } catch (err) {
+    notify.error(`Could not save the signatories: ${errorMessage(err, 'Unknown error')}`)
+  }
+}
 
 // People are loaded the first time a report about them is chosen.
 watch([() => props.modelValue, current], async ([open]) => {
@@ -211,6 +256,7 @@ onMounted(() => window.addEventListener('resize', fitPreview))
 onBeforeUnmount(() => window.removeEventListener('resize', fitPreview))
 
 function print() {
+  void saveSigners()
   const win = frame.value?.contentWindow
   if (win) printWhenReady(win)
 }
@@ -224,7 +270,7 @@ function print() {
   flex-direction: column;
   width: calc(100vw - 32px);
   max-width: none !important;
-  height: calc(100vh - 32px);
+  height: calc(100 * var(--vh, 1vh) - 32px);
   max-height: none !important;
 }
 .rd-tabs { position: relative; z-index: 1; flex-shrink: 0; margin-bottom: -1px; padding-left: 14px; }
@@ -276,23 +322,17 @@ function print() {
 
 /* Settings: a flat grouped list, one line per setting — label left, control
    right — so the panel fits without scrolling. */
-.rd-side { display: flex; flex-direction: column; gap: 10px; padding: 12px 20px; overflow: hidden; border-right: 1px solid var(--c-border); background: var(--c-surface); }
+.rd-side { display: flex; flex-direction: column; gap: 10px; padding: 12px 20px; overflow-y: auto; border-right: 1px solid var(--c-border); background: var(--c-surface); }
 .rd-blurb { margin: 0; color: var(--c-text); font-size: 12.5px; }
 .rd-group { display: flex; flex-direction: column; }
 .rd-group-title { padding-bottom: 2px; color: var(--c-muted); font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .rd-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; gap: 10px; min-height: 38px; padding: 2px 0; border-bottom: 1px solid var(--c-border); }
-.rd-group-title--link { display: flex; align-items: center; justify-content: space-between; }
-.rd-group-title--link .rd-link { font-size: 11.5px; letter-spacing: 0; text-transform: none; }
 .rd-page { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 6px 0 2px; }
 .rd-row--toggle { grid-template-columns: minmax(0, 1fr) auto; }
 .rd-label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: var(--c-ink); font-size: 12.5px; font-weight: 500; line-height: 1.3; }
+.rd-sub { padding-left: 12px; color: var(--c-muted); font-weight: 400; }
 .rd-personal { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 999px; background: var(--c-warning-soft); color: var(--c-warning); font-size: 10px; font-weight: 700; }
 .rd-input { min-width: 0; font-size: 12.5px; }
-.rd-sign { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--c-border); font-size: 12.5px; }
-.rd-sign span { color: var(--c-muted); }
-.rd-sign b { color: var(--c-ink); text-align: right; }
-.rd-link { color: var(--c-primary); font-size: 12.5px; font-weight: 600; text-decoration: none; }
-.rd-link:hover { text-decoration: underline; }
 
 /* Preview: the printed page on a grey desk. */
 .rd-preview { position: relative; min-height: 0; background: #d9d9d9; }

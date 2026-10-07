@@ -8,7 +8,8 @@
     :loading="loading"
     :total-label="totalLabel"
     :rows="rows"
-    :columns="COLUMNS"
+    :columns="TICKET_COLUMNS"
+    :sort="sort"
     row-key="id"
     :total-items="totalItems"
     item-name="tickets"
@@ -17,6 +18,7 @@
     :active-filters="activeFilters"
     @update:search="$emit('update:search', $event)"
     @update:page="$emit('update:page', $event)"
+    @update:sort="$emit('update:sort', $event)"
     @update:active-filters="$emit('update:activeFilters', $event)"
     @clear-filters="$emit('update:activeFilters', {})"
     @row-click="(t: Ticket) => $emit('select', t.id)"
@@ -110,7 +112,8 @@ import { getStatus } from '@/utils/status.config'
 import { capitalize, getInitials, getTimeAgo } from '@/utils/format'
 import { boardLane, isOverdue, waitAge } from '@/utils/ticketTriage'
 import type { Ticket } from '@/composables/useTickets'
-import { stLabel } from './types'
+import type { SortState } from '@/composables/useSort'
+import { stLabel, TICKET_COLUMNS } from './types'
 
 const props = defineProps<{
   rows: Ticket[]
@@ -124,25 +127,17 @@ const props = defineProps<{
   highlightId: string
   filters: { key: string; label: string; options: { label: string; value: string }[] }[]
   activeFilters: Record<string, string[]>
+  sort: SortState
 }>()
 
 defineEmits<{
   (e: 'update:search', value: string): void
   (e: 'update:page', value: number): void
+  (e: 'update:sort', value: SortState): void
   (e: 'update:activeFilters', value: Record<string, string[]>): void
   (e: 'select', id: string): void
   (e: 'refresh'): void
 }>()
-
-const COLUMNS = [
-  { name: 'ticket', label: 'TICKET', align: 'left' as const, field: 'id', headerClasses: 'tk-grow' },
-  { name: 'requester', label: 'REQUESTER', align: 'left' as const, field: 'id', headerClasses: 'tk-wide' },
-  { name: 'place', label: 'PLACE', align: 'left' as const, field: 'id' },
-  { name: 'category', label: 'CATEGORY', align: 'left' as const, field: 'id', headerClasses: 'tk-narrow' },
-  { name: 'priority', label: 'PRIORITY', align: 'left' as const, field: 'id', headerClasses: 'tk-narrow' },
-  { name: 'waiting', label: 'WAITING', align: 'left' as const, field: 'id' },
-  { name: 'assignee', label: 'ASSIGNEE', align: 'left' as const, field: 'id', headerClasses: 'tk-wide' },
-]
 
 function rowClass(t: Ticket) {
   // DataTable asks for the filler rows' class too, and those carry no ticket.

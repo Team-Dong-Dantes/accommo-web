@@ -25,6 +25,9 @@
 </template>
 <script setup lang="ts">
 import ScreenGate from '@/components/layout/ScreenGate.vue'
+import { useConsoleScale } from '@/utils/consoleScale'
+
+useConsoleScale()
 </script>
 
 <style scoped>
@@ -35,8 +38,7 @@ import ScreenGate from '@/components/layout/ScreenGate.vue'
   position: relative;
   display: grid;
   grid-template-columns: 1.08fr 0.92fr;
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: calc(100 * var(--vh, 1vh));
   background-color: #06332e;
   background-image: url('/isu-aerial.jpg');
   background-size: cover;

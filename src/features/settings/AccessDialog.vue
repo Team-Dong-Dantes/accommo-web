@@ -68,6 +68,6 @@ async function save() {
 .ad-head { padding-bottom: 0; }
 .ad-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--c-ink); }
 .ad-sub { font-size: 13px; color: var(--c-muted); margin-top: 2px; }
-.ad-body { max-height: 65vh; overflow: auto; }
+.ad-body { max-height: calc(65 * var(--vh, 1vh)); overflow: auto; }
 .ad-foot { border-top: 1px solid var(--c-border); padding: 12px 16px; }
 </style>

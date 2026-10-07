@@ -87,7 +87,7 @@ watch(open, async (v) => {
 }
 .drill-head h3 { font-family: var(--font-display); font-size: 1.15rem; margin: 2px 0; color: var(--c-ink); }
 .drill-sub { font-size: 12.5px; color: var(--c-muted); margin: 0; }
-.drill-body { max-height: 60vh; overflow-y: auto; }
+.drill-body { max-height: calc(60 * var(--vh, 1vh)); overflow-y: auto; }
 .drill-empty { padding: 28px; text-align: center; color: var(--c-muted); font-size: 13px; }
 .drill-list { list-style: none; margin: 0; padding: 0; }
 .drill-row {

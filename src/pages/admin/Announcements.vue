@@ -47,7 +47,7 @@
         <q-tab-panels v-model="activeTab" animated style="background: transparent; height: 100%;">
           <!-- Announcements tab -->
           <q-tab-panel name="announcements" class="q-pa-none">
-            <DataTable :rows="paginatedData" :columns="announcementColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" @row-click="openView">
+            <DataTable :rows="paginatedData" :columns="announcementColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" v-model:sort="sort" @row-click="openView">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon icon="lucide:megaphone" width="48" height="48" class="q-mb-md" />
@@ -103,7 +103,7 @@
 
           <!-- Policies tab -->
           <q-tab-panel name="policies" class="q-pa-none">
-            <DataTable :rows="paginatedData" :columns="policyColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" @row-click="openView">
+            <DataTable :rows="paginatedData" :columns="policyColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" v-model:sort="sort" @row-click="openView">
               <template #no-data>
                 <div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon icon="lucide:gavel" width="48" height="48" class="q-mb-md" />
@@ -170,6 +170,7 @@
 <script setup lang="ts">
 import { errorMessage } from '@/utils/errors'
 import { ref, computed, watch, onMounted } from 'vue'
+import { useSort } from '@/composables/useSort'
 import { useQuasar } from 'quasar'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
@@ -288,19 +289,22 @@ const filteredData = computed(() => {
   return result
 })
 
+const { sort, sorted: sortedData } = useSort(() => filteredData.value, () => (isAnn.value ? announcementColumns : policyColumns))
+
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * 10
-  return filteredData.value.slice(start, start + 10)
+  return sortedData.value.slice(start, start + 10)
 })
 
 watch(activeTab, (tab) => {
   searchQuery.value = ''
   activeFilters.value = defaultFilters(tab)
   showArchived.value = false
+  sort.value = null
   currentPage.value = 1
 })
 
-watch(activeFilters, () => {
+watch([activeFilters, sort], () => {
   currentPage.value = 1
 })
 
@@ -398,9 +402,10 @@ async function setArchivedAndReload(table: Tab, row: any, archived: boolean) {
 const announcementColumns = [
   { name: 'title', required: true, align: 'left', label: 'Announcement', field: 'title', headerStyle: 'width: 32%' },
   { name: 'status', align: 'left', label: 'Status', field: 'status', headerStyle: 'width: 11%' },
-  { name: 'audience', align: 'left', label: 'Audience', field: 'audience', headerStyle: 'width: 15%' },
-  { name: 'reach', align: 'left', label: 'Reach', field: 'reach', headerStyle: 'width: 11%' },
-  { name: 'date', align: 'left', label: 'Published', field: 'dateLabel', headerStyle: 'width: 15%' },
+  { name: 'audience', align: 'left', label: 'Audience', field: 'audience', sortValue: (r: any) => r.accommodation?.name ?? r.audience, headerStyle: 'width: 15%' },
+  { name: 'reach', align: 'left', label: 'Reach', field: 'reach', sortValue: (r: any) => (r.reach?.sent ? r.reach.seen / r.reach.sent : null), headerStyle: 'width: 11%' },
+  // Drafts have no publish date and sort last either way.
+  { name: 'date', align: 'left', label: 'Published', field: 'dateLabel', sortValue: (r: any) => (r.status === 'draft' ? null : r.published_at), headerStyle: 'width: 15%' },
   { name: 'actions', align: 'right', label: '', field: 'actions', headerStyle: 'width: 12%' },
 ]
 
@@ -408,7 +413,7 @@ const policyColumns = [
   { name: 'title', required: true, align: 'left', label: 'Policy', field: 'title', headerStyle: 'width: 38%' },
   { name: 'version', align: 'left', label: 'Version', field: 'version', headerStyle: 'width: 10%' },
   { name: 'status', align: 'left', label: 'Status', field: 'status', headerStyle: 'width: 12%' },
-  { name: 'accepted', align: 'left', label: 'Accepted', field: 'stats', headerStyle: 'width: 14%' },
+  { name: 'accepted', align: 'left', label: 'Accepted', field: 'stats', sortValue: (r: any) => (r.stats?.eligible && r.status === 'in_effect' ? r.stats.accepted / r.stats.eligible : null), headerStyle: 'width: 14%' },
   { name: 'effective', align: 'left', label: 'Effective', field: 'effective_date', headerStyle: 'width: 14%' },
   { name: 'actions', align: 'right', label: '', field: 'actions', headerStyle: 'width: 10%' },
 ]

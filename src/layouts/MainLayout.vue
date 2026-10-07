@@ -31,6 +31,9 @@ import ScreenGate from '@/components/layout/ScreenGate.vue'
 import HeaderNotification from '@/components/ui/Notification.vue'
 import HeaderProfile from '@/components/layout/UserMenu.vue'
 import PageHeader from '@/components/ui/PageHeader.vue'
+import { useConsoleScale } from '@/utils/consoleScale'
+
+useConsoleScale()
 
 
 const scrolled = ref(false)

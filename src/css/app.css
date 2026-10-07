@@ -245,6 +245,23 @@ h4,
   object-fit: cover;
 }
 
+/* Smaller laptops and tablets: the admin console and its dialogs shrink by
+   --console-zoom (utils/consoleScale.ts, set only while an admin layout is up).
+   Menus and tooltips stay out of it on purpose: Quasar positions them from
+   unzoomed screen coordinates. */
+.q-layout,
+.q-dialog__inner > div {
+  zoom: var(--console-zoom, 1);
+}
+/* Mapbox and ApexCharts measure themselves in screen px, so inside the zoom a
+   map drew over only part of its box and chart hovers landed on the wrong
+   point. These hosts cancel the zoom; what sits beside them still shrinks. */
+.chart-card,
+.map-canvas,
+.pm-canvas {
+  zoom: calc(1 / var(--console-zoom, 1));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rise-in { animation: none; }
   * { transition: none !important; }

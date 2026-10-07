@@ -203,7 +203,7 @@ const ddTab = ref<string>('history')
  */
 const panelStyle = computed(() =>
   props.size === 'full'
-    ? { width: 'min(1400px, 96vw)', height: 'min(88vh, 900px)', maxWidth: '96vw' }
+    ? { width: 'min(1400px, calc(96 * var(--vw, 1vw)))', height: 'min(calc(88 * var(--vh, 1vh)), 900px)', maxWidth: 'calc(96 * var(--vw, 1vw))' }
     : { width: props.width, maxWidth: '94vw' },
 )
 

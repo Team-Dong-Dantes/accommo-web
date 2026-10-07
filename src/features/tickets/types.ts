@@ -24,6 +24,26 @@ export const PRIORITY_OPTS: TicketOption[] = [
   { value: 'urgent', label: 'Urgent' },
 ]
 
+import type { Ticket } from '@/composables/useTickets'
+
+const priorityRank = (t: Ticket) => PRIORITY_OPTS.findIndex((o) => o.value === t.priority)
+
+/**
+ * The triage table's columns. Here rather than in TicketTable.vue because the
+ * page sorts its tickets by them before slicing out a page. `field` is what a
+ * header click sorts by.
+ */
+export const TICKET_COLUMNS = [
+  { name: 'ticket', label: 'TICKET', align: 'left' as const, field: 'ref', headerClasses: 'tk-grow' },
+  { name: 'requester', label: 'REQUESTER', align: 'left' as const, field: 'reporterName', headerClasses: 'tk-wide' },
+  { name: 'place', label: 'PLACE', align: 'left' as const, field: 'accommodationName' },
+  { name: 'category', label: 'CATEGORY', align: 'left' as const, field: 'category', headerClasses: 'tk-narrow' },
+  { name: 'priority', label: 'PRIORITY', align: 'left' as const, field: priorityRank, headerClasses: 'tk-narrow' },
+  // Newest wait first when ascending, so the longest waits come up on a second click.
+  { name: 'waiting', label: 'WAITING', align: 'left' as const, field: (t: Ticket) => (t.waitingSince ? -Date.parse(t.waitingSince) : null) },
+  { name: 'assignee', label: 'ASSIGNEE', align: 'left' as const, field: 'assignee', headerClasses: 'tk-wide' },
+]
+
 export function stLabel(key: string): string {
   const map: Record<string, string> = {
     open: 'Open',

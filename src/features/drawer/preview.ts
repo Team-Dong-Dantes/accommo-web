@@ -339,6 +339,14 @@ export interface PreviewRoomOverview {
   rentBasis: 'room' | 'person'
   advanceMonths: number | null
   depositMonths: number | null
+  /** The room's own label when it also has a number ("Corner room"). */
+  label?: string | null
+  /** The floor's name ("Ground"), when the landlord/landlady gave it one. */
+  floorName?: string | null
+  /** Water, electricity, Wi-Fi: how each is paid and where this month's bill stands. */
+  utilities?: { key: string; label: string; icon: string; terms: string; bill: string; tone: 'muted' | 'ok' | 'warn' | 'bad' }[]
+  /** The current boarders' posted utility bills, newest month first. */
+  bills?: { id: string; utility: string; month: string; amount: number; dueDate: string; boarder: string; state: 'paid' | 'unpaid' | 'overdue' }[]
   landlord: { id: string; name: string; title: string; contact: string; initials: string; avatarUrl?: string | undefined } | null
 }
 

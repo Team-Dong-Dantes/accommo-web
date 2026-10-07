@@ -99,6 +99,7 @@ import { CAMPUS, kmBetween } from '@/utils/geo'
 import { humanizeEnum } from '@/utils/format'
 import { useAccommodations } from '@/composables/useAccommodations'
 import { useAccommodationRecord, toRecordRow } from '@/composables/useAccommodationRecord'
+import { consoleZoom, fitViewport } from '@/utils/consoleScale'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
 
@@ -110,7 +111,6 @@ try {
 } catch { /* mapbox telemetry opt-out is best-effort; an older build without EVENTS_URL is fine */ }
 
 // QPage's default is a min-height; this page wants a fixed one.
-const fitViewport = (offset: number, height: number) => ({ height: `${height - offset}px` })
 
 const FILL_SAMPLES =[{ pct: 0, label: 'Empty' }, { pct: 50, label: 'Half' }, { pct: 100, label: 'Full' }]
 
@@ -187,8 +187,11 @@ const viewTick = ref(0)
 const selectedPoint = computed(() => {
   void viewTick.value
   if (!map || !selected.value) return null
+  // The canvas sits outside the console zoom (app.css), so its px are screen
+  // px; the pin card beside it is inside the zoom.
   const p = map.project([selected.value.lng, selected.value.lat])
-  return { x: p.x, y: p.y }
+  const z = consoleZoom()
+  return { x: p.x / z, y: p.y / z }
 })
 
 function select(id: string) {

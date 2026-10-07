@@ -29,12 +29,12 @@ import { Icon } from '@iconify/vue'
 import { useDashboardStats } from '@/composables/useDashboardStats'
 import DashboardSkeleton from '@/features/dashboard/DashboardSkeleton.vue'
 import DashboardBoard from '@/features/dashboard/DashboardBoard.vue'
+import { fitViewport } from '@/utils/consoleScale'
 
 const { loading, error, data, hasLoaded, load } = useDashboardStats()
 onMounted(load)
 
 // QPage's default is a min-height; the dashboard wants a fixed one.
-const fitViewport = (offset: number, height: number) => ({ height: `${height - offset}px` })
 </script>
 
 <style scoped>
