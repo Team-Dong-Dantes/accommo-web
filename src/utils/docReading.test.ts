@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { checkDocument, currentTerm, readTotal } from './docReading'
 
@@ -67,10 +67,14 @@ describe('readTotal', () => {
   })
 })
 
+// The apps are separate repos; the check runs where both are checked out side
+// by side (the workspace), and is skipped in this repo's own CI.
+const mobileCopy = new URL('../../../accommo-mobile/src/utils/docReading.ts', import.meta.url)
+
 describe('twin file', () => {
-  it('is identical to the copy in accommo-mobile', () => {
+  it.skipIf(!existsSync(mobileCopy))('is identical to the copy in accommo-mobile', () => {
     const here = readFileSync(new URL('./docReading.ts', import.meta.url), 'utf8')
-    const mobile = readFileSync(new URL('../../../accommo-mobile/src/utils/docReading.ts', import.meta.url), 'utf8')
+    const mobile = readFileSync(mobileCopy, 'utf8')
     expect(here.replace(/\r\n/g, '\n')).toBe(mobile.replace(/\r\n/g, '\n'))
   })
 })
