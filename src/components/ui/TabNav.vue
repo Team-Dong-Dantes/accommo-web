@@ -28,9 +28,9 @@ withDefaults(defineProps<{
   modelValue: string
   tabs: TabItem[]
   /**
-   * Removes every background surface from the tab strip — the wrapper,
-   * Quasar's internals, and the tab buttons themselves — so the tabs sit
-   * flush on whatever is behind them. Use when embedding the tabs inside
+   * Removes the background surface from the tab strip wrapper (Quasar's
+   * internals included) so the glass tabs sit flush on whatever is behind
+   * them. Use when embedding the tabs inside
    * a surface that already provides the background.
    */
   flat?: boolean
@@ -55,8 +55,7 @@ defineEmits<{ (e: 'update:modelValue', value: string): void }>()
   box-shadow: none;
 }
 
-/* Flat variant: no background on the strip AND no surface behind the tabs.
-   The tab buttons keep their text and active-colour treatment. */
+/* Flat variant: no surface on the strip wrapper; the tabs keep their glass. */
 .folder-tabs--flat,
 .folder-tabs--flat :deep(.q-tabs__content),
 .folder-tabs--flat :deep(.q-tabs__content-scroll),
@@ -85,6 +84,36 @@ defineEmits<{ (e: 'update:modelValue', value: string): void }>()
   color: var(--c-ink);
 }
 
+/* Unselected tabs are frosted glass; the active one stays opaque to fuse
+   into the panel below. */
+:deep(.folder-tab:not(.q-tab--active)) {
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--c-surface) 92%, transparent),
+    color-mix(in srgb, var(--c-surface-2) 70%, transparent)
+  );
+  background-color: transparent;
+  border-color: color-mix(in srgb, var(--c-border-strong, var(--c-border)) 85%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
+    0 1px 2px color-mix(in srgb, #000 6%, transparent);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+}
+:deep(.folder-tab:not(.q-tab--active):hover) {
+  background-image: linear-gradient(
+    to bottom,
+    var(--c-surface),
+    color-mix(in srgb, var(--c-surface-2) 88%, transparent)
+  );
+  border-color: var(--c-border-strong, var(--c-border));
+}
+:global([data-theme='dark']) .folder-tabs :deep(.folder-tab:not(.q-tab--active)) {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent),
+    0 1px 2px color-mix(in srgb, #000 28%, transparent);
+}
+
 :deep(.folder-tab.q-tab--active) {
   background-color: var(--c-surface);
   color: var(--c-primary);
@@ -97,22 +126,5 @@ defineEmits<{ (e: 'update:modelValue', value: string): void }>()
 
 :deep(.q-tab__indicator) {
   display: none;
-}
-
-/* Flat variant: strip the tab buttons' own background and border too,
-   so nothing paints behind the labels. Text colour still distinguishes
-   active from inactive. */
-.folder-tabs--flat :deep(.folder-tab) {
-  background-color: transparent !important;
-  background: transparent !important;
-  border: none !important;
-  border-bottom: none !important;
-  border-radius: 0 !important;
-}
-
-.folder-tabs--flat :deep(.folder-tab.q-tab--active) {
-  color: var(--c-primary);
-  background: transparent !important;
-  border: none !important;
 }
 </style>

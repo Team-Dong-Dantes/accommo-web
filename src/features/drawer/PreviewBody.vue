@@ -992,33 +992,9 @@
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   }
 
+  /* Glass comes from TabNav; over the hero the label just needs full ink. */
   .dd-head-tabs :deep(.folder-tab:not(.q-tab--active)) {
     color: var(--c-ink);
-    background-image: linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--c-surface) 92%, transparent),
-      color-mix(in srgb, var(--c-surface-2) 70%, transparent)
-    );
-    background-color: transparent;
-    border-color: color-mix(in srgb, var(--c-border-strong, var(--c-border)) 85%, transparent);
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
-      0 1px 2px color-mix(in srgb, #000 6%, transparent);
-    backdrop-filter: blur(12px) saturate(150%);
-    -webkit-backdrop-filter: blur(12px) saturate(150%);
-  }
-  .dd-head-tabs :deep(.folder-tab:not(.q-tab--active):hover) {
-    background-image: linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--c-surface) 100%, transparent),
-      color-mix(in srgb, var(--c-surface-2) 88%, transparent)
-    );
-    border-color: var(--c-border-strong, var(--c-border));
-  }
-  :global([data-theme='dark']) .dd-head-tabs :deep(.folder-tab:not(.q-tab--active)) {
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent),
-      0 1px 2px color-mix(in srgb, #000 28%, transparent);
   }
 
   .dd-tabs-strip :deep(.folder-tab) {
