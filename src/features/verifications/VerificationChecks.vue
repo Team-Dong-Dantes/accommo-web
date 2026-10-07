@@ -29,6 +29,10 @@ import { landlordTitle } from '@/utils/format'
 import { ref, computed, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { supabase } from '@/utils/supabase'
+import { useNotify } from '@/utils/notify'
+import { errorMessage } from '@/utils/errors'
+import { checkDocument, type DocReadings, type ReadDocType } from '@/utils/docReading'
+import { readImageText } from './ocr'
 
 export interface VerificationCheck {
   label: string
@@ -49,6 +53,7 @@ const props = withDefaults(
   },
 )
 
+const notify = useNotify()
 const checks = ref<VerificationCheck[]>([])
 const checksLoading = ref(false)
 
@@ -140,10 +145,16 @@ async function runAutoChecks() {
     }
   }
 
-  // There is no OCR anywhere in this system. This check used to read fields that
-  // were hardcoded to '' and always degraded to a warn, which dressed up "nobody
-  // looked" as "a check ran". Say what is actually true instead.
-  if (!props.isAccommodation) {
+  // A student's documents are read (on the phone at registration, or here on
+  // request) and checked against the profile. A landlord/landlady's ID is not
+  // read anywhere, so that check says a person has to look.
+  if (isStudent.value) {
+    try {
+      list.push(...(await documentChecks(r)))
+    } catch {
+      list.push({ label: 'Document text', status: 'warn', detail: 'Could not load what was read off the documents.' })
+    }
+  } else if (!props.isAccommodation) {
     list.push({
       label: 'Name and ID on document',
       status: 'warn',
@@ -178,6 +189,67 @@ async function runAutoChecks() {
 
   checks.value = list
   checksLoading.value = false
+}
+
+const READ_DOCS: { type: ReadDocType; label: string }[] = [
+  { type: 'school_id', label: 'School ID' },
+  { type: 'assessment_of_fees', label: 'Assessment' },
+]
+
+/** Text read in this browser, by `${user id}:${doc type}`. Wins over the phone's. */
+const readHere = ref<Record<string, string>>({})
+const reading = ref(false)
+
+const isStudent = computed(() => !props.isAccommodation && String(props.request?.id ?? '').startsWith('REQ-S'))
+
+function studentDocs(r: Record<string, any>) {
+  return READ_DOCS
+    .map((d) => ({ ...d, file: (r.files ?? []).find((f: any) => f.type === d.type) }))
+    .filter((d) => d.file)
+}
+
+/** An image this browser can read: signed, and not a PDF. */
+const readable = (file: any) => !!file.url && !/\.pdf$/i.test(file.name ?? '')
+
+const canRead = computed(() => isStudent.value && !!props.request && studentDocs(props.request).some((d) => readable(d.file)))
+
+/**
+ * What each document says against the profile. Never a fail: text recognition
+ * misreads, and the student wrote the stored text, so a mismatch asks the
+ * reviewer to look rather than deciding for them.
+ */
+async function documentChecks(r: Record<string, any>): Promise<VerificationCheck[]> {
+  const docs = studentDocs(r)
+  if (!docs.length) return []
+  const { data, error } = await supabase.from('student_profiles').select('document_text').eq('user_id', r.rawId).maybeSingle()
+  if (error) throw error
+  const stored = (data?.document_text ?? {}) as DocReadings
+  const expected = { fullName: r.name ?? '', studentId: r.studentNumber ?? '', college: r.college ?? '' }
+  return docs.flatMap(({ type, label }): VerificationCheck[] => {
+    const text = readHere.value[`${r.rawId}:${type}`] ?? stored[type]?.text
+    if (text === undefined) {
+      return [{ label: `${label} not read`, status: 'warn', detail: 'It was picked from files, not scanned, so the phone did not read it. Use “Read documents” to read it here.' }]
+    }
+    return checkDocument(type, text, expected).map((f) => ({ label: `${label}: ${f.label}`, status: f.ok ? 'pass' : 'warn', detail: f.detail }))
+  })
+}
+
+/** Read the student's images in this browser, then re-run the checks on that text. */
+async function readDocuments() {
+  const r = props.request
+  if (!r || reading.value) return
+  reading.value = true
+  try {
+    for (const { type, file } of studentDocs(r)) {
+      if (!readable(file)) continue
+      readHere.value = { ...readHere.value, [`${r.rawId}:${type}`]: await readImageText(file.url) }
+    }
+  } catch (e) {
+    notify.error(errorMessage(e, 'Could not read the documents.'))
+  } finally {
+    reading.value = false
+  }
+  await runAutoChecks()
 }
 
 /**
@@ -245,7 +317,7 @@ async function nearbyChecks(r: Record<string, any>): Promise<VerificationCheck[]
 
 // `sortedChecks` is exposed so the review window can show the same checks as
 // a compact row without owning the logic that produces them.
-defineExpose({ hasBlockingFail, verdict, checks: sortedChecks, checksLoading })
+defineExpose({ hasBlockingFail, verdict, checks: sortedChecks, checksLoading, canRead, reading, readDocuments })
 
 // Signed document URLs are minted asynchronously and merged into the request
 // after it opens, so keying only on the request id ran the checks against files

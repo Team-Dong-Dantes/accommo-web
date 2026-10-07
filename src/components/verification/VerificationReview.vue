@@ -218,6 +218,18 @@
                 </span>
                 <span v-if="!(checksRef?.checks ?? []).length" class="tw-chip is-muted">No automated checks</span>
               </div>
+              <!-- Reads the school ID and assessment in this browser: for a
+                   file the phone did not scan, or a second look at one it did. -->
+              <button
+                v-if="checksRef?.canRead"
+                type="button"
+                class="tw-read"
+                :disabled="checksRef.reading"
+                @click="checksRef.readDocuments()"
+              >
+                <Icon :icon="checksRef.reading ? 'lucide:loader-circle' : 'lucide:scan-text'" width="14" height="14" :class="{ 'is-spinning': checksRef.reading }" />
+                {{ checksRef.reading ? 'Reading documents…' : 'Read documents' }}
+              </button>
             </section>
 
             <footer class="tw-decide">
@@ -588,7 +600,7 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
 .tw-shell {
   --tw-rail-w: 420px;
   position: absolute;
-  inset: clamp(10px, 2vh, 24px) clamp(10px, 2vw, 26px);
+  inset: clamp(10px, calc(2 * var(--vh, 1vh)), 24px) clamp(10px, calc(2 * var(--vw, 1vw)), 26px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -967,6 +979,26 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
 .tw-chip.is-fail { background: var(--c-danger-soft); color: var(--c-danger); }
 .tw-chip.is-muted { background: var(--c-surface-2); color: var(--c-muted); }
 .tw-checks-src { display: none; }
+.tw-read {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 14px 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--c-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tw-read:disabled { color: var(--c-muted); cursor: default; }
+.tw-read .is-spinning { animation: tw-spin 0.9s linear infinite; }
+@keyframes tw-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .tw-read .is-spinning { animation: none; }
+}
 
 /* ── decision ── */
 /* Sits on the floor of the rail, under everything it is a judgement about. */

@@ -133,6 +133,8 @@ function peso(v: unknown): string {
 export function formatValue(key: string, v: unknown): string {
   if (v === null || v === undefined || v === '') return '—'
   if (MONEY.has(key)) return peso(v)
+  // Pages of recognised text; the documents themselves are what to look at.
+  if (key === 'document_text') return 'Text read from: ' + Object.keys(v as object).map(humanizeEnum).join(', ')
   if (typeof v === 'boolean') return v ? 'Yes' : 'No'
   if (typeof v === 'object') return Array.isArray(v) && v.length === 0 ? '—' : JSON.stringify(v)
   const s = String(v)
