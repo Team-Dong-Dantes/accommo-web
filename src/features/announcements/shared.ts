@@ -1,4 +1,4 @@
-// Shared announcement/policy helpers — used by the page (row mapping), the
+// Shared announcement helpers — used by the page (row mapping), the
 // drawers and the composer (form fill + save).
 
 import type { StatusTone } from '@/utils/status.config'
@@ -37,7 +37,6 @@ export function dateToIso(dateStr: string | null): string | null {
 }
 
 export type AnnouncementStatus = 'draft' | 'scheduled' | 'live' | 'expired'
-export type PolicyStatus = 'scheduled' | 'in_effect'
 
 export function announcementStatus(row: { published_at?: string | null; expires_at?: string | null }, now = Date.now()): AnnouncementStatus {
   const pub = utcMs(row.published_at)
@@ -48,18 +47,11 @@ export function announcementStatus(row: { published_at?: string | null; expires_
   return 'live'
 }
 
-/** effective_date is a plain date; it is in effect from the start of that day. */
-export function policyStatus(row: { effective_date?: string | null }, now = new Date()): PolicyStatus {
-  const today = dateInput(now.toISOString())!
-  return row.effective_date && row.effective_date.slice(0, 10) <= today ? 'in_effect' : 'scheduled'
-}
-
-export const STATUS_META: Record<AnnouncementStatus | PolicyStatus, { label: string; tone: StatusTone; icon: string }> = {
+export const STATUS_META: Record<AnnouncementStatus, { label: string; tone: StatusTone; icon: string }> = {
   draft: { label: 'Draft', tone: 'warning', icon: 'lucide:file-pen' },
   scheduled: { label: 'Scheduled', tone: 'info', icon: 'lucide:calendar-clock' },
   live: { label: 'Live', tone: 'success', icon: 'lucide:circle-check' },
   expired: { label: 'Expired', tone: 'neutral', icon: 'lucide:clock-alert' },
-  in_effect: { label: 'In effect', tone: 'success', icon: 'lucide:circle-check' },
 }
 
 export const AUDIENCE_META: Record<string, { label: string; tone: StatusTone }> = {
@@ -75,9 +67,4 @@ export function audienceMeta(audience: string | null | undefined) {
 /** "62%" — or an em dash when nothing was sent. */
 export function pct(part: number, whole: number): string {
   return whole ? Math.round((part / whole) * 100) + '%' : '—'
-}
-
-/** The policy's version label, falling back to its revision number. */
-export function versionLabel(row: { version?: string | null; revision?: number | null }): string {
-  return row.version?.trim() || 'r' + (row.revision ?? 1)
 }

@@ -141,7 +141,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         component: () => import('@/pages/admin/Announcements.vue'),
-        meta: { title: 'Announcements', subtitle: 'Notices and policies for students and landlords/landladies' },
+        meta: { title: 'Announcements', subtitle: 'Notices for students and landlords/landladies' },
       },
     ],
   },
