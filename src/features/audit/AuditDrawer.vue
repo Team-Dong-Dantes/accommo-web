@@ -1,6 +1,6 @@
 <template>
   <DetailDrawer :model-value="!!event" :title="event?.entityId ? 'Audit event' : 'Activity'" close-on-backdrop @update:model-value="$emit('close')">
-    <template v-if="event">
+    <div v-if="event" class="ad">
       <div class="ad-sentence">
         <BadgePill :tone="getActionColor(event)" :label="event.verb" />
         <h2 class="ad-title">{{ event.sentence }}</h2>
@@ -8,14 +8,14 @@
 
       <InfoCard title="When and who">
         <InfoRow icon="lucide:clock" label="When" :value="when" />
-        <InfoRow :icon="event.actor.isSystem ? 'lucide:server' : 'lucide:user'" label="By" :value="event.actor.name" />
+        <InfoRow :icon="event.actor.isSystem ? 'lucide:server' : 'lucide:user'" label="By" :value="event.actor.name" wrap />
         <InfoRow icon="lucide:badge" label="Role" :value="event.actor.role || '—'" last />
       </InfoCard>
 
       <InfoCard v-if="event.entityId" title="Record">
         <InfoRow icon="lucide:folder" label="Type" :value="event.entityLabel" />
-        <InfoRow v-if="event.name" icon="lucide:tag" label="Name" :value="event.name" />
-        <InfoRow icon="lucide:hash" label="ID" :value="event.entityId" mono :last="!event.link" />
+        <InfoRow v-if="event.name" icon="lucide:tag" label="Name" :value="event.name" wrap />
+        <InfoRow icon="lucide:hash" label="ID" :value="event.entityId" mono wrap :last="!event.link" />
         <div v-if="event.link" class="q-pt-sm">
           <q-btn outline no-caps dense color="primary" class="q-px-md rounded-button" :to="event.link" @click="$emit('close')">
             <Icon icon="lucide:external-link" width="15" height="15" class="on-left" />Open record
@@ -40,8 +40,8 @@
       <InfoCard title="Device">
         <template v-if="recorded">
           <InfoRow icon="lucide:monitor-smartphone" label="Device" :value="deviceName(event.userAgent)" />
-          <InfoRow icon="lucide:globe" label="IP address" :value="event.ip" mono />
-          <InfoRow icon="lucide:code" label="User agent" :value="event.userAgent" mono last />
+          <InfoRow icon="lucide:globe" label="IP address" :value="event.ip" mono wrap />
+          <InfoRow icon="lucide:code" label="User agent" :value="event.userAgent" mono wrap last />
         </template>
         <div v-else class="text-muted q-py-xs">
           {{ !event.entityId ? 'Not recorded for this kind of activity.'
@@ -49,7 +49,7 @@
             : 'Not recorded. Device details are kept for activity from 5 Oct 2026 onwards.' }}
         </div>
       </InfoCard>
-    </template>
+    </div>
   </DetailDrawer>
 </template>
 
@@ -77,27 +77,40 @@ const when = computed(() => props.event?.at
 </script>
 
 <style scoped>
-.ad-sentence { margin-bottom: 16px; }
+/* Denser than the shared InfoCard/InfoRow so a whole event fits the drawer
+   without scrolling; scoped here so the other drawers keep their spacing. */
+.ad :deep(.usr-card) { padding: 10px 14px; margin-bottom: 10px; }
+.ad :deep(.usr-card-label) { margin-bottom: 2px; }
+.ad :deep(.usr-row) { padding: 5px 0; gap: 10px; }
+.ad :deep(.usr-ic) { width: 24px; height: 24px; border-radius: 6px; }
+.ad :deep(.usr-ic svg) { width: 14px; height: 14px; }
+.ad-sentence { margin-bottom: 12px; }
 .ad-title {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.3;
   color: var(--c-ink);
-  margin: 8px 0 0;
+  margin: 6px 0 0;
 }
 .ad-change {
-  padding: 8px 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
   border-bottom: 1px solid var(--c-border);
 }
 .ad-change:last-child { border-bottom: none; }
 .ad-field {
+  flex: none;
+  width: 126px;
   font-size: 12px;
   font-weight: 600;
   color: var(--c-muted);
-  margin-bottom: 2px;
 }
 .ad-vals {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;

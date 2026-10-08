@@ -2,7 +2,7 @@
   <div class="usr-row" :class="{ 'usr-row--last': last }">
     <span class="usr-ic"><Icon :icon="icon" width="16" height="16" /></span>
     <span class="usr-key">{{ label }}</span>
-    <span class="usr-val text-ink" :class="{ 'usr-val--mono': mono }">
+    <span class="usr-val text-ink" :class="{ 'usr-val--mono': mono, 'usr-val--wrap': wrap }">
       <slot>{{ value }}</slot>
     </span>
   </div>
@@ -17,6 +17,8 @@ defineProps({
   value: { type: String, default: '' },
   last: { type: Boolean, default: false },
   mono: { type: Boolean, default: false },
+  /** Wrap long values (IDs, user agents) instead of cutting them off with an ellipsis. */
+  wrap: { type: Boolean, default: false },
 })
 </script>
 
@@ -58,6 +60,10 @@ defineProps({
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.usr-val--wrap {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .usr-val--mono {
   font-family: var(--font-mono);
