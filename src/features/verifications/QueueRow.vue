@@ -25,6 +25,11 @@
           class="flag"
           title="Registered with a personal e-mail, not an @isu.edu.ph address. Check the school ID closely."
         >Not an ISU email</span>
+        <span
+          v-if="row.applying"
+          class="flag"
+          title="Has an application waiting on a landlord/landlady, who cannot accept it until OSAS verifies this student."
+        >Applying for a room</span>
       </div>
     </q-td>
 

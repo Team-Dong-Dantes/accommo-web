@@ -3,10 +3,12 @@ import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { registerReset } from '@/utils/pageCache'
 import { getStatus } from '@/utils/status.config'
-import { getInitials, capitalize, getTimeAgo, ageInDays, formatPhone, humanizeEnum, landlordTitle } from '@/utils/format'
+import { getInitials, capitalize, getTimeAgo, ageInDays, formatPhone, humanizeEnum, isStudentId, landlordTitle } from '@/utils/format'
 import { secureDocUrl } from '@/utils/docUrl'
 import { fetchAccommodationExtras, type AccommodationExtras } from '@/api/accommodations'
+import { fetchPendingApplicants } from '@/api/leases'
 import { fetchReviewProfile, fetchApplicantDetails, type ApplicantDetails, type ReviewProfile } from '@/api/users'
+import { setAccountStatus } from '@/api/accounts'
 import { useReviewPresence } from '@/composables/useReviewPresence'
 import { useAuthStore } from '@/stores/auth'
 import { counted } from '@/utils/filterOptions'
@@ -66,6 +68,8 @@ export interface VerificationRequest {
   requirements: { label: string; ok: boolean }[]
   /** Every requirement is in, so the request can be decided now. */
   ready: boolean
+  /** Student tab: an application is waiting on a landlord/landlady, held up by this decision. */
+  applying: boolean
   /** Whole days since it arrived; null when the arrival time is unknown. */
   ageDays: number | null
   /** Past the review target. Accreditation has no target, so never late. */
@@ -123,12 +127,29 @@ function ordinalYear(year: number | null | undefined) {
 }
 
 /**
- * Ready to decide first, then those still waiting on the applicant; oldest
- * first inside each. A request that has waited longest is the one most overdue,
- * so it leads its group instead of sinking to the last page.
+ * The school record a student must have filled in before OSAS can decide.
+ * The student ID is skippable at registration (freshmen sign up before ISU
+ * issues one) and addable later from Profile, so it is chased here rather than
+ * at sign-up. Only the student number is a chip of its own, because it is the
+ * one commonly missing; the rest is required at registration.
+ */
+function studentRecordChecks(detail: ApplicantDetails) {
+  return [
+    { label: 'Student ID', ok: isStudentId(detail.student_id) },
+    { label: 'Course', ok: Boolean(detail.college && detail.program && detail.year_level) },
+  ]
+}
+
+/**
+ * Ready to decide first, then those still waiting on the applicant. Inside
+ * each, a student with an application waiting on a landlord/landlady comes
+ * first — this decision is what holds their room — then oldest first. A
+ * request that has waited longest is the one most overdue, so it leads its
+ * group instead of sinking to the last page.
  */
 function byQueueOrder(a: VerificationRequest, b: VerificationRequest) {
   if (a.ready !== b.ready) return a.ready ? -1 : 1
+  if (a.applying !== b.applying) return a.applying ? -1 : 1
   return (a.submittedAt ?? '9999').localeCompare(b.submittedAt ?? '9999')
 }
 
@@ -234,7 +255,9 @@ export function useVerifications() {
 
   // Whether a request is still in review is on the row already (the lock note),
   // so the one filter left worth having is whether it can be decided now.
-  const activeFilters = ref<{ readiness: string[] }>({ readiness: [] })
+  // Opens on "ready" so OSAS sees only what it can act on; the incomplete ones
+  // stay one filter away for chasing or turning away spam.
+  const activeFilters = ref<{ readiness: string[] }>({ readiness: ['ready'] })
   // Counted from the open tab's requests, so an option never shows an empty list.
   const READINESS: Record<string, string> = { ready: 'Ready to decide', waiting: 'Waiting on the applicant' }
   const filterConfig = computed(() => {
@@ -351,14 +374,19 @@ export function useVerifications() {
 
         const queueUsers = Array.from(grouped.values())
 
-        // Phone and school record are not in the queue RPC. A failed read costs
-        // those columns, never the queue itself.
-        let details = new Map<string, ApplicantDetails>()
-        try {
-          details = await fetchApplicantDetails(queueUsers.map((user) => user.id))
-        } catch (err) {
-          console.warn('Could not fetch applicant details:', err)
-        }
+        // Phone, school record and pending applications are not in the queue
+        // RPC. A failed read costs those columns, never the queue itself.
+        const userIds = queueUsers.map((user) => user.id)
+        const [detailsResult, applicantsResult] = await Promise.allSettled([
+          fetchApplicantDetails(userIds),
+          fetchPendingApplicants(userIds),
+        ])
+        if (detailsResult.status === 'rejected') console.warn('Could not fetch applicant details:', detailsResult.reason)
+        if (applicantsResult.status === 'rejected') console.warn('Could not fetch pending applications:', applicantsResult.reason)
+        // Null, not empty, when the read failed: a student's record is then
+        // unknown rather than missing, and must not hold every one of them back.
+        const details = detailsResult.status === 'fulfilled' ? detailsResult.value : null
+        const applicants = applicantsResult.status === 'fulfilled' ? applicantsResult.value : new Set<string>()
 
         const mapRequest = (user: any, manager: boolean): VerificationRequest => {
           const files = user.documents.map((document: QueueDocumentRow) => ({
@@ -369,8 +397,11 @@ export function useVerifications() {
             // Signed on demand in selectRequest — documents have no readable URL.
             url: '',
           }))
-          const requirements = checklist(APPLICANT_REQUIREMENTS[manager ? 'landlord' : 'student'], files)
-          const detail = details.get(user.id)
+          const detail = details?.get(user.id)
+          const requirements = [
+            ...checklist(APPLICANT_REQUIREMENTS[manager ? 'landlord' : 'student'], files),
+            ...(!manager && details ? studentRecordChecks(detail ?? { phone: null, student_id: null, college: null, program: null, year_level: null }) : []),
+          ]
           const ageDays = user.created_at ? ageInDays(user.created_at) : null
           const email = String(user.email ?? '')
           return {
@@ -394,6 +425,7 @@ export function useVerifications() {
             avatarUrl: user.avatar_url || '',
             requirements,
             ready: requirements.every((item) => item.ok),
+            applying: !manager && applicants.has(user.id),
             ageDays,
             late: ageDays !== null && ageDays > REVIEW_TARGET_DAYS,
             nonInstitutionalEmail: !manager && !!email && !email.toLowerCase().endsWith(INSTITUTIONAL_DOMAIN),
@@ -511,6 +543,7 @@ export function useVerifications() {
           return {
             requirements,
             ready: requirements.every((item) => item.ok),
+            applying: false,
             ageDays,
             // No review target exists for accreditation, so nothing reads as late.
             late: false,
@@ -993,58 +1026,25 @@ export function useVerifications() {
     const rawId = req.rawId
     const actorId = (await supabase.auth.getUser()).data.user?.id || null
 
-    const { data, error } = await supabase
-      .from('users')
-      .update({ status: newStatus as any, reviewing_by: null, reviewing_at: null } as never)
-      .eq('id', rawId)
-      .select('id')
-
-    if (error) {
-      notify.error('Database error', error.message)
+    // One transaction: the status, the review claim, the documents, the
+    // decision history and the applicant's notice (admin_set_account_status).
+    // This used to be five writes from here, any of which could fail alone —
+    // and its OSAS stamp went onto every approved account, landlords/landladies
+    // included, giving them a verified student profile. tg_revoke_on_unverify
+    // stamps students on 'verified'.
+    try {
+      await setAccountStatus(rawId, newStatus, { reason: decisionPayload?.notes || null })
+    } catch (error) {
+      notify.error('Decision not saved', error instanceof Error ? error.message : String(error))
       throw error
-    }
-
-    // Approving a STUDENT stamps student_profiles.osas_verified_at, which is
-    // what actually gates the QR, lease applications and chat-apply — not
-    // users.status. Upsert unconditionally: an update alone matches no rows for
-    // a student with no profile row yet (a Google signup with no ISU record)
-    // and reports no error, which is how this silently no-opped for a whole
-    // release. Revoking on reject/suspend is handled by tg_revoke_on_unverify.
-    if (decision === 'approve') {
-      const { error: stampErr } = await supabase
-        .from('student_profiles')
-        .upsert({ user_id: rawId, osas_verified_at: new Date().toISOString() }, { onConflict: 'user_id' })
-      if (stampErr) notify.error('Could not record OSAS verification', stampErr.message)
-    }
-
-    // Close out the document rows this decision covers. Nothing wrote these
-    // before, so decided accounts trailed the queue forever.
-    {
-      const { error: docErr } = await supabase
-        .from('verification_documents')
-        .update({
-          status: decision === 'approve' ? 'approved' : 'rejected',
-          verified_at: new Date().toISOString(),
-          verified_by: actorId,
-        } as any)
-        .eq('user_id', rawId)
-        .eq('status', 'pending')
-      if (docErr) console.warn('Could not close verification documents:', docErr.message)
     }
 
     const verb = decision === 'approve' ? 'verified' : allowResub ? 'sent back for resubmission' : 'rejected'
 
-    if (!data || data.length === 0) {
-      notify.warning('No rows updated', 'This is likely a Row Level Security (RLS) policy restriction.')
-    } else {
-      notify.success('User ' + verb, `Status set to "${newStatus}".`)
-    }
+    notify.success('User ' + verb, `Status set to "${newStatus}".`)
 
-    // --- Close the loop: record the decision + notify (best-effort) -------
-    // supabase-js RETURNS errors, it does not throw them — these three writes
-    // used to sit inside try/catch blocks that could never fire, so an RLS
-    // refusal was invisible. audit_logs had no admin INSERT policy at all
-    // until 20260915000004, which is why not one decision was ever recorded.
+    // The function's own history keeps the note; the tags and the override
+    // live only here (best-effort, after the decision itself has landed).
     {
       const { error: auditErr } = await supabase.from('audit_logs').insert({
         action: allowResub ? 'verification.resubmit' : `verification.${decision}`,
@@ -1064,54 +1064,15 @@ export function useVerifications() {
       if (auditErr) notify.warning('Decision not recorded in the audit log', auditErr.message)
     }
 
-    {
-      const notifs: any[] = [{
-        user_id: rawId,
-        type: 'verification',
-        title:
-          decision === 'approve' ? 'Verification approved'
-            : allowResub ? 'Resubmission requested' : 'Verification rejected',
-        body:
-          decision === 'approve'
-            ? 'Your account has been verified.'
-            : allowResub
-              ? `We need more information — please re-upload your requirements.${decisionPayload?.notes ? ' Note: ' + decisionPayload.notes : ''}`
-              : `Your account was rejected.${decisionPayload?.notes ? ' Reason: ' + decisionPayload.notes : ''}`,
-        link_url: '/profile',
-      }]
-      if (actorId) {
-        notifs.push({
-          user_id: actorId,
-          type: 'system',
-          title: 'Verification decision recorded',
-          body: `You ${verb} ${req.name}.`,
-          link_url: `/users?user=${rawId}`,
-        })
-      }
-      // Both rows go in one statement, so a refusal on the applicant's row
-      // used to take the admin's own copy with it — and can_notify() does not
-      // cover admin → applicant, so that was every decision. 20260915000004
-      // adds notifications_insert_admin; if it is ever missing again, say so
-      // rather than leaving the applicant silently uninformed.
-      const { error: notifErr } = await supabase.from('notifications').insert(notifs as any)
-      if (notifErr) notify.warning('Applicant was not notified', notifErr.message)
-    }
-
-    {
-      const { error: reqErr } = await (supabase as any).from('verification_requests').insert({
-        entity_type: 'user',
-        entity_id: rawId,
-        type: req.type,
-        status:
-          decision === 'approve' ? 'approved'
-            : allowResub ? 'resubmission_requested'
-              : 'rejected',
-        reviewed_by: actorId,
-        reviewed_at: new Date().toISOString(),
-        rejection_reasons: decisionPayload?.tags ?? null,
-        decision_notes: decisionPayload?.notes ?? null,
-      })
-      if (reqErr) notify.warning('Decision history not updated', reqErr.message)
+    // The admin's own copy; the applicant's notice came with the decision.
+    if (actorId) {
+      await supabase.from('notifications').insert({
+        user_id: actorId,
+        type: 'system',
+        title: 'Verification decision recorded',
+        body: `You ${verb} ${req.name}.`,
+        link_url: `/users?user=${rawId}`,
+      } as any)
     }
   }
 

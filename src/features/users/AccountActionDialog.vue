@@ -118,7 +118,8 @@ watch(() => props.spec, (s) => {
   busy.value = false
 })
 
-const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
+// Local calendar day: toISOString() is UTC, a day behind before 8 AM in Manila.
+const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString('en-CA')
 
 /** Taking something away always needs a reason; giving it back does not. */
 const addsRestriction = computed(() => picked.value.some((k) => !(props.spec?.picked ?? []).includes(k)))

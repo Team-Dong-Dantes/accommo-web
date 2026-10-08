@@ -8,6 +8,22 @@ export interface LeaseExpiryRow {
   end_date: string | null
 }
 
+/**
+ * Which of these students have an application waiting on a landlord/landlady
+ * (a pending lease). The verification queue puts them first: they are the ones
+ * a decision is holding up.
+ */
+export async function fetchPendingApplicants(studentIds: string[]): Promise<Set<string>> {
+  if (!studentIds.length) return new Set()
+  const { data, error } = await supabase
+    .from('leases')
+    .select('student_id')
+    .eq('status', 'pending')
+    .in('student_id', studentIds)
+  if (error) throw error
+  return new Set((data ?? []).map((row) => row.student_id))
+}
+
 export async function fetchActiveLeaseCount(): Promise<number> {
   const { count, error } = await supabase
     .from('leases')

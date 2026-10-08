@@ -249,6 +249,7 @@
                 :request-key="request?.id ?? null"
                 :permits="isAccommodation ? PERMITS : []"
                 :round-kind="round?.kind ?? null"
+                :reason-required="!isAccommodation"
                 @submit="(payload) => emit('submit', payload)"
               />
             </footer>

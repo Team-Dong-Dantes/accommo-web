@@ -261,6 +261,11 @@ export function dayLabel(day: string, now = new Date()): string {
   return msgDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+/** A student ID as the mobile register screen composes it: entry year, hyphen, 4–6 digit student number. */
+export function isStudentId(raw: string | null | undefined): boolean {
+  return /^\d{2}-\d{4,6}$/.test((raw ?? '').trim())
+}
+
 /** A Philippine mobile number in groups ("+639763126760" → "+63 976 312 6760"); anything else as typed. */
 export function formatPhone(raw: string): string {
   const d = raw.replace(/[^\d]/g, '')
