@@ -383,9 +383,11 @@ async function onManageAccommodation(action: string) {
 const actionSpec = ref<AccountActionSpec | null>(null)
 
 async function setStatus(a: any, action: 'suspend' | 'restore', next: 'suspended' | 'accredited', reason: string) {
+  // status_note travels with the change so the landlord/landlady's notice
+  // carries the reason (tg_accreditation_status_change); a restore clears it.
   const { error } = await supabase
     .from('accommodations')
-    .update({ status: next } as never)
+    .update({ status: next, status_note: reason || null } as never)
     .eq('id', a.id)
   if (error) {
     notify.error('Could not change the property status', error.message)

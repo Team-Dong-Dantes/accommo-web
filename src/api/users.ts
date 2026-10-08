@@ -98,6 +98,7 @@ export interface ApplicantDetails {
   phone: string | null
   student_id: string | null
   college: string | null
+  program: string | null
   year_level: number | null
 }
 
@@ -111,20 +112,21 @@ export async function fetchApplicantDetails(userIds: string[]): Promise<Map<stri
   if (!userIds.length) return details
   const [users, profiles] = await Promise.all([
     supabase.from('users_full').select('id, phone').in('id', userIds),
-    supabase.from('student_profiles').select('user_id, student_id, college, year_level').in('user_id', userIds),
+    supabase.from('student_profiles').select('user_id, student_id, college, program, year_level').in('user_id', userIds),
   ])
   if (users.error) throw users.error
   if (profiles.error) throw profiles.error
   for (const user of users.data ?? []) {
     // users_full is a view, so its generated types call every column nullable.
-    details.set(user.id!, { phone: user.phone ?? null, student_id: null, college: null, year_level: null })
+    details.set(user.id!, { phone: user.phone ?? null, student_id: null, college: null, program: null, year_level: null })
   }
   for (const profile of profiles.data ?? []) {
-    const entry = details.get(profile.user_id) ?? { phone: null, student_id: null, college: null, year_level: null }
+    const entry = details.get(profile.user_id) ?? { phone: null, student_id: null, college: null, program: null, year_level: null }
     details.set(profile.user_id, {
       ...entry,
       student_id: profile.student_id ?? null,
       college: profile.college ?? null,
+      program: profile.program ?? null,
       year_level: profile.year_level ?? null,
     })
   }

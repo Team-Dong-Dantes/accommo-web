@@ -91,7 +91,7 @@ export default defineRouter(() => {
 
     // Suspension has to bite on every navigation, not just at sign-in — an admin
     // suspended mid-session would otherwise keep working until their token ran
-    // out. Mirrors the same check in accommo-mobile/src/router/index.ts.
+    // out. Mirrors the same check in accommo-mobile/src/router/guard.ts.
     if (authStore.user?.status === 'suspended') {
       await supabase.auth.signOut();
       authStore.user = null;

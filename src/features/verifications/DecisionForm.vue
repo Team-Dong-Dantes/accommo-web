@@ -110,6 +110,8 @@ const props = withDefaults(
     permits?: { type: string; label: string }[]
     /** The accreditation round's kind; an appeal reads as uphold / reopen. */
     roundKind?: string | null
+    /** An account decision: the applicant is told why, and the database requires it. */
+    reasonRequired?: boolean
   }>(),
   {
     hasBlockingFail: false,
@@ -117,6 +119,7 @@ const props = withDefaults(
     requestKey: null,
     permits: () => [],
     roundKind: null,
+    reasonRequired: false,
   },
 )
 
@@ -160,7 +163,7 @@ const availableTags = [
 
 /** The note means something different on each side of the decision. */
 const notePlaceholder = computed(() => {
-  if (pendingDecision.value === 'reject') return 'Reason shown to the applicant (optional)…'
+  if (pendingDecision.value === 'reject') return `Reason shown to the applicant${props.reasonRequired ? ' — required' : ' (optional)'}…`
   return props.hasBlockingFail && overrideConfirm.value
     ? 'Explain the override — required'
     : 'Note for the record (optional)…'
@@ -205,6 +208,7 @@ function submit() {
 const canSubmit = computed(() => {
   if (!pendingDecision.value) return false
   if (needsReason.value) return false
+  if (pendingDecision.value === 'reject' && props.reasonRequired && !notes.value.trim()) return false
   if (pendingDecision.value === 'approve' && props.hasBlockingFail) {
     if (!props.allowOverride || !overrideConfirm.value) return false
     // The override reason lands in audit_logs, so it can't be blank.
