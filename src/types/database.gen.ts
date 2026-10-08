@@ -1686,144 +1686,6 @@ export type Database = {
           },
         ]
       }
-      policies: {
-        Row: {
-          archived: boolean
-          body: string
-          created_by: string
-          effective_date: string
-          id: string
-          revision: number
-          title: string
-          updated_at: string
-          version: string | null
-        }
-        Insert: {
-          archived?: boolean
-          body: string
-          created_by: string
-          effective_date: string
-          id?: string
-          revision?: number
-          title: string
-          updated_at?: string
-          version?: string | null
-        }
-        Update: {
-          archived?: boolean
-          body?: string
-          created_by?: string
-          effective_date?: string
-          id?: string
-          revision?: number
-          title?: string
-          updated_at?: string
-          version?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "policies_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "policies_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users_full"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      policy_acceptances: {
-        Row: {
-          accepted_at: string
-          policy_id: string
-          revision: number
-          user_id: string
-        }
-        Insert: {
-          accepted_at?: string
-          policy_id: string
-          revision: number
-          user_id: string
-        }
-        Update: {
-          accepted_at?: string
-          policy_id?: string
-          revision?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "policy_acceptances_policy_id_fkey"
-            columns: ["policy_id"]
-            isOneToOne: false
-            referencedRelation: "policies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "policy_acceptances_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "policy_acceptances_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users_full"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      policy_versions: {
-        Row: {
-          body: string
-          created_by: string | null
-          effective_date: string
-          id: string
-          policy_id: string
-          revision: number
-          superseded_at: string
-          title: string
-          version: string | null
-        }
-        Insert: {
-          body: string
-          created_by?: string | null
-          effective_date: string
-          id?: string
-          policy_id: string
-          revision: number
-          superseded_at?: string
-          title: string
-          version?: string | null
-        }
-        Update: {
-          body?: string
-          created_by?: string | null
-          effective_date?: string
-          id?: string
-          policy_id?: string
-          revision?: number
-          superseded_at?: string
-          title?: string
-          version?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "policy_versions_policy_id_fkey"
-            columns: ["policy_id"]
-            isOneToOne: false
-            referencedRelation: "policies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       push_tokens: {
         Row: {
           token: string
@@ -2877,7 +2739,6 @@ export type Database = {
         Args: { p_code: string; p_lease: string }
         Returns: undefined
       }
-      accept_policy: { Args: { p_id: string }; Returns: undefined }
       accommodation_missing: { Args: { p_id: string }; Returns: string[] }
       accreditation_term: { Args: never; Returns: string }
       accreditation_wait_estimate: { Args: never; Returns: number }
@@ -2965,6 +2826,7 @@ export type Database = {
         Returns: {
           expires_at: string
           token: string
+          ttl_ms: number
         }[]
       }
       decide_accreditation: {
@@ -3128,27 +2990,21 @@ export type Database = {
         Returns: boolean
       }
       peso: { Args: { p: number }; Returns: string }
-      policy_acceptance_stats: {
-        Args: never
-        Returns: {
-          accepted: number
-          eligible: number
-          policy_id: string
-        }[]
-      }
-      policy_pending_users: {
-        Args: { p_id: string }
-        Returns: {
-          email: string
-          full_name: string
-          id: string
-          role: string
-        }[]
-      }
       purge_rate_limit_hits: { Args: never; Returns: undefined }
       purge_unverified_accounts: {
         Args: { p_older_than?: string }
         Returns: number
+      }
+      qr_mac: {
+        Args: { p_secret: string; p_slot: number; p_user: string }
+        Returns: string
+      }
+      qr_resolve: {
+        Args: { p_code: string }
+        Returns: {
+          status: string
+          user_id: string
+        }[]
       }
       rate_limit_hit: {
         Args: { p_key: string; p_max: number; p_window: number }
@@ -3228,6 +3084,7 @@ export type Database = {
       }
       room_display: { Args: { p_room: string }; Returns: string }
       rotate_qr_token: { Args: never; Returns: string }
+      scanned_student_docs: { Args: { p_student: string }; Returns: Json }
       send_push: {
         Args: { p_payload: Json; p_user: string }
         Returns: undefined
