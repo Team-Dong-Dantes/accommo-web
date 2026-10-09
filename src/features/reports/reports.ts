@@ -2,28 +2,36 @@
 // an official form out — so the dialog can re-render it live and the tests can
 // check it without a browser. document.ts supplies the letterhead around it.
 //
-// Personal details (phone numbers, emergency contacts) are off by default:
+// Personal details (birthdays, phone numbers, emergency contacts) are off by default:
 // under the Data Privacy Act (RA 10173) a report carries them only when the
 // officer asks for them.
 
 import { escapeHtml, fmtDate, formatPhone, landlordTitle } from '@/utils/format'
 import { REQUIRED_PERMITS, findPermit } from '@/utils/permitExpiry'
 import type { RealAccommodation } from '@/composables/useAccommodations'
-import type { BoarderRow, LandlordRow } from '@/api/reports'
+import type { BoarderRow, LandlordDossier, LandlordRow, LedgerRow, StudentDossier } from '@/api/reports'
 import { table } from './document'
+import { SEX, ageOn, scopeLine, statusLabel, ymd } from './parts'
+import { landlordRecord, studentRecord } from './person'
 import type { DrawerPreview } from '@/features/drawer/preview'
 import { accommodationStatusBody } from '@/features/drawer/accommodation/accommodationReport'
+import { payments } from './payments'
 
 const e = escapeHtml
 const DAY = 86_400_000
 
-export type ReportId = 'masterlist' | 'renewals' | 'occupancy' | 'boarders' | 'landlords' | 'status'
+export type ReportId = 'masterlist' | 'renewals' | 'occupancy' | 'boarders' | 'landlords' | 'status' | 'payments' | 'student' | 'landlord'
 
 export interface ReportInput {
   /** The Accommodation Hub's rows, already narrowed by the hub's own filters. */
   accommodations: RealAccommodation[]
   boarders: BoarderRow[]
   landlords: LandlordRow[]
+  /** The open accommodation's charges, for its payment timeline. */
+  ledger?: LedgerRow[] | undefined
+  /** The open person's record, for their own report. */
+  student?: StudentDossier | undefined
+  landlord?: LandlordDossier | undefined
   /** The open accommodation record, for its status report. */
   preview?: DrawerPreview | undefined
   /** "Filtered in the Accommodation Hub: …", when the page's filters narrowed the rows. */
@@ -51,7 +59,7 @@ export interface ReportDef {
   /** What the report answers, one line. */
   blurb: string
   /** Which rows it needs. */
-  needs: 'accommodations' | 'boarders' | 'landlords' | 'record'
+  needs: 'accommodations' | 'boarders' | 'landlords' | 'record' | 'ledger' | 'student' | 'landlord'
   fields: ReportField[]
   defaults: Params
   build: (input: ReportInput, params: Params) => { bodyHtml: string; count: number }
@@ -78,10 +86,6 @@ function grouped<T>(rows: T[], keyOf: ((r: T) => string) | null, cols: number, r
     .join('')
 }
 
-function scopeLine(parts: (string | false | null | undefined)[], note?: string): string {
-  const text = [...parts.filter(Boolean), note].filter(Boolean).join(' · ')
-  return text ? `<p class="scope">${e(text)}</p>` : ''
-}
 
 // ── 1. Accredited Accommodations Masterlist ─────────────────────────────────
 const masterlist: ReportDef = {
@@ -243,21 +247,32 @@ const boarders: ReportDef = {
   id: 'boarders',
   code: 'OBM',
   title: 'Boarders Masterlist',
-  blurb: 'Where every student in an active stay lives, dormitories included.',
+  blurb: 'Where every student boarding on a given day lives, dormitories included.',
   needs: 'boarders',
   fields: [
+    { key: 'asOf', label: 'Boarding as of', kind: 'date' },
     { key: 'type', label: 'Accommodation type', kind: 'select', options: (i) => optionsOf(i.boarders.map((b) => b.accommodationType)) },
     { key: 'college', label: 'College', kind: 'select', options: (i) => optionsOf(i.boarders.map((b) => b.college)) },
     { key: 'year', label: 'Year level', kind: 'select', options: (i) => optionsOf(i.boarders.map((b) => b.yearLevel)) },
     { key: 'accommodation', label: 'Accommodation', kind: 'select', options: (i) => optionsOf(i.boarders.map((b) => b.accommodation)) },
     { key: 'barangay', label: 'Barangay', kind: 'select', options: (i) => optionsOf(i.boarders.map((b) => b.barangay)) },
-    { key: 'groupBy', label: 'Group by', kind: 'select', options: [{ value: 'accommodation', label: 'Accommodation' }, { value: 'college', label: 'College' }, { value: '', label: 'None' }] },
-    { key: 'phones', label: 'Include student phone numbers', kind: 'toggle', personal: true },
+    { key: 'groupBy', label: 'Group by', kind: 'select', options: [{ value: 'accommodation', label: 'Accommodation' }, { value: 'college', label: 'College' }, { value: 'room', label: 'Room' }, { value: '', label: 'None' }] },
+    { key: 'birthdays', label: 'Include birthdays and age', kind: 'toggle', personal: true },
+    { key: 'contacts', label: 'Include phone numbers and e-mail', kind: 'toggle', personal: true },
     { key: 'emergency', label: 'Include emergency contacts', kind: 'toggle', personal: true },
   ],
-  defaults: { type: '', college: '', year: '', accommodation: '', barangay: '', groupBy: 'accommodation', phones: false, emergency: false },
+  defaults: { asOf: '', type: '', college: '', year: '', accommodation: '', barangay: '', groupBy: 'accommodation', birthdays: false, contacts: false, emergency: false },
   build(input, p) {
+    const now = input.now ?? Date.now()
+    const today = ymd(new Date(now))
+    const asOf = String(p.asOf || today)
+    // ponytail: a stay that ended early counts until its contract end_date, since
+    // no move-out date is kept; ended stays never count for today. Record
+    // leases.ended_at if OSAS needs exact past rosters.
+    const stayed = (b: BoarderRow) => !!b.since && b.since.slice(0, 10) <= asOf
+      && (b.current || (asOf < today && !!b.until && asOf <= b.until.slice(0, 10)))
     const rows = input.boarders
+      .filter(stayed)
       .filter((b) => !p.type || b.accommodationType === p.type)
       .filter((b) => !p.college || b.college === p.college)
       .filter((b) => !p.year || b.yearLevel === p.year)
@@ -267,28 +282,28 @@ const boarders: ReportDef = {
     // The column a group heading already names is left out of its rows.
     const byAcc = p.groupBy === 'accommodation'
     const byCollege = p.groupBy === 'college'
-    const head = ['No.', 'Student', 'ID no.', byCollege ? 'Program' : 'College / Program', ...(byAcc ? [] : ['Accommodation']), 'Room', 'Since', ...(p.phones ? ['Phone'] : []), ...(p.emergency ? ['Emergency contact'] : [])]
-    const keyOf = byAcc ? (b: BoarderRow) => `${b.accommodation}${b.barangay ? ` — ${b.barangay}` : ''}` : byCollege ? (b: BoarderRow) => b.college : null
+    const byRoom = p.groupBy === 'room'
+    const head = ['No.', 'Student', 'Sex', ...(p.birthdays ? ['Birthday'] : []), 'ID no.', byCollege ? 'Program' : 'College / Program', ...(byAcc ? [] : ['Accommodation']), ...(byRoom ? [] : ['Room']), 'Since', ...(p.contacts ? ['Contact'] : []), ...(p.emergency ? ['Emergency contact'] : [])]
+    const keyOf = byAcc ? (b: BoarderRow) => `${b.accommodation}${b.barangay ? ` — ${b.barangay}` : ''}` : byCollege ? (b: BoarderRow) => b.college : byRoom ? (b: BoarderRow) => b.room : null
     const program = (b: BoarderRow) => [b.program, b.yearLevel && `Year ${b.yearLevel}`].filter(Boolean).join(' · ')
     const body = grouped(rows, keyOf, head.length, (b, i) => `<tr>
-      <td class="c">${i + 1}</td><td><b>${e(b.name)}</b></td><td class="c">${e(b.schoolId || '—')}</td>
+      <td class="c">${i + 1}</td><td><b>${e(b.name)}</b></td><td class="c">${e(SEX[b.sex?.toUpperCase() ?? ''] ?? '—')}</td>
+      ${p.birthdays ? `<td class="c">${b.birthDate ? `${e(fmtDate(b.birthDate))}<br><small>${ageOn(b.birthDate, now)} yrs</small>` : '—'}</td>` : ''}<td class="c">${e(b.schoolId || '—')}</td>
       <td>${byCollege ? e(program(b) || '—') : `${e(b.college || '—')}<br><small>${e(program(b))}</small>`}</td>
-      ${byAcc ? '' : `<td>${e(b.accommodation)}<br><small>${e(b.barangay)}</small></td>`}<td class="c">${e(b.room)}</td><td class="c">${e(date(b.since))}</td>
-      ${p.phones ? `<td>${e(b.phone ? formatPhone(b.phone) : '—')}</td>` : ''}
+      ${byAcc ? '' : `<td>${e(b.accommodation)}<br><small>${e(b.barangay)}</small></td>`}${byRoom ? '' : `<td class="c">${e(b.room)}</td>`}<td class="c">${e(date(b.since))}${b.current ? '' : `<br><small>to ${e(date(b.until))}</small>`}</td>
+      ${p.contacts ? `<td>${e(b.phone ? formatPhone(b.phone) : '—')}<br><small>${e(b.email)}</small></td>` : ''}
       ${p.emergency ? `<td>${b.emergency ? `${e(b.emergency.name)}${b.emergency.relationship ? ` (${e(b.emergency.relationship)})` : ''}<br><small>${e(b.emergency.phone ? formatPhone(b.emergency.phone) : '')}</small>` : '—'}</td>` : ''}</tr>`)
-    const personal = p.phones || p.emergency
+    const personal = p.birthdays || p.contacts || p.emergency
     return {
       count: rows.length,
-      bodyHtml: scopeLine([`Students in an active stay as of ${fmtDate(new Date(input.now ?? Date.now()).toISOString())}`, p.type && String(p.type), p.college && String(p.college), p.year && `Year ${p.year}`, p.accommodation && String(p.accommodation), p.barangay && `Barangay ${p.barangay}`], input.scopeNote)
-        + table(head, body, 'No student in an active stay matches these settings.', 'grid list')
+      bodyHtml: scopeLine([`Students boarding as of ${fmtDate(asOf)}`, p.type && String(p.type), p.college && String(p.college), p.year && `Year ${p.year}`, p.accommodation && String(p.accommodation), p.barangay && `Barangay ${p.barangay}`], input.scopeNote)
+        + table(head, body, 'No student boarding on that day matches these settings.', 'grid list')
         + (rows.length ? `<p class="note">${rows.length} student${rows.length === 1 ? '' : 's'}.${personal ? ' This report contains personal information; handle and dispose of it in accordance with the Data Privacy Act of 2012 (RA 10173).' : ''}</p>` : ''),
     }
   },
 }
 
 // ── 5. Landlords/Landladies Masterlist ──────────────────────────────────────
-const STATUS: Record<string, string> = { verified: 'Verified', pending: 'Pending', reviewing: 'Under review', needs_resubmission: 'Needs resubmission', rejected: 'Rejected', suspended: 'Suspended', unverified: 'Unverified' }
-const statusLabel = (s: string) => STATUS[s] ?? (s ? s.charAt(0).toUpperCase() + s.slice(1) : '—')
 
 const landlords: ReportDef = {
   id: 'landlords',
@@ -345,4 +360,4 @@ const status: ReportDef = {
   },
 }
 
-export const REPORTS: Record<ReportId, ReportDef> = { masterlist, renewals, occupancy, boarders, landlords, status }
+export const REPORTS: Record<ReportId, ReportDef> = { masterlist, renewals, occupancy, boarders, landlords, status, payments, student: studentRecord, landlord: landlordRecord }

@@ -16,6 +16,7 @@
 
       <div ref="mapWrap" class="map">
         <div ref="mapContainer" class="map-canvas" />
+        <p v-if="mapFailed" class="map-failed">The map needs WebGL, which this browser has turned off. Turn on hardware acceleration in the browser's settings and reload; the list still works.</p>
 
         <div class="legend" aria-label="Legend">
           <h2>Accreditation</h2>
@@ -169,6 +170,9 @@ const drawerTab = ref('rooms')
 // ── the map ──
 const mapWrap = ref<HTMLElement | null>(null)
 const mapContainer = ref<HTMLElement | null>(null)
+// Mapbox draws with WebGL. With hardware acceleration off or a blocklisted GPU
+// driver it throws on creation, and the page used to die with it.
+const mapFailed = ref(false)
 let map: mapboxgl.Map | null = null
 const pins = new Map<string, { marker: mapboxgl.Marker; el: HTMLButtonElement; wrap: HTMLDivElement }>()
 let campusMarker: mapboxgl.Marker | null = null
@@ -308,7 +312,12 @@ onMounted(async () => {
   await nextTick()
   if (!mapContainer.value) return
 
-  map = new mapboxgl.Map({ container: mapContainer.value, style: styleUrl.value, center: [CAMPUS.lng, CAMPUS.lat], zoom: 12.5 })
+  try {
+    map = new mapboxgl.Map({ container: mapContainer.value, style: styleUrl.value, center: [CAMPUS.lng, CAMPUS.lat], zoom: 12.5 })
+  } catch {
+    mapFailed.value = true
+    return
+  }
   // A style switch drops custom layers: put the rings back and redraw the walk.
   map.on('style.load', () => {
     if (!map) return
@@ -361,6 +370,7 @@ onBeforeUnmount(() => {
 .stage { display: grid; flex: 1; grid-template-columns: 340px minmax(0, 1fr); min-height: 0; overflow: hidden; border: 1px solid var(--c-border); border-radius: 16px; background: var(--c-surface); }
 .map { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 .map-canvas { position: absolute; inset: 0; }
+.map-failed { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0; padding: 24px; color: var(--c-muted); font-size: 13px; text-align: center; }
 
 .legend { position: absolute; top: 14px; left: 14px; z-index: 2; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); box-shadow: var(--shadow); color: var(--c-text); font-size: 11.5px; }
 .legend h2 { margin: 0 0 2px; color: var(--c-muted); font-size: 11.5px; font-weight: 700; line-height: 1.3; }

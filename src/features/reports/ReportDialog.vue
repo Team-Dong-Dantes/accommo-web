@@ -120,11 +120,11 @@ import { Icon } from '@iconify/vue'
 import TabNav from '@/components/ui/TabNav.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useNotify } from '@/utils/notify'
-import { fetchBoarders, fetchLandlords, fetchReportSettings, saveReportSettings, type BoarderRow, type LandlordRow, type ReportSettings } from '@/api/reports'
+import { fetchBoarders, fetchLandlordDossier, fetchLandlords, fetchReportSettings, fetchStays, fetchStudentDossier, saveReportSettings, type BoarderRow, type LandlordRow, type ReportSettings } from '@/api/reports'
 import type { RealAccommodation } from '@/composables/useAccommodations'
 import type { DrawerPreview } from '@/features/drawer/preview'
 import { OFFICE, renderReport, printWhenReady, sealUrl, type Orientation, type Paper, type Signatories } from './document'
-import { REPORTS, type ReportField, type ReportId, type ReportInput } from './reports'
+import { REPORTS, type ReportDef, type ReportField, type ReportId, type ReportInput } from './reports'
 
 const props = withDefaults(
   defineProps<{
@@ -138,14 +138,14 @@ const props = withDefaults(
     scopeNote?: string | undefined
     /** The open record, for a report about one accommodation. */
     preview?: DrawerPreview | undefined
-    /** Its id, for the reference number. */
+    /** Its id (an accommodation's or a person's): the reference number, and what the record's own reports load. It also narrows the Boarders report to that accommodation. */
     recordId?: string | undefined
   }>(),
   { initial: undefined, accommodations: () => [], scopeNote: undefined, preview: undefined, recordId: undefined },
 )
 defineEmits<{ (e: 'update:modelValue', v: boolean): void }>()
 
-const SHORT: Record<ReportId, string> = { masterlist: 'Masterlist', renewals: 'Renewals', occupancy: 'Occupancy', boarders: 'Boarders', landlords: 'Landlords/Landladies', status: 'Status' }
+const SHORT: Record<ReportId, string> = { masterlist: 'Masterlist', renewals: 'Renewals', occupancy: 'Occupancy', boarders: 'Boarders', landlords: 'Landlords/Landladies', status: 'Status', payments: 'Payments', student: 'Student', landlord: 'Landlord/Landlady' }
 const PAPERS = [{ value: 'a4', label: 'A4' }, { value: 'long', label: 'Long bond (8.5 × 13 in)' }]
 const ORIENTATIONS = [{ value: 'portrait', label: 'Portrait' }, { value: 'landscape', label: 'Landscape' }]
 
@@ -155,12 +155,22 @@ const params = reactive(Object.fromEntries(Object.values(REPORTS).map((r) => [r.
 const paper = ref<Paper>('a4')
 // Wide listings read better across the page.
 const orientation = ref<Orientation>('portrait')
-watch(current, (id) => { orientation.value = id === 'renewals' || id === 'boarders' ? 'landscape' : 'portrait' }, { immediate: true })
+watch(current, (id) => { orientation.value = ['renewals', 'boarders', 'payments', 'student'].includes(id) ? 'landscape' : 'portrait' }, { immediate: true })
 
 // ── Data ────────────────────────────────────────────────────────────────────
 const auth = useAuthStore()
 const boarders = ref<BoarderRow[] | null>(null)
 const landlords = ref<LandlordRow[] | null>(null)
+// Reports about the open record (an accommodation, a student, a landlord/landlady)
+// load by its id. Keyed, because the dialog stays mounted while the page opens
+// other records.
+const RECORD_LOADERS: Partial<Record<ReportDef['needs'], (id: string) => Promise<Partial<ReportInput>>>> = {
+  ledger: async (id) => ({ ledger: (await fetchStays({ accommodationId: id })).ledger }),
+  student: async (id) => ({ student: await fetchStudentDossier(id) }),
+  landlord: async (id) => ({ landlord: await fetchLandlordDossier(id) }),
+}
+const recordKey = computed(() => (RECORD_LOADERS[def.value.needs] && props.recordId ? `${def.value.needs}:${props.recordId}` : ''))
+const recordData = ref<{ key: string; data: Partial<ReportInput> } | null>(null)
 const loadError = ref('')
 const notify = useNotify()
 // View-level Reports access prints with the shared signatories; edit changes them.
@@ -206,6 +216,9 @@ watch([() => props.modelValue, current], async ([open]) => {
   try {
     if (def.value.needs === 'boarders' && !boarders.value) boarders.value = await fetchBoarders()
     if (def.value.needs === 'landlords' && !landlords.value) landlords.value = await fetchLandlords()
+    const key = recordKey.value
+    const loader = RECORD_LOADERS[def.value.needs]
+    if (key && loader && recordData.value?.key !== key) recordData.value = { key, data: await loader(props.recordId!) }
   } catch (err) {
     loadError.value = `Could not load the report's data: ${errorMessage(err, 'Unknown error')}`
   }
@@ -214,9 +227,17 @@ watch([() => props.modelValue, current], async ([open]) => {
 const ready = computed(() =>
   def.value.needs === 'boarders' ? boarders.value !== null
     : def.value.needs === 'landlords' ? landlords.value !== null
+    : RECORD_LOADERS[def.value.needs] ? !!recordKey.value && recordData.value?.key === recordKey.value
     : def.value.needs === 'record' ? !!props.preview
     : true)
-const input = computed<ReportInput>(() => ({ accommodations: props.accommodations, boarders: boarders.value ?? [], landlords: landlords.value ?? [], scopeNote: props.scopeNote, preview: props.preview }))
+const input = computed<ReportInput>(() => ({
+  accommodations: props.accommodations,
+  boarders: (boarders.value ?? []).filter((b) => !props.recordId || b.accommodationId === props.recordId),
+  landlords: landlords.value ?? [],
+  ...(recordData.value?.key === recordKey.value ? recordData.value.data : {}),
+  scopeNote: props.scopeNote,
+  preview: props.preview,
+}))
 
 function optionsFor(f: ReportField) {
   return typeof f.options === 'function' ? f.options(input.value) : f.options ?? []
