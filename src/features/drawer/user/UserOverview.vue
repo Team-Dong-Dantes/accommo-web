@@ -136,6 +136,7 @@
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { formatPhone } from '@/utils/format'
+import { manilaToday } from '@/utils/facilities'
 import { fmtMonthYear, type DrawerPreview, type HubKind } from '../preview'
 import { watchLine, type Tone } from '../accommodation/standing'
 
@@ -161,27 +162,33 @@ const tenure = computed(() => {
   return m <= 0 ? 'new this month' : `${m} month${m === 1 ? '' : 's'}`
 })
 
+// Read off the ledger (lease_ledger), not payment rows: a month nobody paid
+// has no row, so the old version never showed one as due or overdue.
+// A forgiven month counts as paid there.
 const PAY: Record<string, { tone: string; label: string }> = {
   paid: { tone: 'paid', label: 'Paid' },
-  pending_verification: { tone: 'pending', label: 'Pending' },
+  pending: { tone: 'pending', label: 'Pending' },
   due: { tone: 'due', label: 'Due' },
   overdue: { tone: 'overdue', label: 'Overdue' },
-  waived: { tone: 'paid', label: 'Forgiven' },
 }
-/** The six most recent billing months, oldest first, one cell each. */
+const LEDGER_TONE: Record<string, string> = { paid: 'paid', pending: 'pending', partial: 'due', unpaid: 'due', overdue: 'overdue' }
+const TONE_RANK = ['paid', 'pending', 'due', 'overdue']
+/** The six most recent billing months up to this one, oldest first, one cell each. */
 const months = computed(() => {
-  const byMonth = new Map<string, { status: string; label: string }>()
-  for (const p of props.preview.payments ?? []) {
-    // Worst status wins when a month has more than one bill.
-    const prev = byMonth.get(p.month)
-    const rank = (s: string) => ['paid', 'pending_verification', 'due', 'overdue'].indexOf(s)
-    if (!prev || rank(p.status) > rank(prev.status)) byMonth.set(p.month, { status: p.status, label: p.monthLabel })
+  const thisMonth = `${manilaToday().slice(0, 7)}-01`
+  const byMonth = new Map<string, { tone: string; label: string }>()
+  for (const r of props.preview.ledger ?? []) {
+    if (!r.month || r.month > thisMonth) continue
+    // Worst status wins when a month has rent and a bill, or two stays.
+    const tone = LEDGER_TONE[r.state] ?? 'due'
+    const prev = byMonth.get(r.month)
+    if (!prev || TONE_RANK.indexOf(tone) > TONE_RANK.indexOf(prev.tone)) byMonth.set(r.month, { tone, label: r.monthLabel })
   }
   return [...byMonth.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(-6)
     .map(([key, v]) => {
-      const meta = PAY[v.status] ?? { tone: 'due', label: v.status }
+      const meta = PAY[v.tone] ?? PAY.due!
       return { key, label: v.label, short: v.label.split(' ')[0] ?? v.label, tone: meta.tone, statusLabel: meta.label }
     })
 })
@@ -190,7 +197,7 @@ const payLegend = computed(() =>
     .map((m) => ({ ...m, count: months.value.filter((x) => x.tone === m.tone).length }))
     .filter((m) => m.count),
 )
-const overdue = computed(() => (props.preview.payments ?? []).filter((p) => p.status === 'overdue').length)
+const overdue = computed(() => (props.preview.ledger ?? []).filter((r) => r.state === 'overdue').length)
 
 // ── Landlord / landlady ─────────────────────────────────────────────────────
 const portfolio = computed(() => o.value?.portfolio ?? [])

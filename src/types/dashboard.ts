@@ -65,7 +65,7 @@ export interface DashboardStats {
   expiringLeases: { id: string; end_date: string | null }[]
   expiringAccreditations: number
   recentTickets: { id: string; subject: string | null; priority: string; status: string; reported_at: string }[]
-  landlordPayments: { pendingVerification: number; overdue: number }
+  landlordPayments: { pendingVerification: number }
   /** Admin home — triage queues with the oldest rows surfaced. */
   verificationQueue: {
     students: number

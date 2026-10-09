@@ -174,6 +174,41 @@ export async function fetchPaymentsForLeases(leaseIds: string[]): Promise<LeaseP
   return rows
 }
 
+/** One item owed on a stay (a rent month, the deposit or a bill) and where it stands. */
+export interface LeaseLedgerRow {
+  leaseId: string
+  kind: 'rent' | 'deposit' | 'bill' | string
+  /** First of the month; null for the deposit. */
+  month: string | null
+  dueDate: string | null
+  due: number
+  balance: number
+  /** 'paid' | 'pending' | 'partial' | 'unpaid' | 'overdue'. */
+  state: string
+}
+
+/**
+ * What is owed on each stay, from the database's own ledger. Payment rows can't
+ * say this: a month nobody paid has no row, so nothing is ever "overdue" there.
+ */
+export async function fetchLedgerForLeases(leaseIds: string[]): Promise<LeaseLedgerRow[]> {
+  // ponytail: one lease_ledger call per stay; a student has a handful.
+  const ledgers = await Promise.all(leaseIds.map(async (leaseId) => {
+    const { data, error } = await supabase.rpc('lease_ledger', { p_lease: leaseId })
+    if (error) throw error
+    return (data ?? []).map((r): LeaseLedgerRow => ({
+      leaseId,
+      kind: r.kind,
+      month: r.month ?? null,
+      dueDate: r.due_date ?? null,
+      due: Number(r.due),
+      balance: Number(r.balance),
+      state: r.state,
+    }))
+  }))
+  return ledgers.flat()
+}
+
 /**
  * One stay as a student's record shows it in place: the accommodation, how
  * many boarders it has now, and — when the lease is known — its room and who is

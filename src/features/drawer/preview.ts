@@ -5,6 +5,7 @@
 // (RoomHub/AccommodationHub/Users import types from it).
 
 import type { StatusTone } from '@/utils/status.config'
+import type { LeaseLedgerRow } from '@/api/leases'
 
 export interface PreviewChip {
   text: string
@@ -204,6 +205,8 @@ export interface PreviewLease {
   periodLabel?: string
 }
 
+export type PreviewLedgerRow = LeaseLedgerRow & { accommodationId: string; monthLabel: string }
+
 export interface PreviewPayment {
   id: string
   leaseId: string
@@ -396,6 +399,8 @@ export interface DrawerPreview {
   studentId?: string
   leases?: PreviewLease[]
   payments?: PreviewPayment[]
+  /** What is owed on those leases (lease_ledger) — the only place overdue lives. */
+  ledger?: PreviewLedgerRow[]
 }
 
 /** Who to show, and what the accommodation record already knows about them. */
