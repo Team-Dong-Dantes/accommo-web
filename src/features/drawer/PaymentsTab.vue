@@ -39,7 +39,7 @@
         </div>
       </div>
 
-      <div v-if="totalPaid > 0 || payments.length" class="dd-summary-stats border-top">
+      <div v-if="totalPaid > 0 || payments.length || dueCount" class="dd-summary-stats border-top">
         <div class="dd-stat">
           <span class="dd-stat-value">{{ totalPaidLabel }}</span>
           <span class="dd-stat-label">Total paid</span>
@@ -118,6 +118,7 @@ import PhotoLightbox from './accommodation/PhotoLightbox.vue'
 import { signDocUrl } from '@/utils/docUrl'
 import { isImage } from '@/features/verifications/fileUtils'
 import { useNotify } from '@/utils/notify'
+import { manilaToday } from '@/utils/facilities'
 import type { DrawerPreview, PreviewLease, PreviewPayment } from './preview'
 
 const props = withDefaults(
@@ -133,6 +134,7 @@ const byStay = <T extends { accommodationId: string }>(rows: T[]) =>
   props.filterAccommodationId ? rows.filter((r) => r.accommodationId === props.filterAccommodationId) : rows
 const payments = computed(() => byStay(props.preview.payments ?? []))
 const leases = computed(() => byStay(props.preview.leases ?? []))
+const ledger = computed(() => byStay(props.preview.ledger ?? []))
 
 // What the student still owes on ended stays (student_past_balance).
 const pastOwed = ref<{ lease_id: string; accommodation: string; room: string; ended_on: string | null; balance: number }[]>([])
@@ -188,9 +190,12 @@ const totalPaid = computed(() =>
 const totalPaidLabel = computed(() =>
   `₱${totalPaid.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
 )
-const dueCount = computed(() =>
-  payments.value.filter((p) => p.status === 'due' || p.status === 'overdue' || p.status === 'pending_verification').length,
-)
+// Items owed by now or awaiting confirmation, off the ledger: payment rows
+// never carry due/overdue, since a month nobody paid has no row.
+const dueCount = computed(() => {
+  const today = manilaToday()
+  return ledger.value.filter((r) => r.state !== 'paid' && (r.state === 'pending' || r.state === 'overdue' || (r.dueDate ?? '') <= today)).length
+})
 
 function leaseTag(pay: PreviewPayment): string {
   if (leases.value.length <= 1) return ''

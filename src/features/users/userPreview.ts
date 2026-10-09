@@ -8,6 +8,7 @@ import { PERMIT_STATE, expiryLabel, permitStateOf } from '@/utils/permitExpiry'
 import type { DrawerPreview, PreviewChip, PreviewLease, PreviewPayment } from '@/features/drawer/preview'
 import { accountActivity, type ActivityLine } from './accountActivity'
 import { NO_STANDING, type AccountEvent, type AccountStanding } from '@/api/accounts'
+import type { LeaseLedgerRow } from '@/api/leases'
 
 const DOC_LABELS: Record<string, string> = {
   school_id: 'School ID',
@@ -176,6 +177,7 @@ export interface UserDetailInput {
   }[]
   leases?: any[]
   payments?: any[]
+  ledger?: LeaseLedgerRow[]
   /** Mean response rate over every landlord/landlady in the Users list. */
   campusResponseRate?: number | null
   /** Reason, end date and restrictions from `account_standing`. */
@@ -640,6 +642,11 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
        result.studentId = u.id
        result.leases = leaseRows
        result.payments = paymentRows
+       result.ledger = (input.ledger ?? []).map((r) => ({
+         ...r,
+         accommodationId: leaseById.get(r.leaseId)?.accommodationId ?? '',
+         monthLabel: r.month ? fmtMonth(r.month) : '',
+       }))
        result.kind = 'user'
    }
   result.files = files

@@ -36,7 +36,6 @@ import {
 } from '@/api/leases'
 import {
   fetchPendingLandlordPaymentVerificationCount,
-  fetchOverdueLandlordPaymentCount,
 } from '@/api/payments'
 
 export type { DashboardStats } from '@/types/dashboard'
@@ -96,7 +95,7 @@ function emptyStats(): DashboardStats {
     expiringLeases: [],
     expiringAccreditations: 0,
     recentTickets: [],
-    landlordPayments: { pendingVerification: 0, overdue: 0 },
+    landlordPayments: { pendingVerification: 0 },
     verificationQueue: { students: 0, landlords: 0, withDocs: 0, oldestDays: 0, oldestStudentDays: 0, studentsReadyForReview: 0, studentsPastSla: 0, pastSla: 0, oldest: [] },
     accreditationQueue: { total: 0, withPermits: 0, ready: [] },
     ticketQueue: { open: 0, urgent: 0, unassigned: 0, oldestDays: 0, pastSla: 0, createdLast7Days: 0, createdPrevious7Days: 0, leadingOpenCategory: null, oldest: [] },
@@ -480,7 +479,6 @@ export function useDashboardStats() {
         expLeases,
         expAccred,
         landlordPaymentsPending,
-        landlordPaymentsOverdue,
         verificationUsers,
         verificationDocs,
         pendingAccommodations,
@@ -500,7 +498,6 @@ export function useDashboardStats() {
         fetchExpiringLeases(nowIso, thirtyDaysIso),
         fetchExpiringAccommodationAccreditations(nowIso, thirtyDaysIso),
         fetchPendingLandlordPaymentVerificationCount(),
-        fetchOverdueLandlordPaymentCount(),
         fetchPendingVerificationUsers(),
         fetchVerificationDocIndex(),
         fetchPendingAccommodations(),
@@ -527,7 +524,6 @@ export function useDashboardStats() {
       // Landlord/landlady lease payments.
       data.landlordPayments = {
         pendingVerification: landlordPaymentsPending,
-        overdue: landlordPaymentsOverdue,
       }
 
       // Registration trend — the 13-month series behind the registrations chart.

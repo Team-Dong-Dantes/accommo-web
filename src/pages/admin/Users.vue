@@ -148,7 +148,7 @@ import { counted } from '@/utils/filterOptions'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
 import { buildUserPreview, cap, composeAddress, periodLabel } from '@/features/users/userPreview'
-import { fetchStudentLeaseHistory, fetchPaymentsForLeases } from '@/api/leases'
+import { fetchStudentLeaseHistory, fetchPaymentsForLeases, fetchLedgerForLeases, type LeaseLedgerRow } from '@/api/leases'
 import { fetchAccommodationDocs, fetchVerificationDocs, type AccommodationDocRow, type VerificationDocRow } from '@/api/users'
 import type { DrawerPreview } from '@/components/ui/DetailDrawer.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -181,6 +181,7 @@ const boardingHistory = ref<any[]>([])
 const accommodationRows = ref<any[]>([])
 const leases = ref<any[]>([])
 const payments = ref<any[]>([])
+const ledger = ref<LeaseLedgerRow[]>([])
 
 const tabs = computed(() => [
   { name: 'students', label: `Students (${students.value.length})` },
@@ -293,6 +294,7 @@ async function openUser(row: any) {
   accommodationDocs.value = []
   leases.value = []
   payments.value = []
+  ledger.value = []
   standing.value = NO_STANDING
   signIn.value = null
   closed.value = false
@@ -355,7 +357,9 @@ async function fetchDetail(userId: string, role: string) {
       leases.value = leaseHist
       const leaseIds = leaseHist.map((l) => l.id)
       if (leaseIds.length) {
-        payments.value = await fetchPaymentsForLeases(leaseIds)
+        const [paymentRows, ledgerRows] = await Promise.all([fetchPaymentsForLeases(leaseIds), fetchLedgerForLeases(leaseIds)])
+        payments.value = paymentRows
+        ledger.value = ledgerRows
       }
     } else if (normalized === 'landlord') {
       const { data } = await supabase
@@ -466,6 +470,7 @@ const userPreview = computed<DrawerPreview>(() =>
     accommodationDocs: accommodationDocs.value,
     leases: leases.value,
     payments: payments.value,
+    ledger: ledger.value,
     standing: standing.value,
     accountEvents: accountEvents.value,
     campusResponseRate: campusResponseRate.value,
