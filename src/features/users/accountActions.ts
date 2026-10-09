@@ -108,13 +108,15 @@ export interface AccountHooks {
   /** Status or sign-in changed: refresh the row and the record. */
   onChanged: (status: AccountStatus) => Promise<void> | void
   onEditProfile: () => void
+  /** "Generate report…": the page opens the person's report window. */
+  onReport: () => void
   /** Role changed or account closed: the table itself is out of date. */
   onReload: () => Promise<void> | void
 }
 
 export function useAccountActions(subject: Ref<AccountSubject | null>, state: AccountState, hooks: AccountHooks) {
   const { standing, signIn } = state
-  const { onChanged, onEditProfile } = hooks
+  const { onChanged, onEditProfile, onReport } = hooks
   const notify = useNotify()
   const authStore = useAuthStore()
   const spec = ref<AccountActionSpec | null>(null)
@@ -139,6 +141,7 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
       out.push({ group, label: 'Restrict…', action: 'restrict', icon: 'lucide:shield-minus' })
       out.push({ group, label: 'Suspend account…', action: 'suspend', icon: 'lucide:ban', danger: true })
     }
+    out.push({ group: 'Record', label: 'Generate report…', action: 'report', icon: 'lucide:file-chart-column' })
     out.push({ group: 'Record', label: 'Edit profile…', action: 'edit', icon: 'lucide:user-pen' })
     out.push({ group: 'Contact', label: 'Send notification…', action: 'notify', icon: 'lucide:bell-plus' })
     out.push({ group: 'Contact', label: 'Open a support ticket…', action: 'ticket', icon: 'lucide:life-buoy' })
@@ -156,9 +159,10 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
     }
     // Only what this admin's access covers — the database refuses the rest.
     // A verification decision on an unverified account is Verification's; the
-    // ticket is Support's; everything else is Accounts edit.
+    // ticket is Support's; the report is Reports'; everything else is Accounts edit.
     return out.filter((a) =>
-      a.action === 'ticket' ? authStore.can('support', 'edit')
+      a.action === 'report' ? authStore.can('reports')
+        : a.action === 'ticket' ? authStore.can('support', 'edit')
         : a.action === 'verify' ? authStore.can('accounts', 'edit') || authStore.can('verification', 'edit')
           : authStore.can('accounts', 'edit'))
   })
@@ -226,6 +230,9 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
         break
       case 'edit':
         onEditProfile()
+        break
+      case 'report':
+        onReport()
         break
       case 'temp-password':
         spec.value = {

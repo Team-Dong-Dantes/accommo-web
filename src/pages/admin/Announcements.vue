@@ -1,21 +1,24 @@
 <template>
   <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
     <!-- Top bar -->
-    <div class="row justify-end items-end non-shrink">
+    <div class="row justify-between items-end non-shrink">
+      <!-- One tab since Policies & Guidelines went, kept so the page wears the
+           same folder-tab header as the other admin pages. -->
+      <TabNav v-model="activeTab" :tabs="tabs" />
+
       <div class="row q-gutter-x-sm q-mb-md">
         <q-btn
           flat
-          round
           no-caps
-          class="archive-toggle-btn"
+          class="text-weight-bold rounded-button archive-toggle-btn"
           :class="{ 'archive-toggle-active': showArchived }"
           :color="showArchived ? 'primary' : 'ink'"
           :text-color="showArchived ? 'primary' : 'ink'"
           @click="showArchived = !showArchived"
         >
-          <Icon :icon="showArchived ? 'lucide:archive-x' : 'lucide:archive'" width="20" height="20" />
+          <Icon :icon="showArchived ? 'lucide:archive-x' : 'lucide:archive'" class="on-left" width="18" height="18" />
+          {{ showArchived ? 'View active' : 'View archived' }}
           <q-badge v-if="showArchived" floating color="primary" rounded transparent class="archive-active-dot" />
-          <q-tooltip>{{ showArchived ? 'Active' : 'Archived' }}</q-tooltip>
         </q-btn>
         <q-btn v-if="canEdit" unelevated color="primary" no-caps class="text-weight-bold rounded-button" @click="openCreate()">
           <Icon icon="lucide:megaphone" class="on-left" width="18" height="18" />
@@ -118,6 +121,7 @@ import { useQuasar } from 'quasar'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { counted } from '@/utils/filterOptions'
+import TabNav from '@/components/ui/TabNav.vue'
 import TableCard from '@/components/table/TableCard.vue'
 import DataTable from '@/components/table/DataTable.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
@@ -143,6 +147,8 @@ const currentPage = ref(1)
 const loading = ref(true)
 const fetchError = ref('')
 const showArchived = ref(false)
+const tabs = [{ name: 'announcements', label: 'Announcements' }]
+const activeTab = ref('announcements')
 // OSAS's own broadcasts by default; landlord/landlady notices are one filter away.
 const defaultFilters = (): Record<string, any[]> => ({ source: ['osas'] })
 const activeFilters = ref<Record<string, any[]>>(defaultFilters())

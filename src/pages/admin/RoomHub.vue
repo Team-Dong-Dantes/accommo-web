@@ -41,10 +41,10 @@
                 <div class="column" style="min-width: 0;">
                   <div class="cell-main ellipsis">{{ props.row.type }}</div>
                   <div class="cell-sub ellipsis">{{ props.row.name }}</div>
-                  <div class="cell-sub ellipsis">{{ props.row.floor != null ? `Floor ${props.row.floor}` : 'No floor' }}</div>
                 </div>
               </div>
             </q-td>
+            <q-td key="floor" :props="props" class="num-cell col-num-wide text-ink">{{ props.row.floor ?? '—' }}</q-td>
             <q-td key="accommodation" :props="props" class="col-person">
               <div class="column">
                 <div class="cell-main ellipsis">{{ props.row.accommodation }}</div>
@@ -374,6 +374,7 @@ const settles = (payments: { status: string }[] | null) => (payments ?? []).some
 // Same column classes as the Accommodation Hub, so the two tables read alike.
 const columns = [
   { name: 'room', align: 'left', label: 'Room', field: 'name', headerClasses: 'col-title' },
+  { name: 'floor', align: 'center', label: 'Floor', field: 'floor', headerClasses: 'num-cell col-num-wide' },
   { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'accommodation', headerClasses: 'col-person' },
   { name: 'boarders', align: 'center', label: 'Boarders', field: 'occupants', headerClasses: 'num-cell col-occupants col-split' },
   { name: 'beds', align: 'center', label: 'Beds', field: 'capacity', headerClasses: 'num-cell col-num-wide' },

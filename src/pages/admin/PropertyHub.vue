@@ -166,7 +166,7 @@
     />
     <ReportDialog
       v-model="statusReportOpen"
-      :reports="['status']"
+      :reports="['status', 'payments', 'boarders']"
       :preview="accommodationPreview"
       :record-id="selectedAccommodation?.id"
     />
@@ -241,7 +241,7 @@ function clearFilters() {
 // Report: opens on the one matching the tab, over the rows the hub is showing,
 // so the hub's own filters carry into it and the report says so on the page.
 const reportOpen = ref(false)
-// The open record's own Status report, in the same report window.
+// The open record's own reports (status, payments, boarders), in the same report window.
 const statusReportOpen = ref(false)
 const reportInitial = computed<ReportId>(() =>
   activeTab.value === 'compliance' ? 'renewals' : activeTab.value === 'performance' ? 'occupancy' : 'masterlist')
@@ -275,7 +275,7 @@ onMounted(async () => {
   }
 })
 
-type ManagementAction = { label: string; action: string; danger?: boolean }
+type ManagementAction = { label: string; action: string; danger?: boolean; group?: string; icon?: string }
 
 /**
  * OSAS pulling an accredited property is a different act from the landlord/landlady
@@ -288,18 +288,21 @@ const accommodationActions = computed<ManagementAction[]>(() => {
   const a = selectedAccommodation.value
   if (!a) return []
   const status = String(a.status || '').toLowerCase()
-  const actions: ManagementAction[] = authStore.can('reports') ? [{ label: 'Status report', action: 'export' }] : []
+  // Grouped under headings, as a person's record is in Users.
+  const actions: ManagementAction[] = authStore.can('reports')
+    ? [{ group: 'Record', label: 'Generate report…', action: 'export', icon: 'lucide:file-chart-column' }]
+    : []
   // Hide, suspend and restore are Accommodations edit (the database checks too).
   if (!authStore.can('accommodations', 'edit')) return actions
   if (status === 'accredited') {
     actions.push(
       a.hiddenFromListings
-        ? { label: 'Show in listings', action: 'unhide' }
-        : { label: 'Hide from listings', action: 'hide' },
-      { label: 'Suspend accreditation', action: 'suspend', danger: true },
+        ? { group: 'Listing', label: 'Show in listings', action: 'unhide', icon: 'lucide:eye' }
+        : { group: 'Listing', label: 'Hide from listings', action: 'hide', icon: 'lucide:eye-off' },
+      { group: 'Accreditation', label: 'Suspend accreditation…', action: 'suspend', icon: 'lucide:ban', danger: true },
     )
   }
-  if (status === 'suspended') actions.push({ label: 'Restore accreditation', action: 'restore' })
+  if (status === 'suspended') actions.push({ group: 'Accreditation', label: 'Restore accreditation', action: 'restore', icon: 'lucide:rotate-ccw' })
   return actions
 })
 

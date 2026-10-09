@@ -125,6 +125,12 @@
     <EditProfileDialog :user-id="editingUserId" :name="selectedUser?.name ?? ''" @close="editingUserId = null" @saved="onProfileSaved" />
 
     <ReportDialog v-model="reportOpen" :reports="['boarders', 'landlords']" :initial="activeTab === 'landlords' ? 'landlords' : 'boarders'" />
+    <!-- The open person's own report, from their record's menu. -->
+    <ReportDialog
+      v-model="personReportOpen"
+      :reports="[String(selectedUser?.role).toLowerCase() === 'landlord' ? 'landlord' : 'student']"
+      :record-id="selectedUser?.rawId"
+    />
 
     </div><!-- /users-body -->
 
@@ -265,6 +271,7 @@ watch(activeTab, () => { clearFilters(); search.value = ''; sort.value = null; c
 
 // Report: Boarders or Landlords/Landladies, opening on the one this tab lists.
 const reportOpen = ref(false)
+const personReportOpen = ref(false)
 
 onMounted(async () => {
   await load()
@@ -534,6 +541,7 @@ const {
   {
     onChanged: onAccountChanged,
     onEditProfile: () => { editingUserId.value = selectedUser.value?.rawId ?? null },
+    onReport: () => { personReportOpen.value = true },
     // A role change moves them to the other tab; a closure renames them. Re-read the table.
     onReload: async () => {
       drawerOpen.value = false
