@@ -28,6 +28,19 @@
           {{ chip.label }}
         </button>
       </div>
+      <div v-if="areas.length" class="chips" role="group" aria-label="Filter by area">
+        <button
+          v-for="area in areas"
+          :key="area.id"
+          type="button"
+          class="chip"
+          :aria-pressed="areaIds.includes(area.id)"
+          @click="toggleArea(area.id)"
+        >
+          <span class="dot swatch" :style="{ background: area.color }" />
+          {{ area.name }}
+        </button>
+      </div>
       <p class="count"><b>{{ items.length }}</b> of {{ total }} accommodations shown, on the list and the map</p>
     </div>
 
@@ -44,7 +57,7 @@
           @click="$emit('select', item.id)"
           @mouseenter="$emit('hover', item.id)"
         >
-          <span class="glyph" :style="{ background: ringBackground(item.group, item.taken, item.beds), borderColor: `var(${STATUS_GROUPS[item.group].token})` }"><i /></span>
+          <span class="glyph" :style="{ background: boarderRing(item.female, item.male, item.taken, item.beds) }"><i :style="{ background: `var(${STATUS_GROUPS[item.group].token})` }" /></span>
           <span class="mid">
             <span class="nm">{{ item.name }}</span>
             <span class="sub">{{ item.statusLabel }}, {{ item.type.toLowerCase() }}</span>
@@ -60,13 +73,17 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
-import { DISTANCE_BANDS, STATUS_GROUPS, bandOf, ringBackground, type MapItem } from './mapPins'
+import { DISTANCE_BANDS, STATUS_GROUPS, bandOf, boarderRing, type MapItem } from './mapPins'
+import type { MapArea } from './mapAreas'
 
 const props = defineProps<{
   items: MapItem[]
   total: number
   search: string
   filters: string[]
+  areas: MapArea[]
+  /** The areas the list and the map are narrowed to. */
+  areaIds: string[]
   selectedId: string | null
   hotId: string | null
 }>()
@@ -74,6 +91,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:search': [string]
   'update:filters': [string[]]
+  'update:areaIds': [string[]]
   select: [string]
   hover: [string | null]
 }>()
@@ -88,6 +106,11 @@ const CHIPS = [
 function toggle(key: string) {
   const next = props.filters.includes(key) ? props.filters.filter((k) => k !== key) : [...props.filters, key]
   emit('update:filters', next)
+}
+
+function toggleArea(id: string) {
+  const next = props.areaIds.includes(id) ? props.areaIds.filter((k) => k !== id) : [...props.areaIds, id]
+  emit('update:areaIds', next)
 }
 
 const bands = computed(() =>
@@ -119,6 +142,7 @@ watch(() => props.selectedId, async (id) => {
 .chip[aria-pressed='true'] { border-color: var(--c-primary); background: var(--c-primary-soft); color: var(--c-primary); }
 .chip:focus-visible, .row:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
 .dot { width: 9px; height: 9px; flex: none; border-radius: 50%; }
+.dot.swatch { border-radius: 3px; }
 .count { margin: 0; color: var(--c-muted); font-size: 12px; }
 .count b { color: var(--c-ink); font-variant-numeric: tabular-nums; }
 
@@ -135,6 +159,7 @@ watch(() => props.selectedId, async (id) => {
 .beds { display: block; color: var(--c-muted); font-size: 11.5px; font-weight: 500; }
 .empty { margin: 0; padding: 32px 20px; color: var(--c-muted); text-align: center; }
 
-.glyph { position: relative; width: 18px; height: 18px; border: 2px solid; border-radius: 50%; box-sizing: border-box; }
-.glyph i { position: absolute; inset: 3px; border-radius: 50%; background: var(--c-surface); }
+/* The pin in small: boarders by sex in the ring, accreditation in the centre. */
+.glyph { position: relative; width: 18px; height: 18px; border: 1.5px solid var(--c-surface); border-radius: 50%; box-sizing: border-box; box-shadow: 0 0 0 1px var(--c-border); }
+.glyph i { position: absolute; inset: 4px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--c-surface); }
 </style>

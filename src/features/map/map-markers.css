@@ -1,0 +1,21 @@
+/* The Map View's markers are built outside Vue's template, so their styles
+   cannot be scoped. */
+.map-pin { position: relative; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; transition: transform 0.15s ease; }
+/* The ring (boarders by sex) sits inside a surface-coloured rim; the centre
+   dot (accreditation) is set inline, as is the ring's conic fill. */
+.map-pin-ring { position: absolute; inset: 0; border: 2px solid var(--c-surface); border-radius: 50%; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); }
+.map-pin-core { position: absolute; inset: 7px; border-radius: 50%; background: var(--c-surface); box-shadow: 0 0 0 2px var(--c-surface); }
+.map-pin:hover, .map-pin.is-hot { z-index: 3; transform: scale(1.3); }
+.map-pin.is-sel { z-index: 4; transform: scale(1.35); }
+.map-pin.is-sel .map-pin-ring { box-shadow: 0 0 0 3px var(--c-surface), 0 0 0 5px var(--c-ink); }
+.map-pin:focus-visible { outline: 2px solid var(--c-ink); outline-offset: 3px; }
+.map-campus { display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border-radius: 999px; background: var(--c-ink); box-shadow: var(--shadow); color: var(--c-surface); font-family: var(--font-body); font-size: 12px; font-weight: 700; white-space: nowrap; pointer-events: none; }
+.map-campus i { width: 12px; height: 12px; border: 3px solid var(--c-surface); border-radius: 50%; background: var(--c-primary); }
+/* The walk parked half way along the route, in the route's own colour so the
+   two read as one thing. */
+.map-walk-label { padding: 4px 10px; border: 2px solid #fff; border-radius: 999px; background: var(--c-primary); box-shadow: var(--shadow); color: #fff; font-family: var(--font-body); font-size: 12px; font-weight: 700; white-space: nowrap; pointer-events: none; }
+/* Dark mode's primary is a light teal; white on it fails contrast (as ResolveDialog). */
+:root[data-theme='dark'] .map-walk-label { color: #042f2c; }
+@media (prefers-reduced-motion: reduce) { .map-pin { transition: none; } }
+/* While an area is drawn or a corner dragged, the pointer goes to the map, not the pins. */
+.is-drawing .map-pin { pointer-events: none; }

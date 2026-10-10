@@ -34,6 +34,7 @@ export function toRecordRow(p: RealAccommodation) {
     // every row showed a person's letters where the building should be, and no
     // photo could ever reach the table no matter what the composable resolved.
     image: p.image,
+    photos: p.photos,
     initials: p.initials,
     landlordInitials: p.landlordInitials,
     landlordAvatarUrl: p.landlordAvatarUrl,

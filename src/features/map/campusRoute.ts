@@ -1,8 +1,9 @@
 // The campus layers on the Map View: the 1 / 3 / 5 km rings, and the walking
 // route from a selected accommodation to campus. The route is accommo-mobile's
-// (StudentDiscoverPage.vue): Mapbox Directions along real roads, drawn dashed,
-// with "650 m · 8 min walk" parked half way along, and a straight line with the
-// as-the-crow-flies distance when Directions cannot be reached.
+// (StudentDiscoverPage.vue): Mapbox Directions along real roads, with
+// "650 m · 8 min walk" parked half way along, and a dashed straight line with
+// the as-the-crow-flies distance when Directions cannot be reached. Here the
+// road route is drawn as a cased solid line, to stand out on a busy map.
 
 import { ref } from 'vue'
 import mapboxgl from 'mapbox-gl'
@@ -74,8 +75,8 @@ export function cardSide(pin: { lat: number; lng: number }, coords: Coord[]): Ca
 
 /**
  * Eases the map to show the whole walk, keeping clear the room the pin card
- * takes on its side of the pin (about 360px tall above it, 300px wide beside
- * it), so no part of the line ends up under the card. The walk decides the
+ * takes on its side of the pin (about 520px tall above it, exterior photo
+ * included, 300px wide beside it), so no part of the line ends up under the card. The walk decides the
  * zoom both ways: a short one fills the view, a long one pulls out to fit.
  */
 const CLOSEST_ZOOM = 17
@@ -83,7 +84,7 @@ export function frameWalk(map: mapboxgl.Map, pin: { lat: number; lng: number }, 
   const bounds = coords.reduce((b, c) => b.extend(c), new mapboxgl.LngLatBounds([pin.lng, pin.lat], [pin.lng, pin.lat]))
   map.fitBounds(bounds, {
     padding: {
-      top: 60 + (side === 'above' ? 360 : 0),
+      top: 60 + (side === 'above' ? 520 : 0),
       bottom: 60,
       left: 60 + (side === 'left' ? 300 : 0),
       right: 60 + (side === 'right' ? 300 : 0),
@@ -125,13 +126,28 @@ export function addCampusLayers(map: mapboxgl.Map, satellite: boolean) {
     paint: { 'text-color': satellite ? '#ffffff' : cssVar('--c-muted', '#6B7770'), 'text-halo-color': 'rgba(0,0,0,0.25)', 'text-halo-width': satellite ? 1 : 0 },
   })
   map.addSource(LINK, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+  // The walk along the roads is the one thing to follow on the map, so it is
+  // drawn as a route is in a navigation app: a thick solid line on a pale
+  // casing that lifts it off the roads, the campus rings and any area beneath.
+  // The rings stay thin and dashed, so the two never read as one another.
+  const road = ['!', ['get', 'straight']]
+  const routeInk = cssVar('--c-primary', '#0F766E')
   map.addLayer({
-    id: LINK,
-    type: 'line',
-    source: LINK,
+    id: `${LINK}-casing`, type: 'line', source: LINK, filter: road,
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#ffffff', 'line-width': 9, 'line-opacity': satellite ? 0.95 : 0.9 },
+  })
+  map.addLayer({
+    id: LINK, type: 'line', source: LINK, filter: road,
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': routeInk, 'line-width': 5 },
+  })
+  // Directions out of reach: the straight line stays dashed, so it is never
+  // mistaken for a way along the roads.
+  map.addLayer({
+    id: `${LINK}-straight`, type: 'line', source: LINK, filter: ['get', 'straight'],
     layout: { 'line-cap': 'round' },
-    // Dashed, so it reads as "distance to campus" rather than as a road.
-    paint: { 'line-color': satellite ? '#ffffff' : cssVar('--c-primary', '#0F766E'), 'line-width': 3, 'line-dasharray': [1.6, 1.4] },
+    paint: { 'line-color': satellite ? '#ffffff' : routeInk, 'line-width': 3, 'line-dasharray': [1.6, 1.4] },
   })
 }
 
@@ -168,7 +184,7 @@ export function useCampusWalk(getMap: () => mapboxgl.Map | null) {
       // Directions unreachable: a straight line and the crow-flies distance, so the link never just vanishes.
       text = `${item.km.toFixed(1)} km in a straight line`
       coords = [from, to]
-      label = drawCampusLink(map, coords, [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2], text)
+      label = drawCampusLink(map, coords, [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2], text, true)
     }
     walk.value = { id: item.id, text, coords }
   }
@@ -183,14 +199,14 @@ export function useCampusWalk(getMap: () => mapboxgl.Map | null) {
 }
 
 /** Draws the route (or clears it with `null`); returns the label marker so the page can remove it. */
-export function drawCampusLink(map: mapboxgl.Map, coordinates: Coord[] | null, labelAt?: Coord, text?: string) {
+export function drawCampusLink(map: mapboxgl.Map, coordinates: Coord[] | null, labelAt?: Coord, text?: string, straight = false) {
   const source = map.getSource(LINK) as mapboxgl.GeoJSONSource | undefined
   if (!source) return null
   if (!coordinates) {
     source.setData({ type: 'FeatureCollection', features: [] })
     return null
   }
-  source.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } })
+  source.setData({ type: 'Feature', properties: { straight }, geometry: { type: 'LineString', coordinates } })
   if (!labelAt || !text) return null
   const el = document.createElement('div')
   el.className = 'map-walk-label'

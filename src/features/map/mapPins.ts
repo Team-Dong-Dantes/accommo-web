@@ -1,6 +1,7 @@
 // What the Map View draws, kept free of Mapbox and Vue so it can be tested:
-// the three accreditation groups a pin's colour encodes, the distance bands
-// the side list groups by, the pin's ring fill, and the campus distance rings.
+// the three accreditation groups a pin's centre dot encodes, the distance
+// bands the side list groups by, the pin's ring of boarders by sex, and the
+// campus distance rings.
 
 /** accommodation_status, folded into the three things a pin's colour says. */
 export type StatusGroup = 'accredited' | 'awaiting' | 'not'
@@ -20,6 +21,9 @@ export interface MapItem {
   group: StatusGroup
   taken: number
   beds: number
+  /** Boarders on an active lease, by users.sex; any left of `taken` have no sex on record. */
+  female: number
+  male: number
   /** Straight-line distance from campus, km. */
   km: number
   lat: number
@@ -28,6 +32,8 @@ export interface MapItem {
   /** users.sex of the landlord/landlady, for their title. */
   landlordSex: string | null
   address: string
+  /** Exterior photos, by sort order. */
+  photos: string[]
   /** The record row it came from, for opening the full record. */
   row: unknown
 }
@@ -55,15 +61,25 @@ export function bandOf(km: number) {
   return DISTANCE_BANDS.find((b) => km < b.max) ?? DISTANCE_BANDS[DISTANCE_BANDS.length - 1]!
 }
 
+/** Female and male, as the accommodation record colours its occupants (RecordShell's --ar-female / --ar-male). */
+export const SEX_COLORS = { female: '#e91e63', male: '#42a5f5', unrecorded: 'var(--c-muted)' } as const
+/** A bed nobody has taken: the pale track of the ring and the bar. */
+export const EMPTY_BED = 'color-mix(in srgb, var(--c-muted) 22%, var(--c-surface))'
+
 /**
- * A pin's ring: the status colour filled clockwise by the share of beds taken,
- * the rest a pale track of the same colour. An empty house reads as an empty
- * ring, a full one as a solid ring.
+ * A pin's ring: who lives there, filled clockwise as a share of the beds:
+ * female boarders, then male, then any whose sex is not on record, over a pale
+ * track for the beds still free. An empty house reads as an empty ring, a full
+ * one as a solid ring. Accreditation is the pin's centre dot, not the ring.
  */
-export function ringBackground(group: StatusGroup, taken: number, beds: number): string {
-  const color = `var(${STATUS_GROUPS[group].token})`
-  const pct = beds > 0 ? Math.round((Math.min(taken, beds) / beds) * 100) : 0
-  return `conic-gradient(${color} 0 ${pct}%, color-mix(in srgb, ${color} 22%, var(--c-surface)) ${pct}% 100%)`
+export function boarderRing(female: number, male: number, taken: number, beds: number): string {
+  // Cumulative shares, so rounding never leaves a gap or an overlap between colours.
+  const upTo = (n: number) => (beds > 0 ? Math.round((Math.min(n, beds) / beds) * 100) : 0)
+  const f = upTo(female)
+  const m = upTo(female + male)
+  const t = upTo(Math.max(taken, female + male))
+  const { female: F, male: M, unrecorded: U } = SEX_COLORS
+  return `conic-gradient(${F} 0 ${f}%, ${M} ${f}% ${m}%, ${U} ${m}% ${t}%, ${EMPTY_BED} ${t}% 100%)`
 }
 
 const EARTH_KM = 6371
