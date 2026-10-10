@@ -6,6 +6,8 @@
       <MapList
         v-model:search="search"
         v-model:filters="filters"
+        v-model:area-ids="areaIds"
+        :areas="areas"
         :items="shown"
         :total="items.length"
         :selected-id="selectedId"
@@ -14,31 +16,25 @@
         @hover="hotId = $event"
       />
 
-      <div ref="mapWrap" class="map">
+      <div ref="mapWrap" class="map" :class="{ 'is-drawing': drawing || dragging }">
         <div ref="mapContainer" class="map-canvas" />
         <p v-if="mapFailed" class="map-failed">The map needs WebGL, which this browser has turned off. Turn on hardware acceleration in the browser's settings and reload; the list still works.</p>
 
         <div class="legend" aria-label="Legend">
-          <h2>Accreditation</h2>
+          <h2>Accreditation <span>centre dot</span></h2>
           <div v-for="(g, key) in STATUS_GROUPS" :key="key" class="l-row">
             <span class="dot" :style="{ background: `var(${g.token})` }" />{{ g.label }}
           </div>
-          <h2 class="l-gap">Beds taken</h2>
+          <h2 class="l-gap">Boarders <span>ring</span></h2>
           <div class="fills">
-            <span v-for="f in FILL_SAMPLES" :key="f.label">
-              <span class="glyph" :style="{ background: ringBackground('accredited', f.pct, 100) }"><i /></span>{{ f.label }}
-            </span>
+            <span v-for="k in BOARDER_KEY" :key="k.label"><span class="dot" :style="{ background: k.color }" />{{ k.label }}</span>
           </div>
         </div>
 
-        <div class="seg" role="radiogroup" aria-label="Map style">
-          <button type="button" role="radio" :aria-checked="mapStyle === 'plain'" @click="mapStyle = 'plain'">
-            <Icon icon="lucide:map" width="15" height="15" aria-hidden="true" />Map
-          </button>
-          <button type="button" role="radio" :aria-checked="mapStyle === 'satellite'" @click="mapStyle = 'satellite'">
-            <Icon icon="lucide:satellite" width="15" height="15" aria-hidden="true" />Satellite
-          </button>
-        </div>
+        <MapTools v-model:map-style="mapStyle" :drawing="drawing" :can-undo="canUndo" :show-undo="drawing || !!selectedArea" @draw="toggleDraw" @undo="undoArea" />
+
+        <MapAreaCard v-if="selectedArea && stats" :area="selectedArea" :stats="stats" @rename="areaDialog = 'rename'" @delete="areaDialog = 'delete'" @close="areaIds = []" />
+        <MapAreaDialog :mode="areaDialog" :area="selectedArea" :busy="areaSaving" @save="saveName" @delete="removeArea" @close="closeAreaDialog" />
 
         <button v-if="farItems.length" type="button" class="edge" @click="showFar">
           <Icon icon="lucide:move-down-left" width="16" height="16" aria-hidden="true" />
@@ -92,8 +88,14 @@ import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import MapList from '@/features/map/MapList.vue'
 import MapPinCard from '@/features/map/MapPinCard.vue'
 import MapDetailPanel from '@/features/map/MapDetailPanel.vue'
+import MapTools from '@/features/map/MapTools.vue'
+import MapAreaCard from '@/features/map/MapAreaCard.vue'
+import MapAreaDialog from '@/features/map/MapAreaDialog.vue'
+import { presetOf, savedStyle, saveStyle } from '@/features/map/mapStyles'
+import { useMapAreas } from '@/features/map/useMapAreas'
+import '@/features/map/map-markers.css'
 import {
-  FRAME_KM, STATUS_GROUPS, circleRing, ringBackground, statusGroup, type MapItem,
+  EMPTY_BED, FRAME_KM, SEX_COLORS, STATUS_GROUPS, boarderRing, circleRing, statusGroup, type MapItem,
 } from '@/features/map/mapPins'
 import { addCampusLayers, cardSide, frameWalk, useCampusWalk, type CardSide } from '@/features/map/campusRoute'
 import { CAMPUS, kmBetween } from '@/utils/geo'
@@ -113,7 +115,10 @@ try {
 
 // QPage's default is a min-height; this page wants a fixed one.
 
-const FILL_SAMPLES =[{ pct: 0, label: 'Empty' }, { pct: 50, label: 'Half' }, { pct: 100, label: 'Full' }]
+const BOARDER_KEY = [
+  { label: 'Female', color: SEX_COLORS.female }, { label: 'Male', color: SEX_COLORS.male },
+  { label: 'Not recorded', color: SEX_COLORS.unrecorded }, { label: 'Empty bed', color: EMPTY_BED },
+]
 
 const $q = useQuasar()
 const route = useRoute()
@@ -134,12 +139,15 @@ const items = computed<MapItem[]>(() =>
       group: statusGroup(r.status),
       taken: Math.min(r.totalStudents ?? 0, r.totalCapacity ?? 0),
       beds: r.totalCapacity ?? 0,
+      female: r.femaleCount ?? 0,
+      male: r.maleCount ?? 0,
       km: kmBetween(CAMPUS.lat, CAMPUS.lng, r.lat as number, r.lng as number),
       lat: r.lat as number,
       lng: r.lng as number,
       landlord: r.landlord,
       landlordSex: r.landlordSex,
       address: r.address && r.address !== '—' ? r.address : '',
+      photos: r.photos,
       row: r,
     })),
 )
@@ -151,12 +159,20 @@ const shown = computed(() => {
   const q = search.value.trim().toLowerCase()
   const groups = filters.value.filter((f) => f !== 'free')
   return items.value.filter((i) => {
+    if (!inAreas(i)) return false
     if (q && !`${i.name} ${i.landlord} ${i.address}`.toLowerCase().includes(q)) return false
     if (groups.length && !groups.includes(i.group)) return false
     if (filters.value.includes('free') && i.taken >= i.beds) return false
     return true
   })
 })
+// Areas OSAS draws, like districts: they narrow the list and the pins too.
+const {
+  areas, areaIds, dialog: areaDialog, saving: areaSaving, selectedArea, stats, drawing, dragging,
+  inAreas, load: loadAreas, saveName, remove: removeArea, closeDialog: closeAreaDialog, toggleDraw, canUndo, undo: undoArea,
+  addLayers: addAreaLayers, bind: bindAreas, onKey: areaKey,
+} = useMapAreas(() => map, items)
+
 const farItems = computed(() => shown.value.filter((i) => i.km > FRAME_KM))
 
 const selectedId = ref<string | null>(null)
@@ -177,13 +193,12 @@ let map: mapboxgl.Map | null = null
 const pins = new Map<string, { marker: mapboxgl.Marker; el: HTMLButtonElement; wrap: HTMLDivElement }>()
 let campusMarker: mapboxgl.Marker | null = null
 
-const mapStyle = ref<'plain' | 'satellite'>('plain')
-const styleUrl = computed(() =>
-  mapStyle.value === 'satellite'
-    ? 'mapbox://styles/mapbox/satellite-streets-v12'
-    : $q.dark.isActive ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11',
-)
+// The base map preset, remembered in this browser (mapStyles.ts).
+const mapStyle = ref(savedStyle())
+const imagery = computed(() => !!presetOf(mapStyle.value).imagery)
+const styleUrl = computed(() => `mapbox://styles/mapbox/${presetOf(mapStyle.value).style($q.dark.isActive)}`)
 watch(styleUrl, (url) => map?.setStyle(url))
+watch(mapStyle, saveStyle)
 
 // The card follows its pin as the map pans and zooms.
 const mapSize = ref({ w: 0, h: 0 })
@@ -263,10 +278,12 @@ function syncPins() {
     }
     // The selected and hovered pins sit above their neighbours.
     pin.wrap.style.zIndex = item.id === selectedId.value ? '4' : item.id === hotId.value ? '3' : ''
-    const ring = pin.el.firstElementChild as HTMLElement
-    ring.style.background = ringBackground(item.group, item.taken, item.beds)
-    ring.style.borderColor = `var(${STATUS_GROUPS[item.group].token})`
-    pin.el.setAttribute('aria-label', `${item.name}, ${item.statusLabel}, ${item.taken} of ${item.beds} beds taken`)
+    // The ring is who lives there, by sex; the centre dot is accreditation.
+    const [ring, core] = [...pin.el.children] as HTMLElement[]
+    ring!.style.background = boarderRing(item.female, item.male, item.taken, item.beds)
+    core!.style.background = `var(${STATUS_GROUPS[item.group].token})`
+    const who = item.taken ? `: ${item.female} female, ${item.male} male` : ''
+    pin.el.setAttribute('aria-label', `${item.name}, ${item.statusLabel}, ${item.taken} of ${item.beds} beds taken${who}`)
     pin.el.classList.toggle('is-sel', item.id === selectedId.value)
     pin.el.classList.toggle('is-hot', item.id === hotId.value)
   }
@@ -300,7 +317,7 @@ function showFar() {
 }
 
 function onKey(e: KeyboardEvent) {
-  if (e.key !== 'Escape' || drawerOpen.value) return
+  if (drawerOpen.value || areaKey(e) || e.key !== 'Escape') return
   if (detailOpen.value) detailOpen.value = false
   else selectedId.value = null
 }
@@ -308,6 +325,7 @@ let resizeObs: ResizeObserver | null = null
 
 onMounted(async () => {
   window.addEventListener('keydown', onKey)
+  void loadAreas()
   await load()
   await nextTick()
   if (!mapContainer.value) return
@@ -321,11 +339,13 @@ onMounted(async () => {
   // A style switch drops custom layers: put the rings back and redraw the walk.
   map.on('style.load', () => {
     if (!map) return
-    addCampusLayers(map, mapStyle.value === 'satellite')
+    addCampusLayers(map, imagery.value)
+    addAreaLayers(imagery.value)
     void showWalk(selected.value)
   })
   map.on('move', () => { viewTick.value++ })
-  map.on('click', () => { if (!detailOpen.value) selectedId.value = null })
+  map.on('click', () => { if (!detailOpen.value && !drawing.value) selectedId.value = null })
+  bindAreas()
 
   const campusEl = document.createElement('div')
   campusEl.className = 'map-campus'
@@ -374,39 +394,17 @@ onBeforeUnmount(() => {
 
 .legend { position: absolute; top: 14px; left: 14px; z-index: 2; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); box-shadow: var(--shadow); color: var(--c-text); font-size: 11.5px; }
 .legend h2 { margin: 0 0 2px; color: var(--c-muted); font-size: 11.5px; font-weight: 700; line-height: 1.3; }
+.legend h2 span { font-weight: 500; opacity: 0.8; }
 .legend .l-gap { margin-top: 4px; }
 .l-row { display: flex; align-items: center; gap: 8px; }
 .dot { width: 9px; height: 9px; flex: none; border-radius: 50%; }
-.fills { display: flex; gap: 10px; }
-.fills > span { display: inline-flex; align-items: center; gap: 5px; }
-.glyph { position: relative; width: 16px; height: 16px; border: 2px solid var(--c-primary); border-radius: 50%; box-sizing: border-box; }
-.glyph i { position: absolute; inset: 3px; border-radius: 50%; background: var(--c-surface); }
-
-.seg { position: absolute; top: 14px; right: 14px; z-index: 2; display: flex; gap: 3px; padding: 3px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); box-shadow: var(--shadow); }
-.seg button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--c-muted); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
-.seg button[aria-checked='true'] { background: var(--c-primary-soft); color: var(--c-primary); }
+.fills { display: grid; grid-template-columns: auto auto; gap: 4px 12px; }
+.fills > span { display: inline-flex; align-items: center; gap: 8px; }
 
 .edge { position: absolute; bottom: 14px; left: 14px; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); box-shadow: var(--shadow); color: var(--c-text); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
 .edge b { color: var(--c-ink); }
 .edge:hover { border-color: var(--c-primary); }
-.seg button:focus-visible, .edge:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
+.edge:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
 
 :deep(.mapboxgl-ctrl-attrib) { font-size: 10px; }
-</style>
-
-<style>
-/* Pin and campus markers are built outside Vue's template, so their styles
-   cannot be scoped. */
-.map-pin { position: relative; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; transition: transform 0.15s ease; }
-.map-pin-ring { position: absolute; inset: 0; border: 2px solid; border-radius: 50%; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); }
-.map-pin-core { position: absolute; inset: 5px; border-radius: 50%; background: var(--c-surface); }
-.map-pin:hover, .map-pin.is-hot { z-index: 3; transform: scale(1.3); }
-.map-pin.is-sel { z-index: 4; transform: scale(1.35); }
-.map-pin.is-sel .map-pin-ring { box-shadow: 0 0 0 3px var(--c-surface), 0 0 0 5px var(--c-ink); }
-.map-pin:focus-visible { outline: 2px solid var(--c-ink); outline-offset: 3px; }
-.map-campus { display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border-radius: 999px; background: var(--c-ink); box-shadow: var(--shadow); color: var(--c-surface); font-family: var(--font-body); font-size: 12px; font-weight: 700; white-space: nowrap; pointer-events: none; }
-.map-campus i { width: 12px; height: 12px; border: 3px solid var(--c-surface); border-radius: 50%; background: var(--c-primary); }
-/* The walk parked half way along the route, as on mobile. */
-.map-walk-label { padding: 3px 9px; border: 1px solid var(--c-border); border-radius: 999px; background: color-mix(in srgb, var(--c-surface) 92%, transparent); backdrop-filter: blur(10px) saturate(160%); color: var(--c-primary); font-family: var(--font-body); font-size: 11.5px; font-weight: 700; white-space: nowrap; pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .map-pin { transition: none; } }
 </style>

@@ -79,6 +79,8 @@ export interface RealAccommodation {
   femaleCount: number
   maleCount: number
   image: string
+  /** Every exterior photo, by sort order; `image` is the first. */
+  photos: string[]
   address: string
   /** For grouping and filtering the OSAS reports by barangay. */
   barangay: string
@@ -250,13 +252,14 @@ export function useAccommodations() {
         })
       }
 
-      // First photo per accommodation, by sort order — the card wants one image,
-      // not the gallery.
-      const coverByAccommodation = new Map<string, string>()
+      // Exterior photos per accommodation, by sort order. Tables and cards want
+      // only the first (the cover); the Map View's pin card shows them all.
+      const photosByAccommodation = new Map<string, string[]>()
       for (const im of images) {
-        if (im.accommodation_id && im.url && !coverByAccommodation.has(im.accommodation_id)) {
-          coverByAccommodation.set(im.accommodation_id, im.url)
-        }
+        if (!im.accommodation_id || !im.url) continue
+        const list = photosByAccommodation.get(im.accommodation_id) ?? []
+        list.push(im.url)
+        photosByAccommodation.set(im.accommodation_id, list)
       }
 
       // Index landlord/landlady profiles by user_id.
@@ -385,7 +388,8 @@ export function useAccommodations() {
           maleCount,
           // Served through resolveAsset so the hub's 48px thumbnail pulls an
           // f_auto,q_auto derivative rather than the full-size upload.
-          image: resolveAsset(coverByAccommodation.get(p.id) ?? NO_PHOTO),
+          image: resolveAsset(photosByAccommodation.get(p.id)?.[0] ?? NO_PHOTO),
+          photos: (photosByAccommodation.get(p.id) ?? []).map(resolveAsset),
           address: composeAddress(p),
           barangay: p.barangay ?? '',
           floors: p.total_floors ?? 0,

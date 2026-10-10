@@ -1504,6 +1504,48 @@ export type Database = {
           },
         ]
       }
+      map_areas: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          ring: Json
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          ring: Json
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          ring?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "map_areas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "map_areas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           attachment_url: string | null

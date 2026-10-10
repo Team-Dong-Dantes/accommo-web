@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { statusGroup, bandOf, ringBackground, circleRing } from './mapPins'
+import { statusGroup, bandOf, boarderRing, circleRing } from './mapPins'
 import { CAMPUS, kmBetween } from '@/utils/geo'
 
 describe('mapPins', () => {
@@ -16,10 +16,16 @@ describe('mapPins', () => {
     expect(bandOf(14).key).toBe('far')
   })
 
-  it('fills the ring by beds taken, never past full', () => {
-    expect(ringBackground('accredited', 6, 12)).toContain('0 50%')
-    expect(ringBackground('accredited', 30, 12)).toContain('0 100%')
-    expect(ringBackground('awaiting', 0, 0)).toContain('0 0%')
+  it('rings the boarders by sex, then the free beds, never past full', () => {
+    // 5 women and 8 men in 16 beds: pink to 31%, blue to 81%, free beds after.
+    const casa = boarderRing(5, 8, 13, 16)
+    expect(casa).toContain('#e91e63 0 31%')
+    expect(casa).toContain('#42a5f5 31% 81%')
+    expect(casa).toContain('81% 100%')
+    // One of 13 boarders has no sex on record: a grey sliver before the (empty) free part.
+    expect(boarderRing(5, 7, 13, 13)).toContain('var(--c-muted) 92% 100%')
+    expect(boarderRing(30, 0, 30, 12)).toContain('#e91e63 0 100%')
+    expect(boarderRing(0, 0, 0, 0)).toContain('#e91e63 0 0%')
   })
 
   it('draws a closed ring the given distance from campus', () => {
