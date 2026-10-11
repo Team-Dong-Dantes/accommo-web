@@ -1,6 +1,7 @@
 <template>
   <!-- The selected area's card, in the map's corner, styled as the pin card:
-       what lies inside it, with its rename and delete (both in MapAreaDialog). -->
+       what lies inside it, with its rename and delete (both in MapAreaDialog),
+       and Edit, which shows the corner handles for reshaping. -->
   <div class="card" role="dialog" :aria-label="area.name">
     <div class="top">
       <span class="swatch" :style="{ background: area.color }" />
@@ -16,10 +17,13 @@
       </div>
       <div><dt>Beds taken</dt><dd>{{ stats.taken }} of {{ stats.beds }}</dd></div>
     </dl>
-    <p class="hint">Drag a corner to move it, or the dot on a border to add one. Right-click a corner to remove it.</p>
+    <p v-if="editing" class="hint">Drag a corner to move it, or the dot on a border to add one. Right-click a corner to remove it.</p>
     <div class="actions">
       <button type="button" class="ghost danger" @click="$emit('delete')">Delete</button>
       <button type="button" class="ghost" @click="$emit('rename')">Rename</button>
+      <button type="button" class="ghost" :class="{ on: editing }" :aria-pressed="editing" @click="$emit('update:editing', !editing)">
+        <Icon :icon="editing ? 'lucide:check' : 'lucide:pencil'" width="14" height="14" aria-hidden="true" />{{ editing ? 'Done' : 'Edit' }}
+      </button>
     </div>
   </div>
 </template>
@@ -29,8 +33,8 @@ import { Icon } from '@iconify/vue'
 import { STATUS_GROUPS } from './mapPins'
 import type { MapArea, areaStats } from './mapAreas'
 
-defineProps<{ area: MapArea; stats: ReturnType<typeof areaStats> }>()
-defineEmits<{ rename: []; delete: []; close: [] }>()
+defineProps<{ area: MapArea; stats: ReturnType<typeof areaStats>; editing: boolean }>()
+defineEmits<{ rename: []; delete: []; close: []; 'update:editing': [on: boolean] }>()
 </script>
 
 <style scoped>
@@ -49,6 +53,8 @@ dd { margin: 0; color: var(--c-ink); font-variant-numeric: tabular-nums; font-we
 .actions button { height: 32px; padding: 0 14px; border-radius: 9px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .ghost { border: 1px solid var(--c-border-strong); background: var(--c-surface); color: var(--c-text); }
 .ghost:hover { border-color: var(--c-primary); }
+.actions .ghost:not(.danger) { display: inline-flex; align-items: center; gap: 6px; }
+.ghost.on { border-color: var(--c-primary); background: var(--c-primary); color: #fff; }
 .ghost.danger { margin-right: auto; color: var(--c-danger); }
 .ghost.danger:hover { border-color: var(--c-danger); }
 .x:focus-visible, .actions button:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }

@@ -33,7 +33,7 @@
 
         <MapTools v-model:map-style="mapStyle" :drawing="drawing" :can-undo="canUndo" :show-undo="drawing || !!selectedArea" @draw="toggleDraw" @undo="undoArea" />
 
-        <MapAreaCard v-if="selectedArea && stats" :area="selectedArea" :stats="stats" @rename="areaDialog = 'rename'" @delete="areaDialog = 'delete'" @close="areaIds = []" />
+        <MapAreaCard v-if="selectedArea && stats" v-model:editing="areaEditing" :area="selectedArea" :stats="stats" @rename="areaDialog = 'rename'" @delete="areaDialog = 'delete'" @close="areaIds = []" />
         <MapAreaDialog :mode="areaDialog" :area="selectedArea" :busy="areaSaving" @save="saveName" @delete="removeArea" @close="closeAreaDialog" />
 
         <button v-if="farItems.length" type="button" class="edge" @click="showFar">
@@ -168,7 +168,7 @@ const shown = computed(() => {
 })
 // Areas OSAS draws, like districts: they narrow the list and the pins too.
 const {
-  areas, areaIds, dialog: areaDialog, saving: areaSaving, selectedArea, stats, drawing, dragging,
+  areas, areaIds, dialog: areaDialog, saving: areaSaving, selectedArea, stats, editing: areaEditing, drawing, dragging,
   inAreas, load: loadAreas, saveName, remove: removeArea, closeDialog: closeAreaDialog, toggleDraw, canUndo, undo: undoArea,
   addLayers: addAreaLayers, bind: bindAreas, onKey: areaKey,
 } = useMapAreas(() => map, items)

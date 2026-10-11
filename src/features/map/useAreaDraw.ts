@@ -2,7 +2,7 @@
 // Cities: Skylines 2. Draw mode places a corner per click, with the shape
 // filling in behind the cursor, and closes on the first corner again or a
 // double-click. Any corner already placed can be dragged, while drawing too.
-// A selected area shows its corners as handles: drag one to move
+// A selected area in edit mode shows its corners as handles: drag one to move
 // it, drag the dot half way along a border to add a corner there, right-click
 // one to remove it. Corners snap onto other areas' corners so neighbours share
 // a border. A shape that cannot be an area (borders crossing, corners stacked
@@ -62,6 +62,8 @@ export function useAreaDraw(getMap: () => mapboxgl.Map | null, cb: Callbacks) {
   const snapshot = () => corners.map((c) => [...c] as Coord)
   let areas: MapArea[] = []
   let selectedId: string | null = null
+  /** The selected area's corners show as handles only while it is being edited. */
+  let editing = false
   let corners: Coord[] = []
   let cursor: Coord | null = null
   /** A closed shape waiting for its name; drawn until the page clears it. */
@@ -70,6 +72,7 @@ export function useAreaDraw(getMap: () => mapboxgl.Map | null, cb: Callbacks) {
   let drag: { id: string | null; ring: Coord[]; index: number; from: Coord | null; moved: boolean } | null = null
 
   const selectedArea = () => areas.find((a) => a.id === selectedId) ?? null
+  const editedArea = () => (editing ? selectedArea() : null)
   const ringOf = (a: MapArea) => (drag?.id === a.id ? drag.ring : a.ring)
   const closed = (ring: Coord[]) => [...ring, ring[0]!]
   /** The outlines a shape may border but not cover: every area but the one being reshaped. */
@@ -99,7 +102,7 @@ export function useAreaDraw(getMap: () => mapboxgl.Map | null, cb: Callbacks) {
     else if (draft.length === 2) draftFeatures.push({ type: 'Feature', properties: { tint }, geometry: { type: 'LineString', coordinates: draft } })
     setData(DRAFT, draftFeatures)
 
-    const area = drawing.value ? null : selectedArea()
+    const area = drawing.value ? null : editedArea()
     const handles: Feature[] = []
     if (area) {
       const ring = ringOf(area)
@@ -244,7 +247,7 @@ export function useAreaDraw(getMap: () => mapboxgl.Map | null, cb: Callbacks) {
       if (ring) startDrag(e, { id: null, ring, index: i, from: [...ring[i]!] as Coord, moved: false })
       return
     }
-    const area = selectedArea()
+    const area = editedArea()
     if (!area || drawing.value || pending) return
     const ring = area.ring.map((c) => [...c] as Coord)
     const mid = h.properties.kind === 'mid'
@@ -283,7 +286,7 @@ export function useAreaDraw(getMap: () => mapboxgl.Map | null, cb: Callbacks) {
   /** Right-click on a corner of the selected area removes it. */
   function onMenu(e: mapboxgl.MapMouseEvent) {
     const map = getMap()
-    const area = selectedArea()
+    const area = editedArea()
     if (!map || !area || drawing.value || pending) return
     const h = handleAt(map, e)
     if (h?.properties.kind !== 'corner') return
@@ -397,7 +400,12 @@ export function useAreaDraw(getMap: () => mapboxgl.Map | null, cb: Callbacks) {
     render()
   }
 
+  function setEditing(on: boolean) {
+    editing = on
+    render()
+  }
+
   onBeforeUnmount(() => window.removeEventListener('mouseup', onUp))
 
-  return { drawing, dragging, draftSteps, undoDraft, startDraw, cancelDraw, clearPending, addLayers, bind, onKey, setAreas, setSelected }
+  return { drawing, dragging, draftSteps, undoDraft, startDraw, cancelDraw, clearPending, addLayers, bind, onKey, setAreas, setSelected, setEditing }
 }

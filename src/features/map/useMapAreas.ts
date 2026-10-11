@@ -53,6 +53,10 @@ export function useMapAreas(getMap: () => mapboxgl.Map | null, items: Ref<MapIte
 
   watch(areas, (a) => draw.setAreas(a), { deep: true })
   watch(selectedArea, (a) => draw.setSelected(a?.id ?? null))
+  /** Picking an area shows its details; its corners move only after Edit. */
+  const editing = ref(false)
+  watch(() => selectedArea.value?.id, () => { editing.value = false })
+  watch(editing, (on) => draw.setEditing(on))
   // An area deleted elsewhere drops out of the filter.
   watch(areas, (a) => { areaIds.value = areaIds.value.filter((id) => a.some((x) => x.id === id)) })
 
@@ -174,6 +178,7 @@ export function useMapAreas(getMap: () => mapboxgl.Map | null, items: Ref<MapIte
       void undo()
       return true
     }
+    if (editing.value && e.key === 'Escape' && !dialog.value) { editing.value = false; return true }
     return draw.onKey(e)
   }
 
@@ -185,7 +190,7 @@ export function useMapAreas(getMap: () => mapboxgl.Map | null, items: Ref<MapIte
   }
 
   return {
-    areas, areaIds, dialog, saving, selectedArea, stats, drawing: draw.drawing, dragging: draw.dragging,
+    areas, areaIds, dialog, saving, selectedArea, stats, editing, drawing: draw.drawing, dragging: draw.dragging,
     canUndo, inAreas, load, saveName, remove, closeDialog, toggleDraw, undo, onKey,
     addLayers: draw.addLayers, bind: draw.bind,
   }

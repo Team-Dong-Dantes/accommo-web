@@ -23,7 +23,7 @@ vi.mock('./useAreaDraw', () => ({
     const noop = () => {}
     return {
       drawing: ref(false), dragging: ref(false), draftSteps: ref([]), undoDraft: () => false, onKey: () => false,
-      setAreas: noop, setSelected: noop, clearPending: noop, cancelDraw: noop, startDraw: noop, addLayers: noop, bind: noop,
+      setAreas: noop, setSelected: noop, setEditing: noop, clearPending: noop, cancelDraw: noop, startDraw: noop, addLayers: noop, bind: noop,
     }
   },
 }))
