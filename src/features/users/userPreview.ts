@@ -71,6 +71,7 @@ function paymentMethodLabel(method: string): string {
     case 'bank': return 'Bank Transfer'
     case 'cash': return 'Cash'
     case 'others': return 'Other'
+    case 'deposit': return 'Paid from deposit'
     default: return cap(method) || '—'
   }
 }
