@@ -20,7 +20,7 @@
       <BadgePill v-if="o.status" :tone="o.statusTone || 'neutral'" :label="o.status" />
     </div>
   </div>
-  <TabEmptyState v-else icon="lucide:users" title="No occupants" message="Nobody is assigned to this room right now." />
+  <TabEmptyState v-else icon="lucide:users" title="No boarders" message="Nobody is assigned to this room right now." />
 </template>
 
 <script setup lang="ts">

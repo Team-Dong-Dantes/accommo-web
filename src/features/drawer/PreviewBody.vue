@@ -374,7 +374,7 @@
     if (showDocsTab.value) t.push({ name: 'documents', label: 'Requirements' })
     if (showRoomsTab.value) t.push({ name: 'rooms', label: 'Rooms' })
     if (showFacilitiesTab.value) t.push({ name: 'facilities', label: props.preview.kind === 'room' ? 'Private Facilities' : 'Shared Facilities' })
-    if (showOccupantsTab.value) t.push({ name: 'occupants', label: 'Occupants' })
+    if (showOccupantsTab.value) t.push({ name: 'occupants', label: 'Boarders' })
     if (showPhotosTab.value) t.push({ name: 'photos', label: 'Photos' })
     if (showActivityTab.value) t.push({ name: 'activity', label: 'Activity' })
     if (showReviewsTab.value) t.push({ name: 'reviews', label: 'Ratings' })

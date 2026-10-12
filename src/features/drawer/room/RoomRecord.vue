@@ -38,7 +38,7 @@ defineEmits<{
 }>()
 
 const TABS = [
-  { name: 'occupants', label: 'Occupants' },
+  { name: 'occupants', label: 'Boarders' },
   { name: 'facilities', label: 'Private Facilities' },
   { name: 'photos', label: 'Photos' },
 ]

@@ -534,7 +534,7 @@ const roomPreview = computed<DrawerPreview>(() => {
         { label: 'Label', value: r.label || '—' },
         { label: 'Floor', value: r.floor != null ? String(r.floor) : '—' },
         { label: 'Capacity', value: String(r.capacity ?? '—') },
-        { label: 'Occupants', value: String(r.current_pax ?? 0) },
+        { label: 'Boarders', value: String(r.current_pax ?? 0) },
       ],
     },
     {

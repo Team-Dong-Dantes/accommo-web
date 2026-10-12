@@ -20,7 +20,7 @@
     icon="lucide:sparkles"
     :title="isRoom ? 'No private facilities' : 'No shared facilities'"
     :message="isRoom
-      ? 'This room has nothing listed of its own — its occupants use the shared facilities.'
+      ? 'This room has nothing listed of its own — its boarders use the shared facilities.'
       : 'This accommodation has not listed any shared facilities yet.'"
   />
 </template>
