@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { supabase } from '@/utils/supabase';
+import { captcha } from '@/utils/captcha';
 import { roleLabel } from '@/utils/format';
 import { NO_ACCESS, PATH_AREAS, SUPERADMIN_PATHS, normalizeLevels, type AccessLevels, type Area } from '@/utils/access';
 
@@ -110,6 +111,7 @@ export const useAuthStore = defineStore('auth', {
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: await captcha(),
       });
 
       if (authError) throw sanitizeError(authError);

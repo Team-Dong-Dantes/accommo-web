@@ -284,7 +284,9 @@ async function savePassword() {
     return
   }
   try {
-    const { error } = await supabase.auth.updateUser({ password: password.next })
+    // Supabase checks current_password itself (Auth → "require current password"),
+    // so a session left open on a shared desk can't be used to take the account.
+    const { error } = await supabase.auth.updateUser({ password: password.next, current_password: password.current })
     if (error) {
       notify.error(error.message)
       return

@@ -46,6 +46,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useQuasar, type QForm } from 'quasar';
 import { useAuthStore } from '@/stores/auth';
 import { callEdgeFunction } from '@/utils/edgeFunction';
+import { captcha } from '@/utils/captcha';
 import { useNotify } from '@/utils/notify';
 
 import AuthInput from '@/components/auth/AuthInput.vue';
@@ -84,7 +85,7 @@ async function sendReset() {
   }
   resetting.value = true;
   try {
-    await callEdgeFunction('request-admin-reset', { email: email.value });
+    await callEdgeFunction('request-admin-reset', { email: email.value, ...(await captcha()) });
     notify.success('If that is an OSAS admin account, a reset link is on its way.');
   } catch (e) {
     notify.error(errorMessage(e, 'Could not send the reset e-mail.'));
