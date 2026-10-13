@@ -33,6 +33,9 @@
       </div>
     </q-form>
 
+    <!-- Cloudflare's "Verify you are human" box, only when it asks for a click. -->
+    <div ref="captchaHost" />
+
     <p class="signin-foot">
       Access is restricted to accounts an administrator has invited.
     </p>
@@ -85,7 +88,7 @@ async function sendReset() {
   }
   resetting.value = true;
   try {
-    await callEdgeFunction('request-admin-reset', { email: email.value, ...(await captcha()) });
+    await callEdgeFunction('request-admin-reset', { email: email.value, ...(await captcha(captchaHost.value)) });
     notify.success('If that is an OSAS admin account, a reset link is on its way.');
   } catch (e) {
     notify.error(errorMessage(e, 'Could not send the reset e-mail.'));
@@ -99,6 +102,7 @@ const password = ref('');
 const showPassword = ref(false);
 const loading = ref(false);
 const loginFormRef = ref<QForm | null>(null);
+const captchaHost = ref<HTMLElement | null>(null);
 
 async function handleLogin() {
   if (!loginFormRef.value) return;
@@ -110,7 +114,7 @@ async function handleLogin() {
 
   try {
     loading.value = true;
-    await authStore.login(email.value, password.value);
+    await authStore.login(email.value, password.value, captchaHost.value);
 
     $q.notify({ message: 'Welcome back!', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-check-circle', iconColor: 'teal-4', classes: 'custom-notify' });
     void router.push(authStore.needsOnboarding ? '/onboarding' : '/dashboard');
