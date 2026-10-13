@@ -1,23 +1,20 @@
 /**
- * Cloudinary client-side upload helper (unsigned).
+ * Cloudinary client-side upload helper.
  *
- * Uses Cloudinary's unsigned upload endpoint so NO API secret is exposed
- * in client code. Requires two env vars that are PUBLIC and browser-safe:
- *   VITE_CLOUDINARY_CLOUD_NAME    — your cloud name (e.g. n5mhxcnb)
- *   VITE_CLOUDINARY_UPLOAD_PRESET — an UNSIGNED upload preset you created
- *                                    (Settings → Upload → Upload presets)
+ * Each upload is signed by the `doc-access` edge function (public-upload-params),
+ * so the API secret never reaches client code. It used to post to an unsigned
+ * preset, which anyone who read the preset name out of the bundle could use.
  *
  * Images are uploaded with auto-optimization (fetch_format auto + q_auto)
  * appended to the returned URL, so browsers always receive a compressed
  * WebP/AVIF. Supports single files or multiple files per call.
  */
 
-const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+import { callEdgeFunction } from '@/utils/edgeFunction'
 
-const UPLOAD_ENDPOINT = CLOUD_NAME
-  ? `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`
-  : '';
+interface UploadParams {
+  cloudName: string; apiKey: string; timestamp: number; publicId: string; allowedFormats: string; signature: string
+}
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -45,10 +42,6 @@ function optimizeUrl(rawUrl: string): string {
   );
 }
 
-function localErrorMessage(): string {
-  return 'Cloudinary is not configured. Add VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET to your environment.';
-}
-
 /**
  * Validates a File against the app's allowed types + size cap.
  * Returns an error message, or null if the file is valid.
@@ -64,31 +57,30 @@ export function validateCloudinaryFile(file: File): string | null {
 }
 
 /**
- * Uploads one or more files to Cloudinary via the unsigned preset.
+ * Uploads one or more files to Cloudinary, each under the uploader's own folder
+ * (the signature decides where, not the caller).
  * @param files   A single File or an array of Files.
- * @param folder  Optional virtual folder to organize assets (e.g. 'avatars').
  * @returns       An array of result objects; the first for a single file.
  */
 export async function uploadToCloudinary(
   files: File | File[],
-  folder?: string,
 ): Promise<CloudinaryUploadResult[]> {
-  if (!CLOUD_NAME || !UPLOAD_PRESET || !UPLOAD_ENDPOINT) {
-    throw new Error(localErrorMessage());
-  }
-
   const list = Array.isArray(files) ? files : [files];
   const results = await Promise.all(list.map(async (file) => {
     const validationError = validateCloudinaryFile(file);
     if (validationError) throw new Error(validationError);
 
+    // One signature per file: it names the exact public_id.
+    const params = await callEdgeFunction<UploadParams>('doc-access', { action: 'public-upload-params' });
     const form = new FormData();
     form.append('file', file);
-    form.append('upload_preset', UPLOAD_PRESET);
-    // Only include a folder tag on the preset if the preset allows folders.
-    if (folder) form.append('folder', folder);
+    form.append('api_key', params.apiKey);
+    form.append('timestamp', String(params.timestamp));
+    form.append('public_id', params.publicId);
+    form.append('allowed_formats', params.allowedFormats);
+    form.append('signature', params.signature);
 
-    const response = await fetch(UPLOAD_ENDPOINT, {
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${params.cloudName}/image/upload`, {
       method: 'POST',
       body: form,
     });
@@ -114,11 +106,8 @@ export async function uploadToCloudinary(
 }
 
 /** Convenience wrapper: upload a single file, throw on error. */
-export async function uploadCloudinaryFile(
-  file: File,
-  folder?: string,
-): Promise<CloudinaryUploadResult> {
-  const [result] = await uploadToCloudinary(file, folder);
+export async function uploadCloudinaryFile(file: File): Promise<CloudinaryUploadResult> {
+  const [result] = await uploadToCloudinary(file);
   if (!result) throw new Error('Cloudinary upload returned no result.');
   return result;
 }

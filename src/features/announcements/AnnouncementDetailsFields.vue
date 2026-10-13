@@ -50,7 +50,7 @@ async function onPick(e: Event) {
   if (!file) return
   uploading.value = true
   try {
-    details.value.imageUrl = (await uploadCloudinaryFile(file, 'announcements')).url
+    details.value.imageUrl = (await uploadCloudinaryFile(file)).url
   } catch (err) {
     notify.error(errorMessage(err, 'Upload failed'))
   } finally {
