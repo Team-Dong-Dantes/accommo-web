@@ -4,7 +4,7 @@
       <div>
         <div class="text-weight-medium text-ink" style="font-size: 14px">Two-factor authentication</div>
         <div class="text-muted" style="font-size: 12px">
-          {{ factorId ? 'On. A code from your authenticator app is required at sign-in.' : 'Require a code from an authenticator app at sign-in.' }}
+          {{ factorId ? 'On. A code from your authenticator app is required at login.' : 'Require a code from an authenticator app at login.' }}
         </div>
       </div>
       <q-btn v-if="factorId" flat no-caps color="negative" label="Turn off" :loading="busy" @click="confirmOff" />
@@ -93,7 +93,7 @@ async function cancel() {
 function confirmOff() {
   $q.dialog({
     title: 'Turn off two-factor authentication',
-    message: 'Signing in will only need your password again.',
+    message: 'Logging in will only need your password again.',
     cancel: { label: 'Keep it on', noCaps: true, flat: true },
     ok: { label: 'Turn off', color: 'negative', noCaps: true },
     persistent: true,

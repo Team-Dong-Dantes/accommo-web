@@ -66,7 +66,7 @@
           <q-list class="toggle-list q-mb-md">
             <q-item class="toggle-item">
               <q-item-section>
-                <div class="text-weight-medium text-ink" style="font-size: 14px">New sign-in alerts</div>
+                <div class="text-weight-medium text-ink" style="font-size: 14px">New login alerts</div>
                 <div class="text-muted" style="font-size: 12px">Notify me when this account signs in from a new device or network.</div>
               </q-item-section>
               <q-item-section side>

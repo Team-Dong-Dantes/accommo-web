@@ -62,10 +62,10 @@ describe('mapLog', () => {
     expect(t.name).toBe('TKT-0012 · No water')
   })
 
-  it('sign-ups and sign-ins belong to the user, not the system', () => {
+  it('sign-ups and logins belong to the user, not the system', () => {
     const signin = mapLog({ ...base, actor: null, action: 'UPDATE', entity_type: 'users', created_at: '2026-09-28T00:00:00',
       before_json: { full_name: 'Ezekiel', last_login_at: null }, after_json: { full_name: 'Ezekiel', last_login_at: '2026-09-28T11:51:56' } })
-    expect(signin.sentence).toBe('Ezekiel signed in')
+    expect(signin.sentence).toBe('Ezekiel logged in')
     expect(signin.actor.isSystem).toBe(false)
   })
 })

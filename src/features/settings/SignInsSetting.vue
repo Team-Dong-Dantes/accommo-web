@@ -2,14 +2,14 @@
   <div class="signins">
     <div class="signins-head">
       <div>
-        <div class="text-weight-medium text-ink" style="font-size: 14px">Where you're signed in</div>
-        <div class="text-muted" style="font-size: 12px">Sign-ins to this account in the last 90 days. Sign out any device you don't recognise.</div>
+        <div class="text-weight-medium text-ink" style="font-size: 14px">Where you're logged in</div>
+        <div class="text-muted" style="font-size: 12px">Logins to this account in the last 90 days. Log out any device you don't recognise.</div>
       </div>
-      <q-btn v-if="others > 0" flat no-caps color="negative" label="Sign out other devices" :loading="busy === 'others'" @click="confirmOthers" />
+      <q-btn v-if="others > 0" flat no-caps color="negative" label="Log out other devices" :loading="busy === 'others'" @click="confirmOthers" />
     </div>
 
     <div v-if="rows === null" class="text-muted q-py-sm" style="font-size: 13px">Loading…</div>
-    <div v-else-if="!rows.length" class="text-muted q-py-sm" style="font-size: 13px">No sign-ins recorded yet.</div>
+    <div v-else-if="!rows.length" class="text-muted q-py-sm" style="font-size: 13px">No logins recorded yet.</div>
     <div v-for="r in rows" :key="r.session_id" class="signin-row">
       <Icon :icon="/Android|iPhone|iPad/.test(r.user_agent ?? '') ? 'lucide:smartphone' : 'lucide:monitor'"
         width="20" height="20" class="signin-ico" :class="{ 'signin-ico--ended': !r.active }" />
@@ -19,11 +19,11 @@
           <BadgePill v-if="r.current" tone="primary" label="This device" class="q-ml-xs" />
         </div>
         <div class="text-muted" style="font-size: 12px">
-          {{ r.ip ?? 'Unknown IP' }} · signed in {{ formatDateTime(r.signed_in_at) }}
-          · {{ r.active ? `active ${getTimeAgo(r.last_active_at)}` : 'signed out' }}
+          {{ r.ip ?? 'Unknown IP' }} · logged in {{ formatDateTime(r.signed_in_at) }}
+          · {{ r.active ? `active ${getTimeAgo(r.last_active_at)}` : 'logged out' }}
         </div>
       </div>
-      <q-btn v-if="r.active && !r.current" flat dense no-caps color="negative" label="Sign out"
+      <q-btn v-if="r.active && !r.current" flat dense no-caps color="negative" label="Log out"
         :loading="busy === r.session_id" @click="signOut(r.session_id)" />
     </div>
   </div>
@@ -57,23 +57,23 @@ async function signOut(id: string) {
   const { error } = await supabase.rpc('sign_out_session', { p_session: id })
   busy.value = null
   if (error) return notify.error(error.message)
-  notify.success('That device has been signed out')
+  notify.success('That device has been logged out')
   await load()
 }
 
 function confirmOthers() {
   $q.dialog({
-    title: 'Sign out other devices',
-    message: 'Every device except this one will need to sign in again.',
+    title: 'Log out other devices',
+    message: 'Every device except this one will need to log in again.',
     cancel: { label: 'Cancel', noCaps: true, flat: true },
-    ok: { label: 'Sign out', color: 'negative', noCaps: true },
+    ok: { label: 'Log out', color: 'negative', noCaps: true },
     persistent: true,
   }).onOk(async () => {
     busy.value = 'others'
     const { error } = await supabase.auth.signOut({ scope: 'others' })
     busy.value = null
     if (error) return notify.error(error.message)
-    notify.success('Other devices have been signed out')
+    notify.success('Other devices have been logged out')
     await load()
   })
 }

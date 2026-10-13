@@ -4,7 +4,7 @@
   <div class="invite-block">
     <div class="field-label">Invite a new administrator</div>
     <p class="text-muted invite-hint">
-      Send an email invite — the new admin sets their own name and password on first sign-in. If email delivery isn't available, a one-time password is generated instead.
+      Send an email invite — the new admin sets their own name and password on first login. If email delivery isn't available, a one-time password is generated instead.
     </p>
     <div class="row items-start">
       <q-input outlined dense v-model="invite.email" label="Email address" type="email"

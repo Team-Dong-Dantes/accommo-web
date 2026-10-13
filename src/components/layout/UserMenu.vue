@@ -50,7 +50,7 @@
           <q-item-section avatar class="menu-ico">
             <Icon icon="lucide:log-out" width="20" height="20" color="#ef5350" />
           </q-item-section>
-          <q-item-section class="menu-label text-danger text-weight-bold">Sign Out</q-item-section>
+          <q-item-section class="menu-label text-danger text-weight-bold">Log out</q-item-section>
         </q-item>
       </q-list>
     </q-menu>
@@ -81,7 +81,7 @@ async function handleLogout() {
     await authStore.logout();
     void router.push('/login');
   } catch {
-    notifyError('Error signing out');
+    notifyError('Error logging out');
   }
 }
 </script>

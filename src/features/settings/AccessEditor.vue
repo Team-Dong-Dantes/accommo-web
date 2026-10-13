@@ -66,7 +66,7 @@
       <Icon icon="lucide:timer" width="18" height="18" class="ae-expiry-ico" />
       <span class="ae-area">
         <span class="ae-label">Time-limited access</span>
-        <span class="ae-hint">On the end date they are signed out until you extend it.</span>
+        <span class="ae-hint">On the end date they are logged out until you extend it.</span>
       </span>
       <q-input
         v-if="modelValue.expiresAt !== null"

@@ -196,7 +196,7 @@ const tabs = computed(() => [
 const tabRows = computed(() => (activeTab.value === 'students' ? students.value : landlords.value))
 
 const STATUS_ORDER = ['Pending', 'Reviewing', 'Verified', 'Needs Resubmission', 'Rejected', 'Suspended', 'Unverified']
-const LAST_ACTIVE: Record<string, string> = { week: 'This week', month: 'This month', stale: 'Over a month ago', never: 'Never signed in' }
+const LAST_ACTIVE: Record<string, string> = { week: 'This week', month: 'This month', stale: 'Over a month ago', never: 'Never logged in' }
 const EMAIL: Record<string, string> = { unconfirmed: 'Not confirmed', confirmed: 'Confirmed' }
 
 // Option values are row fields' values; the list keeps a row when its field

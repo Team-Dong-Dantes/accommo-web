@@ -160,7 +160,7 @@ const ACTIONS: Record<AdminAction, { fn: string; title: string; ok: string; done
   },
   mfa: {
     fn: 'reset_mfa', title: 'Reset two-factor', ok: 'Reset two-factor', done: 'Two-factor reset',
-    message: (who) => `Remove ${who}'s authenticator? They sign in with only their password until they set two-factor up again in Settings.`,
+    message: (who) => `Remove ${who}'s authenticator? They log in with only their password until they set two-factor up again in Settings.`,
   },
 }
 

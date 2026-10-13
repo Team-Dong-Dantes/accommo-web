@@ -490,7 +490,7 @@ const infoGroups = computed(() => {
         label: 'Sign-up',
         value: p.onboarding_complete == null ? '' : p.onboarding_complete ? 'Complete' : 'Incomplete',
       },
-      { label: 'Last sign-in', value: stamp(p.last_login_at) },
+      { label: 'Last login', value: stamp(p.last_login_at) },
     ],
   })
 

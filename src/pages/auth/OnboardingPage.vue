@@ -93,8 +93,8 @@
       </q-form>
 
       <p class="onboard-foot">
-        Signed in as the wrong account?
-        <button type="button" class="onboard-signout" @click="logout">Sign out</button>
+        Logged in as the wrong account?
+        <button type="button" class="onboard-signout" @click="logout">Log out</button>
       </p>
     </template>
   </div>
@@ -204,7 +204,7 @@ async function submit() {
 
   const user = authStore.user;
   if (!user) {
-    $q.notify({ message: 'Your session expired. Please sign in again.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' });
+    $q.notify({ message: 'Your session expired. Please log in again.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' });
     void router.push('/auth/login');
     return;
   }

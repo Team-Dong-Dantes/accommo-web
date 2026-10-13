@@ -218,7 +218,7 @@ function updateVerb(entityType: string, changes: AuditChange[], before: any, aft
     return STATUS_VERB[s] ?? 'changed the status of'
   }
   if (has('role')) return 'changed the role of'
-  if (entityType === 'users' && changes.length === 1 && changes[0]!.key === 'last_login_at') return 'signed in'
+  if (entityType === 'users' && changes.length === 1 && changes[0]!.key === 'last_login_at') return 'logged in'
   return 'updated'
 }
 
@@ -262,7 +262,7 @@ export function mapLog(row: any): AuditEvent {
   else if (row.action === 'DELETE') verb = 'deleted'
   else if (row.action === 'UPDATE') verb = updateVerb(entityType, changes, row.before_json, row.after_json)
   else verb = label(row.action).toLowerCase()
-  if (verb === 'signed in') subjectIsRecord = true
+  if (verb === 'logged in') subjectIsRecord = true
 
   // Sign-ups and sign-ins are the user's own doing, even though the auth
   // trigger that writes them has no session and so no actor.
@@ -315,7 +315,7 @@ export function withName(ev: AuditEvent, name: string): AuditEvent {
 
 /** Which table to look a missing name up in, for events that need one. */
 export function nameSource(ev: AuditEvent): 'users' | 'accommodations' | null {
-  if (ev.name || ev.verb === 'signed up' || ev.verb === 'signed in') return null
+  if (ev.name || ev.verb === 'signed up' || ev.verb === 'logged in') return null
   if (ev.entityLabel === 'account') return 'users'
   if (ev.entityLabel === 'accommodation') return 'accommodations'
   return null
@@ -324,6 +324,6 @@ export function nameSource(ev: AuditEvent): 'users' | 'accommodations' | null {
 export function getActionColor(ev: Pick<AuditEvent, 'action' | 'verb'>): StatusTone {
   if (/deleted|rejected|suspended|archived|unpublished/.test(ev.verb)) return 'danger'
   if (ev.action === 'CREATE' || /approved|accredited|verified|published|restored|resolved/.test(ev.verb)) return 'success'
-  if (ev.verb === 'signed in' || ev.verb === 'signed up') return 'info'
+  if (ev.verb === 'logged in' || ev.verb === 'signed up') return 'info'
   return 'neutral'
 }

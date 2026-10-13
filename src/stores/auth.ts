@@ -21,7 +21,7 @@ function sanitizeError(error: unknown): Error {
       return new Error('Invalid email or password.');
     }
     if (error.message.includes('Email not confirmed')) {
-      return new Error('Please confirm your email address before signing in.');
+      return new Error('Please confirm your email address before logging in.');
     }
     if (error.message.includes('rate limit')) {
       return new Error('Too many attempts. Please try again later.');

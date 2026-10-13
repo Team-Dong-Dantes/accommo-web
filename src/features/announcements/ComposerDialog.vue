@@ -483,7 +483,7 @@ async function save() {
     }
     let error: any = null
     if (mode.value === 'create') {
-      if (!userId) throw new Error('Not signed in')
+      if (!userId) throw new Error('Not logged in')
       ;({ error } = await supabase.from('announcements').insert({ ...payload, author_id: userId } as any))
     } else {
       ;({ error } = await supabase.from('announcements').update(payload as any).eq('id', editingId.value!))

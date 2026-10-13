@@ -27,7 +27,7 @@
               <Icon icon="lucide:smartphone" width="19" height="19" />
               Download App
             </a>
-            <a class="cta-quiet" :href="SIGN_IN_URL">Sign in as Student or Landlord/Landlady</a>
+            <a class="cta-quiet" :href="SIGN_IN_URL">Log in as Student or Landlord/Landlady</a>
           </div>
         </div>
 

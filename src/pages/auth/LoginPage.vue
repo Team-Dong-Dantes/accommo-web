@@ -1,7 +1,7 @@
 <template>
   <div class="signin">
     <header class="signin-head">
-      <h1>Sign in</h1>
+      <h1>Log in</h1>
       <p>Office of Student Affairs and Services. Staff accounts only.</p>
     </header>
 
@@ -29,7 +29,7 @@
 
       <div class="signin-actions">
         <button type="button" class="forgot" :disabled="resetting" @click="sendReset">Forgot password?</button>
-        <AuthButton type="submit" :loading="loading">Sign in</AuthButton>
+        <AuthButton type="submit" :loading="loading">Log in</AuthButton>
       </div>
     </q-form>
 

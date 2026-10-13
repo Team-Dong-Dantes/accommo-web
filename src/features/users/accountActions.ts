@@ -90,7 +90,7 @@ const DOC_OPTIONS: Record<string, { key: string; label: string; hint: string }[]
 }
 
 const RESTRICTION_OPTIONS: Record<string, { key: Restriction; label: string; hint: string }[]> = {
-  student: [{ key: 'apply', label: 'Room applications', hint: 'They can still sign in, browse and pay, but cannot apply for a room.' }],
+  student: [{ key: 'apply', label: 'Room applications', hint: 'They can still log in, browse and pay, but cannot apply for a room.' }],
   landlord: [{ key: 'listings', label: 'Listings', hint: 'Every one of their accommodations is hidden from students. Current boarders are unaffected.' }],
 }
 
@@ -145,10 +145,10 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
     out.push({ group: 'Record', label: 'Edit profile…', action: 'edit', icon: 'lucide:user-pen' })
     out.push({ group: 'Contact', label: 'Send notification…', action: 'notify', icon: 'lucide:bell-plus' })
     out.push({ group: 'Contact', label: 'Open a support ticket…', action: 'ticket', icon: 'lucide:life-buoy' })
-    const sign = 'Sign-in'
+    const sign = 'Login'
     out.push({ group: sign, label: signIn.value?.hasPassword ? 'Set a temporary password…' : 'Give them a password…', action: 'temp-password', icon: 'lucide:key-round' })
-    out.push({ group: sign, label: 'Change sign-in e-mail…', action: 'email', icon: 'lucide:at-sign' })
-    out.push({ group: sign, label: 'Sign out everywhere…', action: 'sign-out', icon: 'lucide:log-out' })
+    out.push({ group: sign, label: 'Change login e-mail…', action: 'email', icon: 'lucide:at-sign' })
+    out.push({ group: sign, label: 'Log out everywhere…', action: 'sign-out', icon: 'lucide:log-out' })
     if (signIn.value?.hasGoogle) {
       out.push({ group: sign, label: 'Disconnect Google…', action: 'google', icon: 'lucide:unlink' })
     }
@@ -185,15 +185,15 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
           title: 'Suspend account', name, icon: 'lucide:ban', danger: true, reason: 'required', until: true,
           confirm: 'Suspend',
           blurb: role.value === 'student'
-            ? 'They are signed out at once and cannot sign in. Their OSAS verification is withdrawn until the account is reactivated.'
-            : 'They are signed out at once and cannot sign in. Their accredited accommodations are delisted and stay delisted after reactivation.',
+            ? 'They are logged out at once and cannot log in. Their OSAS verification is withdrawn until the account is reactivated.'
+            : 'They are logged out at once and cannot log in. Their accredited accommodations are delisted and stay delisted after reactivation.',
           run: (i) => changeStatus('suspended', i, 'Account suspended'),
         }
         break
       case 'reactivate':
         spec.value = {
           title: 'Reactivate account', name, icon: 'lucide:rotate-ccw', reason: 'optional', confirm: 'Reactivate',
-          blurb: `They can sign in again as a verified ${who}.`,
+          blurb: `They can log in again as a verified ${who}.`,
           run: (i) => changeStatus('verified', i, 'Account reactivated'),
         }
         break
@@ -238,34 +238,34 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
         spec.value = {
           title: signIn.value?.hasPassword ? 'Set a temporary password' : 'Give them a password',
           name, icon: 'lucide:key-round', reason: 'none', confirm: 'Generate password',
-          blurb: (signIn.value?.hasGoogle ? 'They can keep signing in with Google, or use this with their e-mail. ' : '')
-            + 'Their current password stops working and every device they are signed in on is signed out. Hand the new one to them in person.',
+          blurb: (signIn.value?.hasGoogle ? 'They can keep logging in with Google, or use this with their e-mail. ' : '')
+            + 'Their current password stops working and every device they are logged in on is logged out. Hand the new one to them in person.',
           run: async () => {
             const password = await setTemporaryPassword(s.rawId)
             await onChanged(s.status.toLowerCase() as AccountStatus)
-            return { label: 'Temporary password', value: password, note: `Sign in with ${s.email} and this password. It is shown only now.` }
+            return { label: 'Temporary password', value: password, note: `Log in with ${s.email} and this password. It is shown only now.` }
           },
         }
         break
       case 'email':
         spec.value = {
-          title: 'Change sign-in e-mail', name, icon: 'lucide:at-sign', reason: 'none', confirm: 'Change e-mail',
+          title: 'Change login e-mail', name, icon: 'lucide:at-sign', reason: 'none', confirm: 'Change e-mail',
           blurb: 'For a mistyped or lost address. The new one works at once — no confirmation e-mail is sent, so check it with them. Only @gmail.com and @isu.edu.ph are accepted.',
           field: { label: 'New e-mail', type: 'email', initial: s.email },
           run: async (i) => {
             await changeSignInEmail(s.rawId, i.value)
-            notify.success('Sign-in e-mail changed', name)
+            notify.success('Login e-mail changed', name)
             await onChanged(s.status.toLowerCase() as AccountStatus)
           },
         }
         break
       case 'sign-out':
         spec.value = {
-          title: 'Sign out everywhere', name, icon: 'lucide:log-out', reason: 'none', confirm: 'Sign out',
+          title: 'Log out everywhere', name, icon: 'lucide:log-out', reason: 'none', confirm: 'Log out',
           blurb: 'Ends every session, for a lost or shared phone. A device already open is refused on its next request.',
           run: async () => {
             const n = await signOutEverywhere(s.rawId)
-            notify.success(n ? `Signed out of ${n} session${n === 1 ? '' : 's'}` : 'They were not signed in anywhere', name)
+            notify.success(n ? `Logged out of ${n} session${n === 1 ? '' : 's'}` : 'They were not logged in anywhere', name)
             await onChanged(s.status.toLowerCase() as AccountStatus)
           },
         }
@@ -274,7 +274,7 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
         spec.value = {
           title: 'Disconnect Google', name, icon: 'lucide:unlink', reason: 'none', confirm: 'Disconnect', danger: true,
           blurb: signIn.value?.hasPassword
-            ? 'For when the wrong Google account was connected. Afterwards they sign in with their e-mail and password.'
+            ? 'For when the wrong Google account was connected. Afterwards they log in with their e-mail and password.'
             : 'They have no password, so this would lock them out. Give them a password first.',
           run: async () => {
             await disconnectGoogle(s.rawId)
@@ -299,10 +299,10 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
         spec.value = {
           title: next === 'landlord' ? `Change to ${landlordTitle(s.sex).toLowerCase()}` : 'Change to student',
           name, icon: 'lucide:repeat', danger: true, reason: 'required', confirm: 'Change role', confirmPhrase: name,
-          blurb: 'Their registration starts over as the new role: they are signed out, and on their next sign-in they register and upload that role’s requirements for OSAS to verify. Refused while they have a current stay or application, or own an accommodation.',
+          blurb: 'Their registration starts over as the new role: they are logged out, and on their next login they register and upload that role’s requirements for OSAS to verify. Refused while they have a current stay or application, or own an accommodation.',
           run: async (i) => {
             await changeRole(s.rawId, next, i.reason ?? '')
-            notify.success('Role changed — they will re-register on their next sign-in', name)
+            notify.success('Role changed — they will re-register on their next login', name)
             await hooks.onReload()
           },
         }
@@ -311,7 +311,7 @@ export function useAccountActions(subject: Ref<AccountSubject | null>, state: Ac
       case 'close':
         spec.value = {
           title: 'Close account', name, icon: 'lucide:user-x', danger: true, reason: 'required', confirm: 'Close account', confirmPhrase: name,
-          blurb: 'Cannot be undone. Their name, contact details, ID numbers and requirements are erased and they can no longer sign in. Leases, payments and ratings stay — anonymized — so other people’s records survive. Refused while they have a current stay or an accredited accommodation.',
+          blurb: 'Cannot be undone. Their name, contact details, ID numbers and requirements are erased and they can no longer log in. Leases, payments and ratings stay — anonymized — so other people’s records survive. Refused while they have a current stay or an accredited accommodation.',
           run: async (i) => {
             await closeAccount(s.rawId, i.reason ?? '')
             notify.success('Account closed')

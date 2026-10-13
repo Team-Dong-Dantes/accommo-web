@@ -10,7 +10,7 @@ export type Level = 'none' | 'view' | 'edit'
 export type AccessLevels = Record<Area, Level>
 
 export const AREAS: { key: Area; label: string; hint: string; view: string; edit: string }[] = [
-  { key: 'accounts', label: 'Accounts', hint: 'Users list, profiles, notes, sign-in actions', view: 'View only', edit: 'View & edit' },
+  { key: 'accounts', label: 'Accounts', hint: 'Users list, profiles, notes, login actions', view: 'View only', edit: 'View & edit' },
   { key: 'verification', label: 'Verification', hint: 'Approve or reject students and landlords/landladies', view: 'View only', edit: 'View & edit' },
   { key: 'accreditation', label: 'Accreditation', hint: 'Accreditation decisions and permits', view: 'View only', edit: 'View & edit' },
   { key: 'accommodations', label: 'Accommodations', hint: 'Hubs and map — hide, suspend, restore', view: 'View only', edit: 'View & edit' },
