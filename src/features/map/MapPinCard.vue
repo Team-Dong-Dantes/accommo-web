@@ -16,7 +16,7 @@
         <span class="photo-count">{{ shown + 1 }} / {{ item.photos.length }}</span>
       </template>
     </div>
-    <div v-else class="photo-none"><Icon icon="lucide:image-off" width="15" height="15" aria-hidden="true" />No exterior photo yet</div>
+    <div v-else class="photo"><PhotoEmpty :size="24" label /></div>
     <div class="card-top">
       <div class="card-titles">
         <h3>{{ item.name }}</h3>
@@ -61,6 +61,7 @@
 import { landlordTitle } from '@/utils/format'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
+import PhotoEmpty from '@/components/ui/PhotoEmpty.vue'
 import PhotoLightbox from '@/features/drawer/accommodation/PhotoLightbox.vue'
 import { SEX_COLORS, STATUS_GROUPS, type MapItem } from './mapPins'
 import type { CardSide } from './campusRoute'
@@ -164,7 +165,6 @@ const position = computed(() => ({
 .photo-prev { left: 8px; }
 .photo-next { right: 8px; }
 .photo-count { position: absolute; right: 8px; bottom: 8px; padding: 2px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.photo-none { display: flex; align-items: center; gap: 7px; padding: 9px 14px; border-bottom: 1px solid var(--c-border); background: var(--c-surface-2); color: var(--c-muted); font-size: 12px; }
 .card-top { display: flex; align-items: flex-start; gap: 10px; padding: 12px 12px 10px 14px; }
 .card-titles { display: flex; flex: 1; flex-direction: column; gap: 6px; min-width: 0; }
 h3 { margin: 0; color: var(--c-ink); font-family: var(--font-display); font-size: 15.5px; letter-spacing: -0.01em; line-height: 1.25; }

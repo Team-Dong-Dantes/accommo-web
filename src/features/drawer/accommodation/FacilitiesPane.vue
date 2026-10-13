@@ -30,6 +30,7 @@
             <div v-for="rm in sharedBy(f)" :key="rm.id" class="rl-person">
               <span class="fp-room">
                 <img v-if="rm.photos?.length" :src="rm.photos[0]" alt="" />
+                <PhotoEmpty v-else :size="14" />
               </span>
               <span class="rl-main">
                 <span class="rl-pname">{{ rm.name }}</span>
@@ -48,6 +49,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
+import PhotoEmpty from '@/components/ui/PhotoEmpty.vue'
 import TabEmptyState from '../TabEmptyState.vue'
 import PhotoStrip from './PhotoStrip.vue'
 import { groupByFloor, type DrawerPreview, type PreviewFacility, type PreviewRoom } from '../preview'
@@ -100,6 +102,7 @@ const tint = (type: string) => TINT[type] ?? 'var(--ar-muted)'
   font-weight: 600;
 }
 .fp-room {
+  position: relative;
   flex-shrink: 0;
   width: 28px;
   height: 28px;

@@ -6,9 +6,7 @@
   <section class="detail" :aria-label="`${item.name} details`">
     <div class="d-cover">
       <img v-if="cover && !coverBroken" :src="cover" alt="" class="d-img" @error="coverBroken = true" />
-      <svg v-else class="d-hills" viewBox="0 0 480 132" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M0 100 L80 60 L140 84 L230 30 L320 70 L400 40 L480 66 V132 H0Z" fill="#fff" />
-      </svg>
+      <PhotoEmpty v-else :size="28" />
       <div class="d-fade" />
       <div class="d-chips">
         <span class="d-type">{{ item.type }}</span>
@@ -62,6 +60,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
+import PhotoEmpty from '@/components/ui/PhotoEmpty.vue'
 import { landlordTitle } from '@/utils/format'
 import { amenityMeta } from '@/utils/facilities'
 import type { DrawerPreview } from '@/components/ui/DetailDrawer.vue'
@@ -88,7 +87,6 @@ const amenities = computed(() => (overview.value?.amenities ?? []).map(amenityMe
 
 .d-cover { position: relative; flex: none; height: 168px; overflow: hidden; background: linear-gradient(160deg, color-mix(in srgb, var(--c-primary) 55%, #1b2a26), color-mix(in srgb, var(--c-primary) 20%, #0e1a17)); }
 .d-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.d-hills { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.22; }
 .d-fade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.6)); }
 .d-chips { position: absolute; top: 16px; left: 18px; display: flex; gap: 6px; }
 .d-type { padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 11.5px; font-weight: 700; }

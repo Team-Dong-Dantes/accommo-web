@@ -68,15 +68,14 @@
         <span class="ae-label">Time-limited access</span>
         <span class="ae-hint">On the end date they are logged out until you extend it.</span>
       </span>
-      <q-input
+      <DateTimeField
         v-if="modelValue.expiresAt !== null"
         :model-value="modelValue.expiresAt"
-        type="date"
         outlined
         dense
         :min="tomorrow"
         aria-label="Access ends on"
-        @update:model-value="(v) => emit('update:modelValue', { ...modelValue, expiresAt: String(v ?? '') })"
+        @update:model-value="(v) => emit('update:modelValue', { ...modelValue, expiresAt: v })"
       />
       <q-toggle
         dense
@@ -91,6 +90,7 @@
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
+import DateTimeField from '@/components/ui/DateTimeField.vue'
 import { AREAS, AREA_GROUPS, PRESETS, presetOf, type AccessLevels, type Area, type Level } from '@/utils/access'
 
 export interface AccessDraft {

@@ -1,6 +1,7 @@
 <template>
   <div class="ov-cover">
     <img v-if="o?.coverUrl && !coverBroken" :src="o.coverUrl" alt="" class="ov-cover-img" @error="coverBroken = true" />
+    <PhotoEmpty v-else :size="28" label />
     <div class="ov-fade"></div>
     <button v-if="hasMenu" type="button" class="ov-dots" aria-label="More options" aria-haspopup="menu" @click="$emit('menu')">
       <Icon icon="lucide:ellipsis-vertical" width="16" height="16" />
@@ -74,6 +75,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
+import PhotoEmpty from '@/components/ui/PhotoEmpty.vue'
 import { amenityMeta } from '@/utils/facilities'
 import { formatPhone } from '@/utils/format'
 import OverviewCharts from './OverviewCharts.vue'

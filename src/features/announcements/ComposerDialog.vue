@@ -101,22 +101,19 @@
           <h3 id="composer-step-title" class="panel-title">{{ currentStep.heading }}</h3>
           <p class="panel-copy">{{ currentStep.guidance }}</p>
 
-          <q-select
+          <AppSelect
             v-model="form.audience"
             outlined
             label="Audience"
             :options="audienceOptions"
-            emit-value
-            map-options
             hint="Only the selected group will see this announcement."
             persistent-hint
           />
 
-          <q-input
+          <DateTimeField
             v-model="form.expiresAt"
             class="q-mt-md"
             outlined
-            type="date"
             label="Expiry date"
             clearable
             hint="Optional. Leave blank to keep the announcement visible until it is archived."
@@ -173,12 +170,12 @@
           <div v-if="!editingLive" class="publish-choice q-mt-md">
             <div class="panel-title">When should it go out?</div>
             <q-option-group v-model="form.publishMode" :options="publishOptions" color="primary" inline />
-            <q-input
+            <DateTimeField
               v-if="form.publishMode === 'schedule'"
               v-model="form.publishAt"
+              mode="datetime"
               class="q-mt-sm"
               outlined
-              type="datetime-local"
               label="Publish at"
               stack-label
               :error="Boolean(errors.publishAt)"
@@ -236,6 +233,8 @@
 import { errorMessage } from '@/utils/errors'
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
+import DateTimeField from '@/components/ui/DateTimeField.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { formatDateTime } from '@/utils/format'

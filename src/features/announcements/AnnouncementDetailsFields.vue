@@ -1,8 +1,8 @@
 <template>
   <div class="details-grid">
-    <q-input v-model="details.eventAt" outlined type="datetime-local" label="Event starts" stack-label clearable hint="Optional. When the thing being announced happens." />
-    <q-input v-model="details.eventEnd" outlined type="datetime-local" label="Event ends" stack-label clearable :disable="!details.eventAt" />
-    <q-input v-model="details.deadlineAt" outlined type="datetime-local" label="Deadline" stack-label clearable hint="Optional. When readers must act by." />
+    <DateTimeField v-model="details.eventAt" mode="datetime" outlined label="Event starts" stack-label clearable hint="Optional. When the thing being announced happens." />
+    <DateTimeField v-model="details.eventEnd" mode="datetime" outlined label="Event ends" stack-label clearable :disable="!details.eventAt" />
+    <DateTimeField v-model="details.deadlineAt" mode="datetime" outlined label="Deadline" stack-label clearable hint="Optional. When readers must act by." />
     <q-input v-model="details.location" outlined label="Location" placeholder="e.g. OSAS Office, Admin Bldg." hint="Optional." />
   </div>
 
@@ -26,6 +26,7 @@
 import { errorMessage } from '@/utils/errors'
 import { ref } from 'vue'
 import { Icon } from '@iconify/vue'
+import DateTimeField from '@/components/ui/DateTimeField.vue'
 import { uploadCloudinaryFile } from '@/utils/cloudinary'
 import { useNotify } from '@/utils/notify'
 

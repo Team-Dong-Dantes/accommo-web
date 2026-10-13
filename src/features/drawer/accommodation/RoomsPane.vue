@@ -11,7 +11,7 @@
           <template #header="{ expanded }">
             <span class="rl-thumb">
               <img v-if="rm.photos?.length" :src="rm.photos[0]" alt="" />
-              <Icon v-else icon="lucide:bed-double" width="17" height="17" />
+              <PhotoEmpty v-else :size="16" />
             </span>
             <span class="rl-main">
               <span class="rl-name">{{ rm.name }}</span>
@@ -59,6 +59,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
+import PhotoEmpty from '@/components/ui/PhotoEmpty.vue'
 import TabEmptyState from '../TabEmptyState.vue'
 import PhotoStrip from './PhotoStrip.vue'
 import { cap, groupByFloor, type DrawerPreview, type PreviewOccupant, type PreviewRoom } from '../preview'

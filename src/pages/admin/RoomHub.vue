@@ -34,9 +34,9 @@
             <q-td class="row-num-cell">{{ rowNumber }}</q-td>
             <q-td key="room" :props="props" class="col-title">
               <div class="row items-center no-wrap">
-                <q-avatar rounded color="teal-6" text-color="white" class="room-thumb text-weight-bold q-mr-md">
+                <q-avatar rounded class="room-thumb q-mr-md">
                   <img v-if="props.row.image" :src="props.row.image" :alt="props.row.name" />
-                  <template v-else>{{ props.row.initials }}</template>
+                  <PhotoEmpty v-else />
                 </q-avatar>
                 <div class="column" style="min-width: 0;">
                   <div class="cell-main ellipsis">{{ props.row.type }}</div>
@@ -105,6 +105,7 @@ import { useRoute } from 'vue-router'
 const route = useRoute()
 import { supabase } from '@/utils/supabase'
 import TabNav from '@/components/ui/TabNav.vue'
+import PhotoEmpty from '@/components/ui/PhotoEmpty.vue'
 import TableCard from '@/components/table/TableCard.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
@@ -144,7 +145,6 @@ interface RoomQueryRow {
 interface RoomTableRow {
   id: string
   name: string
-  initials: string
   image: string
   type: string
   accommodation: string
@@ -450,7 +450,6 @@ async function fetchRooms() {
       return {
         id: r.id,
         name,
-        initials: initialsOf(name),
         image: resolveAsset(cover),
         type: roomTypeName(r) || 'Room',
         accommodation: accommodationName,
@@ -654,7 +653,6 @@ onMounted(async () => {
 .cell-main { font-size: calc(1.875 * var(--ut)); line-height: 1.2; font-weight: 700; color: var(--c-ink); }
 .cell-sub { font-size: calc(1.5 * var(--ut)); color: var(--c-muted); margin-top: 2px; }
 .room-thumb { font-size: calc(6 * var(--ut)); }
-.room-thumb :deep(.q-avatar__content) { font-size: calc(2.25 * var(--ut)); }
 
 /* Figures right-aligned so their digits line up down the column. The cells
    are flex boxes (DataTable.vue), hence justify-content, not text-align alone. */

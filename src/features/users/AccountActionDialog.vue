@@ -44,7 +44,7 @@
 
       <label v-if="spec.until" class="aa-field">
         <span class="aa-label">Suspended until <span class="aa-opt">optional — leave empty to suspend until OSAS lifts it</span></span>
-        <q-input v-model="until" type="date" dense outlined :min="tomorrow" />
+        <DateTimeField v-model="until" dense outlined :min="tomorrow" aria-label="Suspended until" />
       </label>
 
       <label v-if="spec.message" class="aa-field">
@@ -89,6 +89,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
+import DateTimeField from '@/components/ui/DateTimeField.vue'
 import type { AccountActionSpec, AccountActionInput } from './accountActions'
 
 const props = defineProps<{ spec: AccountActionSpec | null }>()

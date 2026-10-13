@@ -25,6 +25,7 @@
   background: var(--ar-surface);
 }
 .rl-thumb {
+  position: relative;
   display: flex;
   flex-shrink: 0;
   align-items: center;

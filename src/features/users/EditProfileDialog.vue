@@ -21,8 +21,8 @@
           <span class="ep-sec-title">Personal</span>
           <div class="ep-grid">
             <q-input v-model="form.fullName" label="Full name" dense outlined class="ep-wide" maxlength="120" />
-            <q-select v-model="form.sex" :options="SEX_OPTIONS" label="Sex" dense outlined emit-value map-options />
-            <q-input v-model="form.dateOfBirth" label="Date of birth" type="date" dense outlined stack-label />
+            <AppSelect v-model="form.sex" :options="SEX_OPTIONS" label="Sex" dense outlined />
+            <DateTimeField v-model="form.dateOfBirth" label="Date of birth" dense outlined stack-label :max="adultCutoff" />
             <q-input v-model="form.phone" label="Phone" dense outlined class="ep-wide" maxlength="20" />
           </div>
         </section>
@@ -30,9 +30,9 @@
         <section v-if="form.student" class="ep-sec">
           <span class="ep-sec-title">Academic</span>
           <div class="ep-grid">
-            <q-select v-model="form.student.college" :options="collegeOptions" label="College" dense outlined class="ep-wide" @update:model-value="onCollege" />
-            <q-select v-model="form.student.program" :options="programOptions" label="Program" dense outlined class="ep-wide" :disable="!form.student.college" />
-            <q-select v-model="form.student.yearLevel" :options="YEAR_OPTIONS" label="Year level" dense outlined emit-value map-options />
+            <AppSelect v-model="form.student.college" :options="collegeOptions" label="College" dense outlined class="ep-wide" @update:model-value="onCollege" />
+            <AppSelect v-model="form.student.program" :options="programOptions" label="Program" dense outlined class="ep-wide" :disable="!form.student.college" />
+            <AppSelect v-model="form.student.yearLevel" :options="YEAR_OPTIONS" label="Year level" dense outlined />
             <q-input v-model="form.student.studentId" label="Student ID" dense outlined maxlength="20" />
           </div>
         </section>
@@ -51,8 +51,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
+import DateTimeField from '@/components/ui/DateTimeField.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import { collegeOptions, collegePrograms, yearOptions } from '@/constants/academics'
 import { fetchEditableProfile, saveEditableProfile, type EditableProfile } from '@/api/accounts'
+import { manilaToday } from '@/utils/facilities'
 
 const props = defineProps<{ userId: string | null; name: string }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'saved', profile: EditableProfile): void }>()
@@ -63,6 +66,9 @@ const SEX_OPTIONS = [
   { label: 'Not recorded', value: null },
 ]
 const YEAR_OPTIONS = yearOptions.map((label, i) => ({ label, value: i + 1 }))
+// Only adults may use the app; the database enforces the same 18-year bound.
+const today = manilaToday()
+const adultCutoff = `${Number(today.slice(0, 4)) - 18}${today.slice(4)}`
 
 const form = ref<EditableProfile | null>(null)
 let original = ''

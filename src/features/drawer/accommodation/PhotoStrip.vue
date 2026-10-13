@@ -12,12 +12,12 @@
       <span v-if="i === shown.length - 1 && more > 0" class="ps-more">+{{ more }}</span>
     </button>
   </div>
-  <div v-else class="ps-none"><Icon icon="lucide:image-off" width="14" height="14" />No photos yet</div>
+  <div v-else class="ps"><span class="ps-empty"><PhotoEmpty /></span></div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Icon } from '@iconify/vue'
+import PhotoEmpty from '@/components/ui/PhotoEmpty.vue'
 
 const props = defineProps<{ photos: string[]; title: string }>()
 defineEmits<{ (e: 'open', index: number): void }>()
@@ -54,5 +54,5 @@ const more = computed(() => (props.photos.length > 4 ? props.photos.length - 3 :
   font-size: 13px;
   font-weight: 700;
 }
-.ps-none { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px; color: var(--ar-muted); font-size: 12px; }
+.ps-empty { position: relative; width: 72px; height: 52px; overflow: hidden; border-radius: 8px; }
 </style>

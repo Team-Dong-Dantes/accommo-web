@@ -56,7 +56,7 @@
                 class="dd-cover-img"
                 @error="coverBroken = true"
               />
-              <span v-else class="dd-cover-tag">No cover photo on file</span>
+              <PhotoEmpty v-else :size="28" label />
               <div class="dd-cover-fade"></div>
               <div class="dd-cover-head">
                 <h2 class="dd-ink dd-display dd-cover-name">{{ preview.name }}</h2>
@@ -95,10 +95,7 @@
 
           <div v-if="roomHero" class="dd-hero dd-rise" style="--i: 1">
             <img v-if="coverUrl" :src="coverUrl" alt="" class="dd-hero-img" />
-            <div v-else class="dd-hero-empty column flex-center dd-muted">
-              <Icon icon="lucide:image-off" width="28" height="28" />
-              <div class="text-caption q-mt-xs">No photo</div>
-            </div>
+            <PhotoEmpty v-else :size="28" label />
             <div class="dd-hero-scrim" />
             <div class="dd-hero-head row items-center q-gutter-x-sm">
               <div class="dd-hero-name dd-display">{{ preview.name }}</div>
@@ -254,6 +251,7 @@
   import { Icon } from '@iconify/vue'
   import BadgePill from '@/components/user/BadgePill.vue'
   import TabNav from '@/components/ui/TabNav.vue'
+  import PhotoEmpty from '@/components/ui/PhotoEmpty.vue'
   import { useAuthStore } from '@/stores/auth'
   import HistoryTab from './HistoryTab.vue'
   import FilesTab from './FilesTab.vue'
@@ -645,19 +643,6 @@
     height: 100%;
     object-fit: cover;
   }
-  .dd-cover-tag {
-    position: absolute;
-    top: 14px;
-    left: 20px;
-    z-index: 1;
-    padding: 4px 10px;
-    border-radius: 5px;
-    background: color-mix(in srgb, #14241f 42%, transparent);
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-  }
   .dd-cover-fade {
     position: absolute;
     inset: 0;
@@ -967,11 +952,6 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-  }
-  .dd-hero-empty {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(160deg, var(--c-border), var(--c-surface) 85%);
   }
   .dd-hero-scrim {
     position: absolute;

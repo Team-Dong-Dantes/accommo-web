@@ -3,6 +3,7 @@
        its terms and private facilities, and who runs it. -->
   <div class="rc-band ro-band">
     <img v-if="o?.coverUrl && !coverBroken" :src="o.coverUrl" alt="" class="rc-band-img" @error="coverBroken = true" />
+    <PhotoEmpty v-else :size="28" label />
     <div class="rc-fade"></div>
     <div class="rc-head">
       <span v-if="o" class="rc-pill"><Icon icon="lucide:bed-double" width="12" height="12" />{{ o.typeLabel }}</span>
@@ -129,6 +130,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
+import PhotoEmpty from '@/components/ui/PhotoEmpty.vue'
 import { formatPhone } from '@/utils/format'
 import type { DrawerPreview, HubKind, PreviewOccupant } from '../preview'
 import type { Tone } from '../accommodation/standing'

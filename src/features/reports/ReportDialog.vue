@@ -43,25 +43,24 @@
                 </template>
                 <template v-else>
                   <span class="rd-label">{{ f.label }}</span>
-                  <q-input
+                  <DateTimeField
                     v-if="f.kind === 'date'"
                     :model-value="String(params[current]![f.key] || '')"
-                    type="date"
                     dense
                     outlined
+                    :aria-label="f.label"
                     class="rd-input"
-                    @update:model-value="(v) => (params[current]![f.key] = String(v ?? ''))"
+                    @update:model-value="(v) => (params[current]![f.key] = v)"
                   />
-                  <q-select
+                  <AppSelect
                     v-else
-                    v-model="params[current]![f.key]"
+                    :model-value="String(params[current]![f.key] ?? '')"
                     :options="optionsFor(f)"
-                    emit-value
-                    map-options
                     dense
                     outlined
-                    options-dense
+                    :aria-label="f.label"
                     class="rd-input"
+                    @update:model-value="(v) => (params[current]![f.key] = v ?? '')"
                   />
                 </template>
               </div>
@@ -70,8 +69,8 @@
             <div class="rd-group">
               <div class="rd-group-title">Page</div>
               <div class="rd-page">
-                <q-select v-model="paper" :options="PAPERS" emit-value map-options dense outlined label="Paper" class="rd-input" />
-                <q-select v-model="orientation" :options="ORIENTATIONS" emit-value map-options dense outlined label="Orientation" class="rd-input" />
+                <AppSelect v-model="paper" :options="PAPERS" dense outlined label="Paper" class="rd-input" />
+                <AppSelect v-model="orientation" :options="ORIENTATIONS" dense outlined label="Orientation" class="rd-input" />
               </div>
             </div>
 
@@ -117,6 +116,8 @@
 import { errorMessage } from '@/utils/errors'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
+import DateTimeField from '@/components/ui/DateTimeField.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import TabNav from '@/components/ui/TabNav.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useNotify } from '@/utils/notify'
