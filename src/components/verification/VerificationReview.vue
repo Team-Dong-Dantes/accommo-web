@@ -259,10 +259,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, type PropType } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, type PropType, defineAsyncComponent } from 'vue'
 import { Icon } from '@iconify/vue'
 import DocumentViewer from '@/features/verifications/DocumentViewer.vue'
-import PropertyMap from '@/features/verifications/PropertyMap.vue'
+// Loaded on demand: it pulls in mapbox-gl (~1.8 MB), which most visits never need.
+const PropertyMap = defineAsyncComponent(() => import('@/features/verifications/PropertyMap.vue'))
 import DecisionForm from '@/features/verifications/DecisionForm.vue'
 import VerificationChecks from '@/features/verifications/VerificationChecks.vue'
 import { fileIcon } from '@/features/verifications/fileUtils'

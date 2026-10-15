@@ -29,11 +29,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, defineAsyncComponent } from 'vue'
 import { Icon } from '@iconify/vue'
 import DetailSections from '../DetailSections.vue'
 import TabEmptyState from '../TabEmptyState.vue'
-import PropertyMap from '@/features/verifications/PropertyMap.vue'
+// Loaded on demand: it pulls in mapbox-gl (~1.8 MB), which most visits never need.
+const PropertyMap = defineAsyncComponent(() => import('@/features/verifications/PropertyMap.vue'))
 import { fetchStaySummary, type StaySummary } from '@/api/leases'
 import { cap, composeAddress, humanizeEnum, landlordTitle, roomStatusLabel } from '@/utils/format'
 import { fmtMonthYear, type HubKind, type PreviewDetailGroup } from '../preview'
