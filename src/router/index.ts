@@ -159,5 +159,23 @@ export default defineRouter(() => {
     return true;
   });
 
+  // A deploy deletes the old hashed chunks, and the SPA fallback answers for
+  // them with index.html ("text/html is not a valid JavaScript MIME type"). A
+  // tab opened before the deploy then fails every lazy route, which looked like
+  // "Welcome back" with no redirect. Reload once onto the new build; the flag
+  // stops a genuinely broken chunk from looping.
+  const STALE_CHUNK = /MIME type|dynamically imported module|Importing a module script failed|Failed to fetch/i;
+  Router.onError((error, to) => {
+    if (!STALE_CHUNK.test(String((error as Error)?.message ?? error))) return;
+    try {
+      if (sessionStorage.getItem('chunk-reload') === to.fullPath) return;
+      sessionStorage.setItem('chunk-reload', to.fullPath);
+    } catch {
+      return;
+    }
+    window.location.assign(to.fullPath);
+  });
+  Router.afterEach(() => { try { sessionStorage.removeItem('chunk-reload'); } catch { /* non-fatal */ } });
+
   return Router;
 });
