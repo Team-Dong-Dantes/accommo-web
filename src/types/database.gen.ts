@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       accommodation_amenities: {
@@ -1088,6 +1063,52 @@ export type Database = {
           },
         ]
       }
+      conversation_prefs: {
+        Row: {
+          archived_at: string | null
+          conversation_id: string
+          muted: boolean
+          pinned: boolean
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          conversation_id: string
+          muted?: boolean
+          pinned?: boolean
+          user_id?: string
+        }
+        Update: {
+          archived_at?: string | null
+          conversation_id?: string
+          muted?: boolean
+          pinned?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_prefs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_prefs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_prefs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_full"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           id: string
@@ -1554,38 +1575,67 @@ export type Database = {
       }
       messages: {
         Row: {
+          accommodation_id: string | null
           attachment_url: string | null
           body: string
           conversation_id: string
+          deleted_at: string | null
+          edited_at: string | null
           id: string
+          reactions: Json
+          reply_to_id: string | null
           sender_id: string
           sent_at: string
           status: Database["public"]["Enums"]["msg_status"]
         }
         Insert: {
+          accommodation_id?: string | null
           attachment_url?: string | null
           body: string
           conversation_id: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
+          reactions?: Json
+          reply_to_id?: string | null
           sender_id: string
           sent_at?: string
           status?: Database["public"]["Enums"]["msg_status"]
         }
         Update: {
+          accommodation_id?: string | null
           attachment_url?: string | null
           body?: string
           conversation_id?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
+          reactions?: Json
+          reply_to_id?: string | null
           sender_id?: string
           sent_at?: string
           status?: Database["public"]["Enums"]["msg_status"]
         }
         Relationships: [
           {
+            foreignKeyName: "messages_accommodation_id_fkey"
+            columns: ["accommodation_id"]
+            isOneToOne: false
+            referencedRelation: "accommodations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "messages_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {
@@ -3036,6 +3086,7 @@ export type Database = {
         Args: { p_conversation: string }
         Returns: undefined
       }
+      mark_messages_delivered: { Args: never; Returns: undefined }
       may_message: { Args: { p_other: string }; Returns: boolean }
       mfa_ok: { Args: { p_uid: string }; Returns: boolean }
       my_accommodation_ids: {
@@ -3141,6 +3192,10 @@ export type Database = {
       rate_limit_hit: {
         Args: { p_key: string; p_max: number; p_window: number }
         Returns: boolean
+      }
+      react_to_message: {
+        Args: { p_emoji: string; p_message: string }
+        Returns: undefined
       }
       reap_unverified_signups: {
         Args: { p_older_than?: string }
@@ -3464,9 +3519,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       accommodation_status: [
