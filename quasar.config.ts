@@ -41,6 +41,19 @@ export default defineConfig((/* ctx */) => {
         }
         aliasArr.push({ find: /^@iconify\/vue$/, replacement: '@iconify/vue/offline' })
         conf.resolve.alias = aliasArr
+
+        // `name.hash` rather than Vite's `name-hash`: every file URL changed once
+        // so browsers that cached index.html under an asset URL (the old
+        // vercel.json rewrite + immutable header, fixed there) never ask for
+        // those poisoned URLs again. Harmless to keep.
+        conf.build = conf.build || {}
+        conf.build.rollupOptions = conf.build.rollupOptions || {}
+        conf.build.rollupOptions.output = {
+          ...(conf.build.rollupOptions.output as object),
+          entryFileNames: 'assets/[name].[hash].js',
+          chunkFileNames: 'assets/[name].[hash].js',
+          assetFileNames: 'assets/[name].[hash][extname]',
+        }
       },
 
       typescript: {
