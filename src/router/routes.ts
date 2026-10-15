@@ -26,6 +26,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/layouts/AuthLayout.vue'),
     children: [
       { path: 'mfa', component: () => import('@/pages/auth/AuthStepPage.vue') },
+      { path: 'mfa-setup', component: () => import('@/pages/auth/AuthStepPage.vue') },
       { path: 'reset-password', component: () => import('@/pages/auth/AuthStepPage.vue') },
     ],
   },

@@ -4,11 +4,10 @@
       <div>
         <div class="text-weight-medium text-ink" style="font-size: 14px">Two-factor authentication</div>
         <div class="text-muted" style="font-size: 12px">
-          {{ factorId ? 'On. A code from your authenticator app is required at login.' : 'Require a code from an authenticator app at login.' }}
+          {{ factorId ? 'On. A code from your authenticator app is required at login.' : 'Required for admin accounts. Set it up to continue.' }}
         </div>
       </div>
-      <q-btn v-if="factorId" flat no-caps color="negative" label="Turn off" :loading="busy" @click="confirmOff" />
-      <q-btn v-else-if="!enrolling" unelevated no-caps color="primary" label="Set up" :loading="busy" @click="start" />
+      <q-btn v-if="!factorId && !enrolling" unelevated no-caps color="primary" label="Set up" :loading="busy" @click="start" />
     </div>
 
     <div v-if="enrolling" class="tfa-setup">
@@ -32,12 +31,11 @@
 <script setup lang="ts">
 import { errorMessage } from '@/utils/errors'
 import { onMounted, ref } from 'vue'
-import { useQuasar } from 'quasar'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 
-const $q = useQuasar()
 const notify = useNotify()
+const emit = defineEmits<{ enrolled: [] }>()
 
 const factorId = ref<string | null>(null)
 const enrolling = ref<{ id: string; qr: string; secret: string } | null>(null)
@@ -78,6 +76,7 @@ async function verify() {
     factorId.value = enrolling.value.id
     enrolling.value = null
     notify.success('Two-factor authentication is on')
+    emit('enrolled')
   } catch (e) {
     notify.error(errorMessage(e, 'That code did not work'))
   } finally {
@@ -88,24 +87,6 @@ async function verify() {
 async function cancel() {
   if (enrolling.value) await supabase.auth.mfa.unenroll({ factorId: enrolling.value.id })
   enrolling.value = null
-}
-
-function confirmOff() {
-  $q.dialog({
-    title: 'Turn off two-factor authentication',
-    message: 'Logging in will only need your password again.',
-    cancel: { label: 'Keep it on', noCaps: true, flat: true },
-    ok: { label: 'Turn off', color: 'negative', noCaps: true },
-    persistent: true,
-  }).onOk(async () => {
-    if (!factorId.value) return
-    busy.value = true
-    const { error } = await supabase.auth.mfa.unenroll({ factorId: factorId.value })
-    busy.value = false
-    if (error) return notify.error(error.message)
-    factorId.value = null
-    notify.success('Two-factor authentication is off')
-  })
 }
 
 onMounted(load)

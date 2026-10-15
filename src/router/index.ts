@@ -110,6 +110,12 @@ export default defineRouter(() => {
     if (to.path === '/auth/mfa') return needsCode ? true : '/dashboard';
     if (needsCode) return '/auth/mfa';
 
+    // No authenticator enrolled: the database refuses an admin until they have
+    // one (mfa_ok), so enrolment comes before anything else.
+    const needsSetup = role === 'admin' && aal?.nextLevel !== 'aal2';
+    if (to.path === '/auth/mfa-setup') return needsSetup ? true : '/dashboard';
+    if (needsSetup) return '/auth/mfa-setup';
+
     // The e-mailed reset link signs the person in, then lands here.
     if (to.path === '/auth/reset-password') return true;
 

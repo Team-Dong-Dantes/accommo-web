@@ -1,12 +1,15 @@
 <template>
   <div class="signin">
     <header class="signin-head">
-      <h1>{{ isMfa ? 'Enter your code' : 'Set a new password' }}</h1>
-      <p v-if="isMfa">Open your authenticator app and enter the 6-digit code for Accommo OSAS.</p>
+      <h1>{{ isSetup ? 'Set up two-factor' : isMfa ? 'Enter your code' : 'Set a new password' }}</h1>
+      <p v-if="isSetup">Admin accounts need a code from an authenticator app. Set it up once to continue.</p>
+      <p v-else-if="isMfa">Open your authenticator app and enter the 6-digit code for Accommo OSAS.</p>
       <p v-else>Choose a new password for your OSAS account.</p>
     </header>
 
-    <q-form class="signin-form" @submit.prevent="submit">
+    <TwoFactorSetting v-if="isSetup" @enrolled="router.replace(authStore.needsOnboarding ? '/onboarding' : '/dashboard')" />
+
+    <q-form v-else class="signin-form" @submit.prevent="submit">
       <label v-if="isMfa" class="field">
         <span class="field-label">Verification code</span>
         <AuthInput v-model="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" autofocus>
@@ -49,6 +52,7 @@ import { useNotify } from '@/utils/notify'
 import { useAuthStore } from '@/stores/auth'
 import AuthInput from '@/components/auth/AuthInput.vue'
 import AuthButton from '@/components/auth/AuthButton.vue'
+import TwoFactorSetting from '@/features/settings/TwoFactorSetting.vue'
 import { passwordProblem } from '@/utils/format'
 
 const route = useRoute()
@@ -57,6 +61,7 @@ const notify = useNotify()
 const authStore = useAuthStore()
 
 const isMfa = computed(() => route.path === '/auth/mfa')
+const isSetup = computed(() => route.path === '/auth/mfa-setup')
 const code = ref('')
 const password = ref('')
 const confirm = ref('')
