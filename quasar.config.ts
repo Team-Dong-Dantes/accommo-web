@@ -10,6 +10,7 @@ export default defineConfig((/* ctx */) => {
       'pinia',
       'iconify',
       'apexcharts',
+      'debug',
     ],
 
     css: [
