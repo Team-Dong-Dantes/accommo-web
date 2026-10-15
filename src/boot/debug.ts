@@ -28,7 +28,8 @@ export default defineBoot(({ router }) => {
   };
   const clear = document.createElement('button');
   clear.textContent = 'Clear';
-  clear.style.cssText = btn.style.cssText.replace('right:12px', 'right:76px');
+  clear.style.cssText = btn.style.cssText;
+  clear.style.right = '76px'; // not a cssText replace: Safari rewrites 'right:12px' as 'right: 12px'
   clear.onclick = () => { lines.length = 0; panel.textContent = ''; };
   document.body.append(panel, btn, clear);
 
