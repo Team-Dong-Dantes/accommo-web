@@ -317,35 +317,51 @@ export async function fetchAccommodationDrawerExtras(
 }
 
 /**
- * Take an accredited property out of what students browse, or put it back.
- * Only an admin can flip the flag; a trigger on `accommodations` enforces that.
+ * Everything the Accommodation Hub and the Map View map into their rows, in
+ * one round trip. Only the accommodations are required; the rest read as empty
+ * when their query fails.
  */
-export async function setAccommodationHidden(id: string, hidden: boolean): Promise<void> {
-  const { error } = await supabase
-    .from('accommodations')
-    .update({ hidden_from_listings: hidden } as never)
-    .eq('id', id)
-  if (error) throw error
-}
+export async function fetchAccommodationTables() {
+  const [propsRes, roomsRes, leasesRes, profilesRes, permitsRes, imagesRes, facilitiesRes, facilityImagesRes] = await Promise.all([
 
-/**
- * status_note travels with the change so the landlord/landlady's notice
- * carries the reason (tg_accreditation_status_change); a restore clears it.
- */
-export async function setAccommodationStatus(id: string, status: string, note: string | null): Promise<void> {
-  const { error } = await supabase
-    .from('accommodations')
-    .update({ status, status_note: note } as never)
-    .eq('id', id)
-  if (error) throw error
-}
-
-/** Students on an active or leave-requested lease in any of its rooms; 0 when the count fails. */
-export async function countCurrentBoarders(accommodationId: string): Promise<number> {
-  const { count } = await supabase
-    .from('leases')
-    .select('id, rooms!inner(accommodation_id)', { count: 'exact', head: true })
-    .eq('rooms.accommodation_id', accommodationId)
-    .in('status', ['active', 'leave_requested'])
-  return count ?? 0
+      supabase.from('accommodations').select(
+        `id, name, address, city, barangay, lat, lng, room_type, accommodation_type,
+          total_rooms, total_floors, description, status, rating_avg,
+          reviews_count, landlord_id, business_name, accreditation_status,
+          accredited_at, accreditation_expires_at, gender_policy, hidden_from_listings,
+          landlord:users_full!accommodations_landlord_id_fkey(id, full_name, phone, initials, avatar_url, sex)`
+      ),
+      supabase.from('rooms').select(
+        `id, room_number, label, floor, capacity, current_pax, status, monthly_rent, accommodation_id,
+         water_billing, water_flat_fee, electric_billing, electric_flat_fee, wifi_billing, wifi_flat_fee`
+      ),
+      supabase.from('leases').select(
+        `id, status, room_id, student_id, start_date,
+         student:users!leases_student_id_fkey(id, full_name, initials, sex, avatar_url, student_profiles(program, year_level))`
+      ).in('status', ['active', 'leave_requested']),
+      supabase.from('landlord_profiles').select(
+        `user_id, response_rate`
+      ),
+      supabase.from('accommodation_documents').select(
+        `id, accommodation_id, doc_type, file_url, version, issued_at, expires_at, uploaded_at`
+      ).order('version', { ascending: false }),
+      supabase.from('accommodation_images').select('accommodation_id, url, sort_order')
+        .order('sort_order', { ascending: true }),
+      supabase.from('accommodation_facilities')
+        .select('id, accommodation_id, facility_type, label, description, floor, sort_order, status, accommodation_facility_rooms(room_id)')
+        .eq('access_scope', 'shared')
+        .order('sort_order', { ascending: true }),
+      supabase.from('accommodation_facility_images').select('facility_id'),
+  ])
+  if (propsRes.error) throw propsRes.error
+  return {
+    props: propsRes.data ?? [],
+    rooms: roomsRes.data ?? [],
+    leases: leasesRes.data ?? [],
+    landlordProfiles: profilesRes.data ?? [],
+    permits: permitsRes.data ?? [],
+    images: imagesRes.data ?? [],
+    facilities: facilitiesRes.data ?? [],
+    facilityImages: facilityImagesRes.data ?? [],
+  }
 }

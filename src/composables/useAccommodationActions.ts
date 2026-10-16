@@ -1,7 +1,7 @@
 // The Accommodation Hub record's management menu: hide or show a listing,
 // suspend or restore accreditation, each audited. One instance per page.
 import { computed, ref, type Ref } from 'vue'
-import { countCurrentBoarders, setAccommodationHidden, setAccommodationStatus } from '@/api/accommodations'
+import { countCurrentBoarders, setAccommodationHidden, setAccommodationStatus } from '@/api/accommodationActions'
 import { insertAuditLog } from '@/api/audit'
 import { currentUserId } from '@/api/notifications'
 import { useAuthStore } from '@/stores/auth'

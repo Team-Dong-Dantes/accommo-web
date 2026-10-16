@@ -1,21 +1,14 @@
 import { errorMessage } from '@/utils/errors'
 import { ref } from 'vue'
-import { supabase } from '@/utils/supabase'
 import { registerReset } from '@/utils/pageCache'
-import { getStatus, type StatusTone } from '@/utils/status.config'
+import { getStatus } from '@/utils/status.config'
 import { composeAddress, getInitialsWide as initialsOf, humanizeEnum } from '@/utils/format'
 import { resolveAsset } from '@/utils/cloudinaryUrl'
 import { facilityIcon, facilityLabel, roomUtilitiesSummary } from '@/utils/facilities'
+import { fetchAccommodationTables } from '@/api/accommodations'
+import type { BadgeStyle, RealAccommodation, RealFacility, RealOccupant, RealPermit, RealRoom } from '@/types/accommodations'
 
-// Real accommodation shape pulled from Supabase. Fields the DB doesn't carry
-// (audit results, inspectors, compliance permits, performance scores) are
-// deliberately absent/empty — the UI renders '—' for them instead of inventing data.
-
-/**
- * BadgePill takes a concrete icon, while the status table leaves it optional,
- * so the badge gets a floor rather than every caller guarding for it.
- */
-export interface BadgeStyle { tone: StatusTone; icon: string }
+export type { BadgeStyle, RealAccommodation, RealFacility, RealOccupant, RealPermit, RealRoom } from '@/types/accommodations'
 
 function badgeStyle(status: string): BadgeStyle {
   const def = getStatus(status)
@@ -31,128 +24,6 @@ function newestUpload(rows: { uploaded_at?: string | null }[]): string | null {
   )
 }
 
-export interface RealPermit {
-  id: string
-  type: string
-  version: number | null
-  fileUrl: string | null
-  issuedAt: string | null
-  expiresAt: string | null
-  uploadedAt: string | null
-}
-
-export interface RealAccommodation {
-  id: string
-  /**
-   * When the property was put forward, ISO. `accommodations` carries no
-   * created-at column, so its age is the newest of its permit uploads — the same
-   * reading the verification queue uses to order accreditation requests.
-   */
-  submittedAt: string | null
-  name: string
-  /** Fallback behind the hub's cover-photo thumbnail, from the house's name. */
-  initials: string
-  type: string
-  landlord: string
-  /** The landlord/landlady's user id, for opening their record. */
-  landlordId: string
-  /** `users.sex` ('F' | 'M' | null) — feeds `landlordTitle`. */
-  landlordSex: string | null
-  landlordInitials: string
-  /** The landlord/landlady's profile photo, when they have one. */
-  landlordAvatarUrl: string
-  contact: string
-  /** Derived: only an accredited property is visible to students. */
-  verified: boolean
-  status: string
-  /** Sentence-case label and tone/icon for the status badge. */
-  statusLabel: string
-  statusStyle: BadgeStyle
-  rating: string
-  /** How many student reviews the rating averages over. */
-  reviewsCount: number
-  totalRooms: number
-  occupiedRooms: number
-  totalStudents: number
-  totalCapacity: number
-  occupancyRate: number
-  femaleCount: number
-  maleCount: number
-  image: string
-  /** Every exterior photo, by sort order; `image` is the first. */
-  photos: string[]
-  address: string
-  /** For grouping and filtering the OSAS reports by barangay. */
-  barangay: string
-  floors: number
-  lat: number | null
-  lng: number | null
-  // hierarchy: Accommodation → Accommodation Type; Room → Room Type
-  accommodationType: string
-  roomType: string
-  description: string
-  // Landlord/landlady profile (for Accommodation Hub accreditation/performance tabs)
-  businessName: string | null
-  accreditationStatus: string | null
-  accreditedAt: string | null
-  accreditationExpiresAt: string | null
-  responseRate: number | null
-  rooms: RealRoom[]
-  permits: RealPermit[]
-  /** Shared facilities (bathrooms, kitchen, study area) on this property. */
-  facilities: RealFacility[]
-  /** `male` | `female` | `co_ed`, or null when the landlord/landlady has not said. */
-  genderPolicy: string | null
-  /** OSAS has taken it out of what students browse, without touching its accreditation. */
-  hiddenFromListings: boolean
-}
-
-export interface RealFacility {
-  id: string
-  type: string
-  label: string
-  icon: string
-  description: string
-  floor: number | null
-  photoCount: number
-  status: 'available' | 'under_repair'
-  /** Rooms the landlord/landlady says share it. */
-  roomIds: string[]
-}
-
-export interface RealRoom {
-  id: string
-  name: string
-  number: string | null
-  floor: number | null
-  capacity: number | null
-  currentPax: number | null
-  status: string
-  monthlyRent: number | null
-  /** How its utilities are paid, e.g. "Water included · Electricity own meter". */
-  utilities: string
-  occupants: RealOccupant[]
-}
-
-export interface RealOccupant {
-  /** The boarder's user id. */
-  id: string
-  name: string
-  initials: string
-  /** Their profile photo, when they have one. */
-  avatarUrl: string
-  gender: 'female' | 'male'
-  course: string
-  year: string
-  since: string
-}
-
-/**
- * Shown when a property has no photo on file. It used to be one of five random
- * picsum images handed out round-robin, so the hub showed an unrelated stock
- * photo for every house whether or not real ones had been uploaded — and the
- * same house got a different building each time the list re-sorted.
- */
 const NO_PHOTO = ''
 
 /** `student_profiles` is one-to-one with `users`, but PostgREST may still embed it as a list. */
@@ -180,47 +51,7 @@ export function useAccommodations() {
     loading.value = !hasLoaded.value
     error.value = null
     try {
-      const [propsRes, roomsRes, leasesRes, profilesRes, permitsRes, imagesRes, facilitiesRes, facilityImagesRes] = await Promise.all([
-        supabase.from('accommodations').select(
-          `id, name, address, city, barangay, lat, lng, room_type, accommodation_type,
-            total_rooms, total_floors, description, status, rating_avg,
-            reviews_count, landlord_id, business_name, accreditation_status,
-            accredited_at, accreditation_expires_at, gender_policy, hidden_from_listings,
-            landlord:users_full!accommodations_landlord_id_fkey(id, full_name, phone, initials, avatar_url, sex)`
-        ),
-        supabase.from('rooms').select(
-          `id, room_number, label, floor, capacity, current_pax, status, monthly_rent, accommodation_id,
-           water_billing, water_flat_fee, electric_billing, electric_flat_fee, wifi_billing, wifi_flat_fee`
-        ),
-        supabase.from('leases').select(
-          `id, status, room_id, student_id, start_date,
-           student:users!leases_student_id_fkey(id, full_name, initials, sex, avatar_url, student_profiles(program, year_level))`
-        ).in('status', ['active', 'leave_requested']),
-        supabase.from('landlord_profiles').select(
-          `user_id, response_rate`
-        ),
-        supabase.from('accommodation_documents').select(
-          `id, accommodation_id, doc_type, file_url, version, issued_at, expires_at, uploaded_at`
-        ).order('version', { ascending: false }),
-        supabase.from('accommodation_images').select('accommodation_id, url, sort_order')
-          .order('sort_order', { ascending: true }),
-        supabase.from('accommodation_facilities')
-          .select('id, accommodation_id, facility_type, label, description, floor, sort_order, status, accommodation_facility_rooms(room_id)')
-          .eq('access_scope', 'shared')
-          .order('sort_order', { ascending: true }),
-        supabase.from('accommodation_facility_images').select('facility_id'),
-      ])
-
-      if (propsRes.error) throw propsRes.error
-
-      const props = (propsRes.data ?? []) as any[]
-      const rooms = (roomsRes.data ?? []) as any[]
-      const leases = (leasesRes.data ?? []) as any[]
-      const landlordProfiles = (profilesRes.data ?? []) as any[]
-      const permits = (permitsRes.data ?? []) as any[]
-      const images = (imagesRes.data ?? []) as any[]
-      const facilities = (facilitiesRes.data ?? []) as any[]
-      const facilityImages = (facilityImagesRes.data ?? []) as any[]
+      const { props, rooms, leases, landlordProfiles, permits, images, facilities, facilityImages } = await fetchAccommodationTables()
 
       // Photo count per facility, so a row can say "3" without fetching the URLs
       // the hub never renders.
@@ -308,7 +139,7 @@ export function useAccommodations() {
         const landlordName = landlord?.full_name ?? 'Unknown Landlord/Landlady'
         const profile = profileByUserId.get(p.landlord_id)
         const roomList = roomsByAccommodation.get(p.id) ?? []
-        const verified = p.status === 'accredited' || p.status === 'verified'
+        const verified = p.status === 'accredited'
 
         const totalRooms = p.total_rooms ?? roomList.length
         const occupiedRooms = roomList.filter((r) => r.status === 'occupied').length
