@@ -36,3 +36,17 @@ export async function setArchived(id: string, archived: boolean) {
   const { error } = await supabase.from('announcements').update({ archived }).eq('id', id)
   if (error) throw error
 }
+
+/** The signed-in user's id from the local session, without a round trip. */
+export async function sessionUserId(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.user?.id ?? null
+}
+
+/** Insert when `id` is null, otherwise update that row. */
+export async function saveAnnouncement(id: string | null, payload: Record<string, any>) {
+  const { error } = id
+    ? await supabase.from('announcements').update(payload as any).eq('id', id)
+    : await supabase.from('announcements').insert(payload as any)
+  if (error) throw error
+}

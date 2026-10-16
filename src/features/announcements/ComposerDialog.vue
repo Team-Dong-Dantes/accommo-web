@@ -20,27 +20,7 @@
           </q-btn>
         </div>
 
-        <ol
-          class="step-list q-mb-none q-mt-lg"
-          :style="{ '--step-progress': `${((step - 1) / (steps.length - 1)) * 100}%` }"
-          aria-label="Form steps"
-        >
-          <li
-            v-for="(item, index) in steps"
-            :key="item.label"
-            class="step-item"
-            :class="{ 'is-current': step === index + 1, 'is-complete': step > index + 1 }"
-            :aria-current="step === index + 1 ? 'step' : undefined"
-          >
-            <span class="step-marker" aria-hidden="true">
-              <Icon v-if="step > index + 1" icon="lucide:check" width="15" height="15" />
-              <span v-else>{{ index + 1 }}</span>
-            </span>
-            <span class="step-copy">
-              <span class="step-label">{{ item.label }}</span>
-            </span>
-          </li>
-        </ol>
+        <ComposerSteps class="q-mb-none q-mt-lg" :steps="steps" :step="step" />
       </q-card-section>
 
       <q-separator />
@@ -128,44 +108,7 @@
           <h3 id="composer-step-title" class="panel-title">Review {{ entityLabel }}</h3>
           <p class="panel-copy">Check the details below. You can return to an earlier step to make changes.</p>
 
-          <dl class="review-list">
-            <div class="review-row review-row-title">
-              <dt>Title</dt>
-              <dd>{{ form.title || 'Untitled' }}</dd>
-            </div>
-            <div class="review-row review-row-message">
-              <dt>Message</dt>
-              <dd>{{ form.body || 'No content added' }}</dd>
-            </div>
-            <div class="review-row">
-              <dt>Audience</dt>
-              <dd>{{ audienceLabel(form.audience) }}</dd>
-            </div>
-            <div class="review-row">
-              <dt>Expiry</dt>
-              <dd>{{ form.expiresAt ? fmtDate(dateToIso(form.expiresAt)) : 'No expiry date' }}</dd>
-            </div>
-            <div v-if="form.summary.trim()" class="review-row">
-              <dt>Summary</dt>
-              <dd>{{ form.summary }}</dd>
-            </div>
-            <div v-if="form.details.eventAt" class="review-row">
-              <dt>Event</dt>
-              <dd>{{ formatDateTime(dateToIso(form.details.eventAt)!) }}{{ form.details.eventEnd ? ' – ' + formatDateTime(dateToIso(form.details.eventEnd)!) : '' }}</dd>
-            </div>
-            <div v-if="form.details.deadlineAt" class="review-row">
-              <dt>Deadline</dt>
-              <dd>{{ formatDateTime(dateToIso(form.details.deadlineAt)!) }}</dd>
-            </div>
-            <div v-if="form.details.location.trim()" class="review-row">
-              <dt>Location</dt>
-              <dd>{{ form.details.location }}</dd>
-            </div>
-            <div v-if="form.details.imageUrl" class="review-row">
-              <dt>Poster</dt>
-              <dd><img :src="form.details.imageUrl" alt="" class="review-poster" /></dd>
-            </div>
-          </dl>
+          <ComposerReview :form="form" />
 
           <div v-if="!editingLive" class="publish-choice q-mt-md">
             <div class="panel-title">When should it go out?</div>
@@ -230,16 +173,14 @@
 </template>
 
 <script setup lang="ts">
-import { errorMessage } from '@/utils/errors'
-import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import DateTimeField from '@/components/ui/DateTimeField.vue'
 import AppSelect from '@/components/ui/AppSelect.vue'
-import { supabase } from '@/utils/supabase'
-import { useNotify } from '@/utils/notify'
-import { formatDateTime } from '@/utils/format'
-import AnnouncementDetailsFields, { type AnnouncementDetails } from './AnnouncementDetailsFields.vue'
-import { announcementStatus, dateInput, dateTimeInput, dateToIso, fmtDate } from './shared'
+import AnnouncementDetailsFields from './AnnouncementDetailsFields.vue'
+import ComposerSteps from './ComposerSteps.vue'
+import ComposerReview from './ComposerReview.vue'
+import { audienceOptions, publishOptions, steps } from './composer'
+import { useComposer } from './useComposer'
 
 const props = defineProps<{
   /**
@@ -256,272 +197,40 @@ const emit = defineEmits<{
   (e: 'saved'): void
 }>()
 
-type ComposerForm = {
-  title: string
-  body: string
-  audience: 'all' | 'students' | 'landlords'
-  expiresAt: string | null
-  summary: string
-  details: AnnouncementDetails
-  publishMode: 'draft' | 'now' | 'schedule'
-  publishAt: string | null
-}
-
-type FormStep = {
-  label: string
-  heading: string
-  description: string
-  guidance: string
-}
-
-const notify = useNotify()
-
-const dialogOpen = ref(false)
-const mode = ref<'create' | 'edit'>('create')
-const editingId = ref<string | null>(null)
-const saving = ref(false)
-const step = ref(1)
-const stepError = ref('')
-const errors = ref({ title: '', body: '', publishAt: '' })
-
-const form = ref<ComposerForm>(emptyForm())
-/** The row as it was when editing began (null when creating). */
-const original = ref<any | null>(null)
-
-/**
- * Editing something readers can already see. A live announcement keeps its
- * publish state (unpublish from the list).
- */
-const editingLive = computed(() => !!original.value && announcementStatus(original.value) === 'live')
-
-const publishOptions = [
-  { label: 'Save as draft', value: 'draft' },
-  { label: 'Publish now', value: 'now' },
-  { label: 'Schedule', value: 'schedule' },
-]
-
-const audienceOptions = [
-  { label: 'All users', value: 'all' },
-  { label: 'Students', value: 'students' },
-  { label: 'Landlords/Landladies', value: 'landlords' },
-]
-
-const steps: FormStep[] = [
-  { label: 'Message', heading: 'Write the announcement', description: 'Start with the message people need to receive.', guidance: 'Keep it specific and easy to act on.' },
-  { label: 'Audience & details', heading: 'Audience and details', description: 'Decide who receives it, and add any date, deadline, place or poster.', guidance: 'Choose the narrowest group that needs this update.' },
-  { label: 'Publish', heading: 'Review and publish', description: 'Confirm the details and choose when it goes out.', guidance: 'You can return to any previous step before saving.' },
-]
-
-const entityLabel = 'announcement'
-const dialogTitle = computed(() => `${mode.value === 'create' ? 'Create' : 'Edit'} ${entityLabel}`)
-const currentStep = computed<FormStep>(() => steps[step.value - 1] ?? steps[0]!)
-const noteIcon = 'lucide:file-pen'
-const saveLabel = computed(() => {
-  if (editingLive.value) return 'Save changes'
-  if (form.value.publishMode === 'now') return 'Publish now'
-  if (form.value.publishMode === 'schedule') return 'Schedule'
-  return mode.value === 'edit' ? 'Save changes' : 'Save draft'
-})
-const saveNote = computed(() => {
-  if (editingLive.value) return 'This announcement is live. Changes show immediately; readers are not notified again.'
-  if (form.value.publishMode === 'now') return 'Everyone in the audience is notified as soon as you publish.'
-  if (form.value.publishMode === 'schedule') return 'It stays hidden until the scheduled time, then the audience is notified.'
-  return 'Saved as a draft. Nobody sees it until you publish it.'
-})
-
-function emptyForm(): ComposerForm {
-  return {
-    title: '',
-    body: '',
-    audience: 'all',
-    expiresAt: null,
-    summary: '',
-    details: { eventAt: null, eventEnd: null, deadlineAt: null, location: '', imageUrl: '' },
-    publishMode: 'draft',
-    publishAt: null,
-  }
-}
-
-function resetProgress() {
-  step.value = 1
-  stepError.value = ''
-  errors.value = { title: '', body: '', publishAt: '' }
-}
-
-function clearFieldError(field: 'title' | 'body') {
-  errors.value[field] = ''
-  stepError.value = ''
-}
-
-function audienceLabel(audience: ComposerForm['audience']) {
-  return audienceOptions.find((option) => option.value === audience)?.label ?? audience
-}
-
-function validateCurrentStep(): boolean {
-  errors.value = { title: '', body: '', publishAt: '' }
-  stepError.value = ''
-
-  if (step.value === 1 && !form.value.title.trim()) {
-    errors.value.title = 'Enter a title before continuing.'
-  }
-  if (step.value === 1 && !form.value.body.trim()) {
-    errors.value.body = 'Enter the message before continuing.'
-  }
-
-  if (errors.value.title || errors.value.body) {
-    stepError.value = 'Complete the required fields before continuing.'
-    return false
-  }
-  return true
-}
-
-function previousStep() {
-  if (step.value > 1) {
-    step.value--
-    stepError.value = ''
-  }
-}
-
-function nextStep() {
-  if (validateCurrentStep()) step.value++
-}
-
-function close() {
-  dialogOpen.value = false
-  resetProgress()
-}
-
-// Create mode: parent bumps createToken to open.
-watch(
-  () => props.createToken,
-  () => {
-    if (props.createToken === 0) return
-    mode.value = 'create'
-    editingId.value = null
-    original.value = null
-    form.value = emptyForm()
-    resetProgress()
-    dialogOpen.value = true
-  },
-)
-
-// Edit mode: parent passes the row.
-watch(
-  () => props.editRow,
-  (row) => {
-    if (!row) return
-    mode.value = 'edit'
-    editingId.value = row.id
-    original.value = row
-    const base = emptyForm()
-    const status = announcementStatus(row)
-    form.value = {
-      ...base,
-      title: row.title,
-      body: row.body,
-      audience: row.audience ?? 'all',
-      expiresAt: dateInput(row.expires_at),
-      summary: row.summary ?? '',
-      details: {
-        eventAt: dateTimeInput(row.event_at),
-        eventEnd: dateTimeInput(row.event_end),
-        deadlineAt: dateTimeInput(row.deadline_at),
-        location: row.location ?? '',
-        imageUrl: row.image_url ?? '',
-      },
-      publishMode: status === 'scheduled' ? 'schedule' : 'draft',
-      publishAt: status === 'scheduled' ? dateTimeInput(row.published_at) : null,
-    }
-    resetProgress()
-    dialogOpen.value = true
-  },
-)
-
-async function currentUserId(): Promise<string | null> {
-  const { data: { session } } = await supabase.auth.getSession()
-  return session?.user?.id ?? null
-}
-
-async function save() {
-  if (!form.value.title.trim() || !form.value.body.trim()) {
-    step.value = 1
-    validateCurrentStep()
-    return
-  }
-
-  saving.value = true
-  const userId = await currentUserId()
-
-  try {
-    const d = form.value.details
-    const payload: Record<string, any> = {
-      title: form.value.title.trim(),
-      body: form.value.body.trim(),
-      audience: form.value.audience,
-      expires_at: dateToIso(form.value.expiresAt),
-      summary: form.value.summary.trim() || null,
-      event_at: dateToIso(d.eventAt),
-      event_end: d.eventAt ? dateToIso(d.eventEnd) : null,
-      deadline_at: dateToIso(d.deadlineAt),
-      location: d.location.trim() || null,
-      image_url: d.imageUrl || null,
-    }
-    // A live announcement keeps its publish state; otherwise the choice decides it.
-    if (!editingLive.value) {
-      if (form.value.publishMode === 'schedule') {
-        const at = dateToIso(form.value.publishAt)
-        if (!at || new Date(at).getTime() <= Date.now()) {
-          errors.value.publishAt = 'Pick a time in the future.'
-          return
-        }
-        payload.published_at = at
-      } else {
-        payload.published_at = form.value.publishMode === 'now' ? new Date().toISOString() : null
-      }
-      if (payload.published_at && userId) payload.author_id = userId
-    }
-    let error: any = null
-    if (mode.value === 'create') {
-      if (!userId) throw new Error('Not logged in')
-      ;({ error } = await supabase.from('announcements').insert({ ...payload, author_id: userId } as any))
-    } else {
-      ;({ error } = await supabase.from('announcements').update(payload as any).eq('id', editingId.value!))
-    }
-    if (error) throw error
-    notify.success(
-      editingLive.value ? 'Announcement updated.'
-        : form.value.publishMode === 'now' ? 'Announcement published.'
-        : form.value.publishMode === 'schedule' ? 'Announcement scheduled.'
-        : 'Draft saved.',
-    )
-
-    dialogOpen.value = false
-    emit('saved')
-  } catch (e) {
-    const msg = errorMessage(e, 'Failed to save')
-    console.error('Save failed:', e)
-    notify.error(msg)
-  } finally {
-    saving.value = false
-  }
-}
+const {
+  dialogOpen,
+  dialogTitle,
+  currentStep,
+  saving,
+  close,
+  step,
+  stepError,
+  form,
+  errors,
+  clearFieldError,
+  entityLabel,
+  editingLive,
+  noteIcon,
+  saveNote,
+  saveLabel,
+  previousStep,
+  nextStep,
+  save,
+} = useComposer(props, () => emit('saved'))
 </script>
 
 <style scoped>
 .dialog-card {
   border-radius: var(--radius-lg);
 }
-
 .composer-card {
   width: min(720px, calc(100vw - 24px));
   max-width: 720px;
   overflow: hidden;
 }
-
 .composer-heading {
   background: linear-gradient(135deg, var(--c-primary-soft), var(--c-surface) 68%);
 }
-
 .composer-title {
   color: var(--c-ink);
   font-family: var(--font-display);
@@ -530,19 +239,16 @@ async function save() {
   line-height: 1.2;
   margin-top: var(--sp-1) !important;
 }
-
 .composer-intro,
 .panel-copy {
   color: var(--c-muted);
   font-size: var(--fs-sm);
   line-height: 1.45;
 }
-
 .composer-intro {
   margin-top: var(--sp-2);
   max-width: 38rem;
 }
-
 .step-list {
   display: grid;
   gap: 0;
@@ -551,7 +257,6 @@ async function save() {
   padding: 0;
   position: relative;
 }
-
 .step-list::before {
   background: linear-gradient(
     to right,
@@ -566,75 +271,12 @@ async function save() {
   top: 15px;
   z-index: 0;
 }
-
-.step-item {
-  align-items: center;
-  color: var(--c-muted);
-  display: flex;
-  flex-direction: column;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  gap: var(--sp-2);
-  min-width: 0;
-  position: relative;
-  z-index: 1;
-}
-
-.step-marker {
-  align-items: center;
-  background: var(--c-surface);
-  border: 2px solid var(--c-border-strong);
-  border-radius: 50%;
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-size: var(--fs-xs);
-  font-weight: 750;
-  height: 30px;
-  justify-content: center;
-  transition: background var(--t), border-color var(--t), box-shadow var(--t), color var(--t);
-  width: 30px;
-}
-
-.step-copy {
-  min-width: 0;
-  text-align: center;
-}
-
-.step-label {
-  color: var(--c-text);
-  font-size: var(--fs-xs);
-  font-weight: 650;
-  line-height: 1.25;
-}
-
-.step-item.is-current {
-  color: var(--c-primary-ink);
-}
-
-.step-item.is-current .step-marker,
-.step-item.is-complete .step-marker {
-  background: var(--c-primary);
-  border-color: var(--c-primary);
-  color: white;
-}
-
-.step-item.is-complete {
-  color: var(--c-text);
-}
-
-.step-item.is-current .step-label {
-  color: var(--c-primary-ink);
-  font-weight: 750;
-}
-
 .composer-body {
   min-height: 330px;
 }
-
 .composer-panel {
   animation: panel-enter var(--t) both;
 }
-
 .panel-title {
   color: var(--c-ink);
   font-family: var(--font-display);
@@ -643,11 +285,9 @@ async function save() {
   line-height: 1.25;
   margin: 0;
 }
-
 .panel-copy {
   margin: var(--sp-1) 0 var(--sp-5);
 }
-
 .step-error {
   align-items: center;
   background: var(--c-danger-soft);
@@ -660,54 +300,12 @@ async function save() {
   margin-bottom: var(--sp-4);
   padding: 10px 12px;
 }
-
 .review-list {
   border: 1px solid var(--c-border);
   border-radius: var(--radius);
   margin: 0;
   overflow: hidden;
 }
-
-.review-row {
-  align-items: start;
-  background: var(--c-surface);
-  display: grid;
-  gap: var(--sp-4);
-  grid-template-columns: minmax(105px, 0.3fr) minmax(0, 1fr);
-  padding: 13px var(--sp-4);
-}
-
-.review-row + .review-row {
-  border-top: 1px solid var(--c-border);
-}
-
-.review-row dt {
-  color: var(--c-muted);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.review-row dd {
-  color: var(--c-text);
-  font-size: var(--fs-sm);
-  line-height: 1.5;
-  margin: 0;
-  white-space: pre-wrap;
-}
-
-.review-row-title dd {
-  color: var(--c-ink);
-  font-size: var(--fs-body);
-  font-weight: 700;
-}
-
-.review-row-message dd {
-  max-height: 9.2em;
-  overflow: auto;
-}
-
 .save-note {
   align-items: flex-start;
   background: var(--c-primary-soft);
@@ -720,11 +318,37 @@ async function save() {
   margin-top: var(--sp-4);
   padding: 12px var(--sp-3);
 }
-
 .composer-actions {
   gap: var(--sp-2);
 }
-
+.publish-choice {
+  border-top: 1px solid var(--c-border);
+  padding-top: var(--sp-3, 12px);
+}
+@media (max-width: 599px) {
+  .composer-heading,
+    .composer-body,
+    .composer-actions {
+      padding-left: var(--sp-4) !important;
+      padding-right: var(--sp-4) !important;
+    }
+  .step-list {
+      gap: 0;
+    }
+  .step-list::before {
+      left: calc(100% / 6);
+      right: calc(100% / 6);
+      top: 15px;
+    }
+  .composer-actions .q-btn {
+      min-width: 0;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer-panel {
+      animation: none;
+    }
+}
 @keyframes panel-enter {
   from {
     opacity: 0;
@@ -733,56 +357,6 @@ async function save() {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-.publish-choice {
-  border-top: 1px solid var(--c-border);
-  padding-top: var(--sp-3, 12px);
-}
-
-.review-poster {
-  max-width: 200px;
-  max-height: 120px;
-  object-fit: cover;
-  border-radius: 8px;
-}
-
-@media (max-width: 599px) {
-  .composer-heading,
-  .composer-body,
-  .composer-actions {
-    padding-left: var(--sp-4) !important;
-    padding-right: var(--sp-4) !important;
-  }
-
-  .step-list {
-    gap: 0;
-  }
-
-  .step-label {
-    font-size: 0.6875rem;
-  }
-
-  .step-list::before {
-    left: calc(100% / 6);
-    right: calc(100% / 6);
-    top: 15px;
-  }
-
-  .review-row {
-    gap: var(--sp-2);
-    grid-template-columns: 1fr;
-  }
-
-  .composer-actions .q-btn {
-    min-width: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .composer-panel {
-    animation: none;
   }
 }
 </style>
