@@ -2,87 +2,25 @@
 // Extracted verbatim from pages/admin/Users.vue; the page keeps the fetch
 // logic and passes its refs' values in.
 
-import { getTone, type StatusTone } from '@/utils/status.config'
-import { cap, composeAddress, escapeHtml, fmtDate, humanizeEnum, landlordTitle } from '@/utils/format'
+import { getTone } from '@/utils/status.config'
+import { cap, composeAddress, fmtDate, humanizeEnum, landlordTitle } from '@/utils/format'
 import { PERMIT_STATE, expiryLabel, permitStateOf } from '@/utils/permitExpiry'
-import type { DrawerPreview, PreviewLease, PreviewPayment } from '@/features/drawer/preview'
-import { accountActivity, type ActivityLine } from './accountActivity'
+import type { DrawerPreview, PreviewLease } from '@/features/drawer/preview'
+import { DOC_LABELS, userActivity } from './userActivity'
+import { fmtMonth, leaseRowsOf, paymentRowsOf, periodLabel } from './userLedger'
 import { NO_STANDING, type AccountEvent, type AccountStanding } from '@/api/accounts'
 import type { LeaseLedgerRow } from '@/api/leases'
 
-const DOC_LABELS: Record<string, string> = {
-  school_id: 'School ID',
-  assessment_of_fees: 'Assessment of Fees',
-  government_id: 'Government ID',
-  business_permit: 'Business Permit',
-  // Property permit types, from accommodation_documents.
-  sanitary_permit: 'Sanitary Permit',
-  fire_safety: 'Fire Safety Certificate',
-  building_permit: 'Building Permit',
-}
-
 // Re-exported so Users.vue keeps one import surface for the drawer; the
 // implementations live in utils/format.ts (ARCHITECTURE.md rule 4).
-export { cap, composeAddress, fmtDate }
+export { cap, composeAddress, fmtDate, periodLabel }
 
-
-export function periodLabel(start: string | null, end: string | null) {
-  const s = fmtDate(start)
-  return end ? `${s} – ${fmtDate(end)}` : `${s} – Present`
-}
 
 export function fmtMinutes(m: number | null | undefined) {
   if (m == null) return '—'
   const h = Math.floor(m / 60)
   const min = Math.round(m % 60)
   return h > 0 ? `${h}h ${min}m` : `${min}m`
-}
-
-function leaseStatusTone(status: string): StatusTone {
-  switch (status) {
-    case 'active': return 'success'
-    case 'terminated': return 'danger'
-    case 'leave_requested': return 'warning'
-    default: return 'neutral'
-  }
-}
-
-function paymentStatusTone(status: string): StatusTone {
-  switch (status) {
-    case 'paid':
-    case 'waived': return 'success'
-    case 'overdue': return 'danger'
-    case 'due':
-    case 'pending_verification': return 'warning'
-    default: return 'neutral'
-  }
-}
-
-function paymentMethodLabel(method: string): string {
-  switch (method) {
-    case 'gcash': return 'GCash'
-    case 'maya': return 'Maya'
-    case 'bank': return 'Bank Transfer'
-    case 'cash': return 'Cash'
-    case 'others': return 'Other'
-    case 'deposit': return 'Paid from deposit'
-    default: return cap(method) || '—'
-  }
-}
-
-function fmtCurrency(amount: number | null | undefined): string {
-  if (amount == null) return '—'
-  return `₱${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-}
-
-function fmtMonth(month: string): string {
-  if (!month) return '—'
-  const [year, m] = month.split('-')
-  if (!year || !m) return month
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const mi = parseInt(m, 10) - 1
-  if (mi < 0 || mi > 11) return month
-  return `${months[mi]} ${year}`
 }
 
 /**
@@ -244,114 +182,7 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     time: fmtDate(r.created_at),
   }))
 
-  // Activity feed — what the user has actually done / experienced in the app,
-  // derived from real lifecycle events (most recent first).
-  //
-  // `text` is rendered with v-html by ActivityFeed.vue so the names can be
-  // bolded, which makes every value spliced in here an injection point: names
-  // and accommodation names are typed by users. escapeHtml() on each one; the
-  // <strong> tags are ours and stay literal.
-  const events: ActivityLine[] = []
-
-  if (u.joined) {
-    const ts = new Date(u.joined).getTime()
-    if (!isNaN(ts)) {
-      events.push({
-        text: `<strong>${escapeHtml(u.name)}</strong> created their account`,
-        time: fmtDate(u.joined),
-        ts,
-        icon: 'lucide:user-plus',
-        tone: 'primary',
-        kind: 'Account',
-      })
-    }
-  }
-
-  if (isStudent && detail?.osas_verified_at) {
-    const ts = new Date(detail.osas_verified_at).getTime()
-    if (!isNaN(ts)) {
-      events.push({
-        text: `<strong>${escapeHtml(u.name)}</strong> was verified by OSAS`,
-        time: fmtDate(detail.osas_verified_at),
-        ts,
-        icon: 'lucide:shield-check',
-        tone: 'success',
-        kind: 'Status',
-        by: 'OSAS',
-      })
-    }
-  }
-
-  if (isStudent && housing?.placed && housing.moveIn) {
-    const ts = new Date(housing.moveIn).getTime()
-    if (!isNaN(ts)) {
-      events.push({
-        text: `Moved into <strong>${escapeHtml(housing.accommodationName)}</strong>`,
-        time: fmtDate(housing.moveIn),
-        ts,
-        icon: 'lucide:house',
-        tone: 'success',
-        kind: 'Housing',
-      })
-    }
-  }
-
-  boardingHistory.forEach((hh) => {
-    const ts = new Date(hh.period_start).getTime()
-    if (isNaN(ts)) return
-    events.push({
-      text: `Boarded at <strong>${escapeHtml(hh.accommodationName)}</strong>`,
-      time: hh.period,
-      ts,
-      icon: 'lucide:history',
-      tone: 'neutral',
-      kind: 'Housing',
-    })
-  })
-
-  userReviews.forEach((r) => {
-    const ts = new Date(r.created_at).getTime()
-    if (isNaN(ts)) return
-    const author = r.author_name && r.author_name !== 'Anonymous' ? ` from ${escapeHtml(r.author_name)}` : ''
-    events.push({
-      text: `Received a <strong>${r.rating}★</strong> rating${author}`,
-      time: fmtDate(r.created_at),
-      ts,
-      icon: 'lucide:star',
-      tone: 'warning',
-      kind: 'Ratings',
-    })
-  })
-
-  for (const doc of verificationDocs ?? []) {
-    const label = DOC_LABELS[doc.doc_type] || humanizeEnum(doc.doc_type)
-    const uploadedTs = doc.uploaded_at ? new Date(doc.uploaded_at).getTime() : NaN
-    if (!isNaN(uploadedTs)) {
-      events.push({
-        text: `Uploaded <strong>${escapeHtml(label)}</strong>`,
-        time: fmtDate(doc.uploaded_at),
-        ts: uploadedTs,
-        icon: 'lucide:file-up',
-        tone: 'info',
-        kind: 'Documents',
-      })
-    }
-    const reviewedTs = doc.verified_at ? new Date(doc.verified_at).getTime() : NaN
-    if (!isNaN(reviewedTs) && doc.status && doc.status !== 'pending') {
-      events.push({
-        text: `<strong>${escapeHtml(label)}</strong> ${doc.status === 'approved' ? 'approved' : cap(doc.status)}`,
-        time: fmtDate(doc.verified_at),
-        ts: reviewedTs,
-        icon: doc.status === 'approved' ? 'lucide:badge-check' : 'lucide:octagon-x',
-        tone: doc.status === 'approved' ? 'success' : 'danger',
-        kind: 'Documents',
-      })
-    }
-  }
-
-  events.push(...accountActivity(input.accountEvents ?? []))
-
-  events.sort((a, b) => b.ts - a.ts)
+  const events = userActivity(input, isStudent)
 
   const activity = events
 
@@ -449,54 +280,12 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
 
     
 
-  const leaseRows: PreviewLease[] = isStudent
-    ? (leases || []).map((l: any) => {
-        const acc = l.room?.accommodation
-        return {
-          id: l.id,
-          accommodationId: acc?.id ?? '',
-          accommodationName: acc?.name || l.accommodationName || '—',
-          landlordName: l.landlord?.full_name,
-          roomName: l.room?.room_number ?? l.room?.label,
-          roomType: acc?.room_type,
-          startDate: l.start_date,
-          endDate: l.end_date,
-          status: l.status,
-          statusTone: leaseStatusTone(l.status),
-          statusLabel: cap(l.status),
-          // Room rent is the source of truth; the lease-level rent may be unset.
-          monthlyRent: l.monthly_rent ?? l.room?.monthly_rent ?? null,
-          periodLabel: periodLabel(l.start_date, l.end_date),
-        }
-      })
-    : []
+  const leaseRows: PreviewLease[] = isStudent ? leaseRowsOf(leases) : []
 
   const leaseById = new Map<string, PreviewLease>()
   leaseRows.forEach((l) => leaseById.set(l.id, l))
 
-  const paymentRows: PreviewPayment[] = (payments || []).map((p: any) => {
-    const lease = leaseById.get(p.lease_id)
-    const row: PreviewPayment = {
-      id: p.id,
-      leaseId: p.lease_id,
-      accommodationId: lease?.accommodationId ?? '',
-      month: p.month,
-      monthLabel: fmtMonth(p.month),
-      amount: p.amount,
-      amountLabel: fmtCurrency(p.amount),
-      status: p.status,
-      statusTone: paymentStatusTone(p.status),
-      statusLabel: p.status === 'waived' ? 'Forgiven' : p.status === 'pending_verification' ? 'Pending' : cap(p.status),
-      paidAt: p.paid_at,
-      method: p.method,
-      methodLabel: paymentMethodLabel(p.method),
-      proofUrl: p.proof_url,
-      txnReference: p.txn_reference,
-      description: p.description,
-    }
-    if (p.paid_at) row.paidAtLabel = fmtDate(p.paid_at)
-    return row
-  })
+  const paymentRows = paymentRowsOf(payments, leaseById)
 
   const result: DrawerPreview = {
     title: 'User Preview',
