@@ -1,6 +1,8 @@
 import { errorMessage } from '@/utils/errors'
 import { ref, computed, onUnmounted } from 'vue'
 import { supabase } from '@/utils/supabase'
+import { fetchAdminAgents, fetchEnrichedTickets, insertTicketMessage, updateTickets } from '@/api/tickets'
+import { currentUserId as fetchCurrentUserId } from '@/api/notifications'
 import { useNotify } from '@/utils/notify'
 import { registerReset } from '@/utils/pageCache'
 import { getInitials, getTimeAgo, capitalize, landlordTitle, roleLabel } from '@/utils/format'
@@ -65,24 +67,6 @@ function avatarColorFor(id: string) {
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
   return AVATAR_PALETTE[h % AVATAR_PALETTE.length] ?? 'teal-6'
 }
-
-const ENRICHED_SELECT = `
-  id, ticket_no, subject, description, category, priority, status, assignee_id, reporter_name, reported_at, updated_at, resolved_at, photo_urls, lease_id, student_id, accommodation_id, landlord_id,
-  lease:lease_id (
-    id,
-    student:users_full!leases_student_id_fkey ( id, full_name, email, phone, avatar_url, student_profiles ( program, college ) ),
-    room:room_id ( id, label, accommodation:accommodation_id ( id, name, landlord:landlord_id ( full_name, sex ) ) )
-  ),
-  reporter:users_full!tickets_student_id_fkey ( id, full_name, email, phone, role, sex, avatar_url ),
-  landlord:users_full!tickets_landlord_id_fkey ( id, full_name, email, phone, role, sex, avatar_url ),
-  accommodation:accommodation_id ( id, name, landlord:landlord_id ( full_name, sex ) ),
-  assignee:assignee_id ( id, full_name ),
-  ticket_messages (
-    id, body, author_role, is_internal, attachment_urls, created_at,
-    author:author_id ( full_name, avatar_url )
-  )
-`
-
 
 function safeGet<T = any>(val: any): T | null {
   if (val == null) return null
@@ -219,21 +203,12 @@ export function useTickets() {
 
   async function ensureUser() {
     if (currentUserId.value) return
-    try {
-      const { data } = await supabase.auth.getUser()
-      currentUserId.value = data.user?.id || null
-    } catch {
-      currentUserId.value = null
-    }
+    currentUserId.value = await fetchCurrentUserId().catch(() => null)
   }
 
   async function fetchAgents() {
-    try {
-      const { data } = await supabase.from('users').select('id, full_name').eq('role', 'admin').order('full_name')
-      if (data) agents.value = (data as any[]).map((a) => ({ id: a.id, full_name: a.full_name || 'Admin' }))
-    } catch {
-      agents.value = []
-    }
+    const data = await fetchAdminAgents().catch(() => null)
+    if (data) agents.value = data.map((a) => ({ id: a.id, full_name: a.full_name || 'Admin' }))
   }
 
   /** `quiet` refreshes in place — a live update must not flash the loading state. */
@@ -244,15 +219,14 @@ export function useTickets() {
     await ensureUser()
     await fetchAgents()
 
-    const result = await supabase.from('tickets').select(ENRICHED_SELECT).order('updated_at', { ascending: false })
-
-    if (result.error) {
-      console.error('Error fetching tickets:', result.error.message)
-      const msg = result.error.message || ''
-      error.value = msg
-    } else if (result.data) {
-      tickets.value = (result.data ?? []).map((row) => mapTicket(row, seenRequesterMessageIds))
+    try {
+      const rows = await fetchEnrichedTickets()
+      tickets.value = rows.map((row) => mapTicket(row, seenRequesterMessageIds))
       hasLoaded.value = true
+    } catch (e) {
+      const msg = errorMessage(e, '')
+      console.error('Error fetching tickets:', msg)
+      error.value = msg
     }
     loading.value = false
   }
@@ -265,15 +239,16 @@ export function useTickets() {
     if (!ticket || !body.trim()) return false
     await ensureUser()
     try {
-      const { error: insErr } = await supabase.from('ticket_messages').insert({
-        ticket_id: ticket.id,
-        author_id: currentUserId.value,
-        author_role: 'agent',
-        body: body.trim(),
-        is_internal: !!opts.isInternal,
-      })
-      if (insErr) {
-        notify.error('Could not send', insErr.message)
+      try {
+        await insertTicketMessage({
+          ticket_id: ticket.id,
+          author_id: currentUserId.value,
+          author_role: 'agent',
+          body: body.trim(),
+          is_internal: !!opts.isInternal,
+        })
+      } catch (insErr) {
+        notify.error('Could not send', errorMessage(insErr, ''))
         return false
       }
       if (opts.thenStatus && opts.thenStatus !== ticket.status) {
@@ -290,9 +265,12 @@ export function useTickets() {
   async function updateStatus(status: string) {
     const ticket = selectedTicket.value
     if (!ticket) return
-    const { error: e } = await supabase.from('tickets').update({ status }).eq('id', ticket.id)
-    if (e) notify.error('Could not update status', e.message)
-    else await fetch()
+    try {
+      await updateTickets([ticket.id], { status })
+    } catch (e) {
+      return notify.error('Could not update status', errorMessage(e, ''))
+    }
+    await fetch()
   }
 
   /**
@@ -303,10 +281,11 @@ export function useTickets() {
   async function patchTickets(ids: string[], local: Partial<Ticket>, row: TablesUpdate<'tickets'>, what: string) {
     const before = tickets.value.filter((t) => ids.includes(t.id)).map((t) => ({ ...t }))
     tickets.value = tickets.value.map((t) => (ids.includes(t.id) ? { ...t, ...local } : t))
-    const { error: e } = await supabase.from('tickets').update(row).in('id', ids)
-    if (e) {
+    try {
+      await updateTickets(ids, row)
+    } catch (e) {
       tickets.value = tickets.value.map((t) => before.find((b) => b.id === t.id) ?? t)
-      notify.error(`Could not ${what}`, e.message)
+      notify.error(`Could not ${what}`, errorMessage(e, ''))
       return false
     }
     await fetch(true)
@@ -332,17 +311,23 @@ export function useTickets() {
   async function updatePriority(priority: string) {
     const ticket = selectedTicket.value
     if (!ticket) return
-    const { error: e } = await supabase.from('tickets').update({ priority }).eq('id', ticket.id)
-    if (e) notify.error('Could not update priority', e.message)
-    else await fetch()
+    try {
+      await updateTickets([ticket.id], { priority })
+    } catch (e) {
+      return notify.error('Could not update priority', errorMessage(e, ''))
+    }
+    await fetch()
   }
 
   async function assignTo(assigneeId: string | null) {
     const ticket = selectedTicket.value
     if (!ticket) return
-    const { error: e } = await supabase.from('tickets').update({ assignee_id: assigneeId }).eq('id', ticket.id)
-    if (e) notify.error('Could not assign', e.message)
-    else await fetch()
+    try {
+      await updateTickets([ticket.id], { assignee_id: assigneeId })
+    } catch (e) {
+      return notify.error('Could not assign', errorMessage(e, ''))
+    }
+    await fetch()
   }
 
   // Live: new tickets, requester replies and other staff's moves arrive without

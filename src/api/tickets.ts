@@ -1,6 +1,7 @@
 // Data access for student profiles and support tickets.
 
 import { supabase } from '@/utils/supabase'
+import type { TablesInsert, TablesUpdate } from '@/types/database.gen'
 
 // --- student_profiles -------------------------------------------------------
 
@@ -53,6 +54,44 @@ export async function fetchTicketSummaries(): Promise<TicketSummaryRow[]> {
   return (data ?? []) as unknown as TicketSummaryRow[]
 }
 
+// --- tickets (the Support Tickets console) ------------------------------------
 
+const ENRICHED_SELECT = `
+  id, ticket_no, subject, description, category, priority, status, assignee_id, reporter_name, reported_at, updated_at, resolved_at, photo_urls, lease_id, student_id, accommodation_id, landlord_id,
+  lease:lease_id (
+    id,
+    student:users_full!leases_student_id_fkey ( id, full_name, email, phone, avatar_url, student_profiles ( program, college ) ),
+    room:room_id ( id, label, accommodation:accommodation_id ( id, name, landlord:landlord_id ( full_name, sex ) ) )
+  ),
+  reporter:users_full!tickets_student_id_fkey ( id, full_name, email, phone, role, sex, avatar_url ),
+  landlord:users_full!tickets_landlord_id_fkey ( id, full_name, email, phone, role, sex, avatar_url ),
+  accommodation:accommodation_id ( id, name, landlord:landlord_id ( full_name, sex ) ),
+  assignee:assignee_id ( id, full_name ),
+  ticket_messages (
+    id, body, author_role, is_internal, attachment_urls, created_at,
+    author:author_id ( full_name, avatar_url )
+  )
+`
 
+export async function fetchEnrichedTickets(): Promise<any[]> {
+  const { data, error } = await supabase.from('tickets').select(ENRICHED_SELECT).order('updated_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
 
+/** Who a ticket can be assigned to. */
+export async function fetchAdminAgents(): Promise<{ id: string; full_name: string | null }[]> {
+  const { data, error } = await supabase.from('users').select('id, full_name').eq('role', 'admin').order('full_name')
+  if (error) throw error
+  return data ?? []
+}
+
+export async function insertTicketMessage(row: TablesInsert<'ticket_messages'>): Promise<void> {
+  const { error } = await supabase.from('ticket_messages').insert(row)
+  if (error) throw error
+}
+
+export async function updateTickets(ids: string[], row: TablesUpdate<'tickets'>): Promise<void> {
+  const { error } = await supabase.from('tickets').update(row).in('id', ids)
+  if (error) throw error
+}
