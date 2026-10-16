@@ -93,7 +93,7 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
   const accommodationEvents = ref<AccommodationEventRow[]>([])
   const drawerExtras = ref<AccommodationDrawerExtras | null>(null)
 
-  function openAccommodation(row: any) {
+  function openAccommodation(row: RecordRow) {
     selectedAccommodation.value = row
     accommodationEvents.value = []
     drawerExtras.value = null
@@ -102,12 +102,12 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
     void loadDrawerExtras(row)
   }
 
-  async function loadDrawerExtras(row: any) {
+  async function loadDrawerExtras(row: RecordRow) {
     try {
       const extras = await fetchAccommodationDrawerExtras(
         row.id,
-        (row.rooms ?? []).map((r: any) => r.id),
-        (row.facilities ?? []).map((f: any) => f.id),
+        (row.rooms ?? []).map((r) => r.id),
+        (row.facilities ?? []).map((f) => f.id),
       )
       // A slow response for a record the reviewer has already left is dropped.
       if (selectedAccommodation.value?.id === row.id) drawerExtras.value = extras
@@ -127,7 +127,7 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
     }
   }
 
-  async function fetchAccommodationDetail(row: any) {
+  async function fetchAccommodationDetail(row: RecordRow) {
     detailLoading.value = true
     try {
       const { data: p, error } = await supabase

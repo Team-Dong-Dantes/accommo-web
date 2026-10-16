@@ -42,7 +42,7 @@ export function useRoomRecord() {
 
       const leases = await fetchRoomLeases(raw.id).catch(() => null)
       if (leases) {
-        const occ = (leases as any[]).map((l) => {
+        const occ = leases.map((l) => {
           const student = Array.isArray(l.student) ? l.student[0] : l.student
           const name = student?.full_name || 'Unknown'
           const initials = student?.initials || initialsOf(name)
@@ -63,7 +63,7 @@ export function useRoomRecord() {
         selectedRoom.value = { ...selectedRoom.value, occupants: occ }
 
         // Their posted utility bills, with whose each one is.
-        const boarderByLease = new Map((leases as any[]).map((l) => {
+        const boarderByLease = new Map(leases.map((l) => {
           const student = Array.isArray(l.student) ? l.student[0] : l.student
           return [l.id, student?.full_name || 'Unknown']
         }))
@@ -71,7 +71,7 @@ export function useRoomRecord() {
         const today = manilaToday()
         selectedRoom.value = {
           ...selectedRoom.value,
-          bills: ((bills ?? []) as any[]).map((b) => ({
+          bills: bills.map((b) => ({
             id: b.id,
             utility: b.utility,
             month: b.month,
@@ -91,7 +91,7 @@ export function useRoomRecord() {
 
       const photos = await fetchRoomPhotos(raw.id).catch(() => null)
       if (photos) {
-        const imgs = (photos as any[])
+        const imgs = photos
           .filter((p) => p.url)
           .map((p) => ({ id: p.id, url: p.url }))
         selectedRoom.value = { ...selectedRoom.value, photos: imgs }
@@ -99,17 +99,17 @@ export function useRoomRecord() {
 
       const facilities = await fetchRoomFacilities(raw.id).catch(() => null)
       if (facilities) {
-        const facilityIds = (facilities ?? []).map((f: any) => f.id)
+        const facilityIds = facilities.map((f) => f.id)
         const countById = new Map<string, number>()
         if (facilityIds.length) {
           const facImgs = await fetchFacilityImageIds(facilityIds).catch(() => [])
-          for (const fi of (facImgs ?? []) as any[]) {
+          for (const fi of facImgs) {
             countById.set(fi.facility_id, (countById.get(fi.facility_id) ?? 0) + 1)
           }
         }
         selectedRoom.value = {
           ...selectedRoom.value,
-          facilities: (facilities ?? []).map((f: any) => ({
+          facilities: facilities.map((f) => ({
             id: f.id,
             type: f.facility_type ?? 'other',
             label: facilityLabel(f.facility_type, f.label),
