@@ -140,8 +140,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useSort } from '@/composables/useSort'
+import { useUserRecord } from '@/composables/useUserRecord'
 import { useRoute } from 'vue-router'
-import { supabase } from '@/utils/supabase'
 
 import TabNav from '@/components/ui/TabNav.vue'
 import TableCard from '@/components/table/TableCard.vue'
@@ -153,12 +153,8 @@ import { getStatus, getTone } from '@/utils/status.config'
 import { counted } from '@/utils/filterOptions'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
-import { buildUserPreview, cap, composeAddress, periodLabel } from '@/features/users/userPreview'
-import { fetchStudentLeaseHistory, fetchPaymentsForLeases, fetchLedgerForLeases, type LeaseLedgerRow } from '@/api/leases'
-import { fetchAccommodationDocs, fetchVerificationDocs, type AccommodationDocRow, type VerificationDocRow } from '@/api/users'
-import type { DrawerPreview } from '@/components/ui/DetailDrawer.vue'
 import { useAuthStore } from '@/stores/auth'
-import { fetchAccountEvents, fetchAccountStanding, fetchClosedAt, fetchSignInMethods, NO_STANDING, type AccountEvent, type AccountStanding, type AccountStatus, type EditableProfile, type SignInMethods } from '@/api/accounts'
+import type { AccountStatus, EditableProfile } from '@/api/accounts'
 import EditProfileDialog from '@/features/users/EditProfileDialog.vue'
 import { useAccountActions } from '@/features/users/accountActions'
 import { humanizeEnum } from '@/utils/format'
@@ -173,21 +169,7 @@ const activeTab = ref<'students' | 'landlords'>('students')
 const EMPTY_FILTERS = (): Record<string, string[]> => ({})
 const activeFilters = ref<Record<string, string[]>>(EMPTY_FILTERS())
 const route = useRoute()
-
-const drawerOpen = ref(false)
-const selectedUser = ref<any | null>(null)
-const userDetail = ref<any | null>(null)
-const verificationDocs = ref<VerificationDocRow[]>([])
-const accommodationDocs = ref<AccommodationDocRow[]>([])
-const userReviews = ref<any[]>([])
-const detailLoading = ref(false)
-
-const housing = ref<any | null>(null)
-const boardingHistory = ref<any[]>([])
-const accommodationRows = ref<any[]>([])
-const leases = ref<any[]>([])
-const payments = ref<any[]>([])
-const ledger = ref<LeaseLedgerRow[]>([])
+const { drawerOpen, selectedUser, detailLoading, standing, signIn, closed, openUser, fetchDetail, loadAccountState, userPreview } = useUserRecord(campusResponseRate)
 
 const tabs = computed(() => [
   { name: 'students', label: `Students (${students.value.length})` },
@@ -290,158 +272,7 @@ function openUserFromRoute() {
 
 watch(() => route.query.user, openUserFromRoute)
 
-async function openUser(row: any) {
-  selectedUser.value = row
-  userDetail.value = null
-  housing.value = null
-  boardingHistory.value = []
-  accommodationRows.value = []
-  userReviews.value = []
-  verificationDocs.value = []
-  accommodationDocs.value = []
-  leases.value = []
-  payments.value = []
-  ledger.value = []
-  standing.value = NO_STANDING
-  signIn.value = null
-  closed.value = false
-  accountEvents.value = []
-  drawerOpen.value = true
-  await Promise.all([fetchDetail(row.rawId, row.role), loadAccountState(row.rawId)])
-}
 
-async function fetchDetail(userId: string, role: string) {
-  detailLoading.value = true
-  try {
-    const normalized = (role || '').toLowerCase()
-    let detail: any = null
-
-    if (normalized === 'student') {
-      const { data } = await supabase
-        .from('student_profiles')
-        .select('college, program, year_level, student_id, osas_verified_at, emergency_contact_json, school_id_url, assessment_of_fees_url')
-        .eq('user_id', userId)
-        .maybeSingle()
-      detail = data
-
-      // Active placement
-      const { data: lease } = await supabase
-        .from('leases')
-        .select('start_date, status, landlord:landlord_id(full_name), room:room_id(room_number, label, accommodation:accommodation_id(id, name, room_type, address, barangay, city))')
-        .eq('student_id', userId)
-        .eq('status', 'active')
-        .maybeSingle()
-      housing.value = lease
-        ? {
-            placed: true,
-            accommodationId: lease.room?.accommodation?.id,
-            accommodationName: lease.room?.accommodation?.name || '—',
-            roomType: cap(lease.room?.accommodation?.room_type),
-            landlordName: lease.landlord?.full_name || '—',
-            address: composeAddress(lease.room?.accommodation),
-            moveIn: lease.start_date,
-            room: lease.room?.room_number ? `Room ${lease.room.room_number}` : lease.room?.label || undefined,
-          }
-        : { placed: false }
-
-      // Boarding history
-      const { data: hist } = await supabase
-        .from('boarding_history')
-        .select('id, accommodation_name, room_type, period_start, period_end, accommodation:accommodations(id, name, address, barangay, city)')
-        .eq('student_id', userId)
-        .order('period_start', { ascending: false })
-      boardingHistory.value = (hist || []).map((h: any) => ({
-        id: h.id,
-        accommodationId: h.accommodation?.id,
-        accommodationName: h.accommodation_name || h.accommodation?.name || '—',
-        roomType: cap(h.room_type),
-        address: composeAddress(h.accommodation),
-        period: periodLabel(h.period_start, h.period_end),
-      }))
-
-      // Lease history + payments (student detail drawer)
-      const leaseHist = await fetchStudentLeaseHistory(userId)
-      leases.value = leaseHist
-      const leaseIds = leaseHist.map((l) => l.id)
-      if (leaseIds.length) {
-        const [paymentRows, ledgerRows] = await Promise.all([fetchPaymentsForLeases(leaseIds), fetchLedgerForLeases(leaseIds)])
-        payments.value = paymentRows
-        ledger.value = ledgerRows
-      }
-    } else if (normalized === 'landlord') {
-      const { data } = await supabase
-        .from('landlord_profiles')
-        .select('response_rate, avg_response_minutes, government_id_url')
-        .eq('user_id', userId)
-        .maybeSingle()
-      detail = data
-
-      // Listed accommodations
-      const { data: props } = await supabase
-        .from('accommodations')
-        .select('id, name, status, room_type, total_rooms, address, barangay, city, rating_avg, reviews_count, rooms(capacity, current_pax)')
-        .eq('landlord_id', userId)
-        .order('name', { ascending: true })
-      accommodationRows.value = props || []
-    }
-
-    // Reviews — landlord/landlady = reviews received; student = tenant
-    // reviews received. Read through `review_admin_feed`: the review tables are
-    // anonymous to the people involved (SELECT on them is revoked from
-    // `authenticated`), and this view is the one place identities survive. It
-    // gates itself on is_admin(), so a non-admin session gets nothing back.
-    if (normalized === 'landlord' || normalized === 'student') {
-      const kind = normalized === 'landlord' ? 'manager' : 'tenant'
-      const res = (await supabase
-        .from('review_admin_feed')
-        .select('rating, comment, created_at, author_id')
-        .eq('kind', kind)
-        .eq('subject_id', userId)
-        .order('created_at', { ascending: false })) as any
-      const revs = (res?.data || []) as any[]
-      const authorIds = [...new Set(revs.map((r: any) => r.author_id).filter(Boolean))]
-      const nameById = new Map<string, string>()
-      if (authorIds.length) {
-        const { data: authors } = await supabase.from('users').select('id, full_name').in('id', authorIds)
-        for (const a of authors || []) nameById.set(a.id, a.full_name || '')
-      }
-      userReviews.value = revs.map((r: any) => ({
-        author_name: nameById.get(r.author_id) || 'Unknown',
-        rating: r.rating,
-        comment: r.comment,
-        created_at: r.created_at,
-      }))
-    } else {
-      userReviews.value = []
-    }
-
-    try {
-      verificationDocs.value = await fetchVerificationDocs(userId)
-    } catch {
-      verificationDocs.value = []
-    }
-
-    // A landlord/landlady's record accounts for their properties' permits too, so the
-    // Documents tab is the whole compliance picture rather than only the two
-    // files they uploaded against their own account.
-    if (normalized === 'landlord') {
-      try {
-        accommodationDocs.value = await fetchAccommodationDocs(
-          accommodationRows.value.map((p: any) => p.id).filter(Boolean),
-        )
-      } catch {
-        accommodationDocs.value = []
-      }
-    }
-
-    userDetail.value = detail
-  } catch (err) {
-    console.error('Failed to load user detail:', err)
-    userDetail.value = null
-  } finally {
-    detailLoading.value = false
-  }
-}
 
 const filteredRows = computed(() => {
   let result = tabRows.value
@@ -464,56 +295,15 @@ const paginatedRows = computed(() => {
 
 watch([search, activeFilters, sort], () => { currentPage.value = 1 }, { deep: true })
 
-// Drawer preview — construction lives in features/users/userPreview.ts.
-const userPreview = computed<DrawerPreview>(() =>
-  buildUserPreview({
-    selectedUser: selectedUser.value,
-    userDetail: userDetail.value,
-    housing: housing.value,
-    boardingHistory: boardingHistory.value,
-    accommodationRows: accommodationRows.value,
-    userReviews: userReviews.value,
-    verificationDocs: verificationDocs.value,
-    accommodationDocs: accommodationDocs.value,
-    leases: leases.value,
-    payments: payments.value,
-    ledger: ledger.value,
-    standing: standing.value,
-    accountEvents: accountEvents.value,
-    campusResponseRate: campusResponseRate.value,
-  })
-)
 
 // OSAS's controls over the account: the menu, the confirmation dialog and what
 // each action does live in features/users/accountActions.ts. This page only
 // keeps the table row and the drawer in step when one of them lands.
-const standing = ref<AccountStanding>(NO_STANDING)
-const signIn = ref<SignInMethods | null>(null)
-const closed = ref(false)
 const auth = useAuthStore()
 const actorId = computed(() => auth.user?.id ?? '')
 const isSuperadmin = computed(() => auth.isSuperadmin)
 const editingUserId = ref<string | null>(null)
-const accountEvents = ref<AccountEvent[]>([])
 
-async function loadAccountState(userId: string) {
-  try {
-    const [s, events, methods, closedAt] = await Promise.all([
-      fetchAccountStanding(userId),
-      fetchAccountEvents(userId),
-      // Admin accounts are refused here; their menu has nothing to offer anyway.
-      fetchSignInMethods(userId).catch(() => null),
-      fetchClosedAt(userId),
-    ])
-    if (selectedUser.value?.rawId !== userId) return
-    standing.value = s
-    accountEvents.value = events
-    signIn.value = methods
-    closed.value = !!closedAt
-  } catch {
-    // The record still reads without them: no reason line, no OSAS decisions in Activity.
-  }
-}
 
 async function onAccountChanged(next: AccountStatus) {
   const u = selectedUser.value
