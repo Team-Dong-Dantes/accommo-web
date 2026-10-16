@@ -4,7 +4,7 @@
 // map's detail panel shows the same panes from the same data.
 
 import { ref, computed, type Ref } from 'vue'
-import type { DrawerPreview, PreviewChip } from '@/components/ui/DetailDrawer.vue'
+import type { DrawerPreview } from '@/components/ui/DetailDrawer.vue'
 import type { PreviewAccommodationOverview } from '@/features/drawer/preview'
 import { getTone, type StatusTone } from '@/utils/status.config'
 import { supabase } from '@/utils/supabase'
@@ -179,21 +179,8 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
 
   const accommodationPreview = computed<DrawerPreview>(() => {
     const p = selectedAccommodation.value
-    if (!p) return { kind: 'accommodation', title: 'Accommodation Preview', name: '', avatar: '', stats: [], detailGroups: [] }
-    const chips: PreviewChip[] = [
-      { text: humanizeEnum(p.type), tone: 'primary', icon: 'lucide:building-2' },
-      p.verified
-        ? { text: 'Accredited', tone: 'success', icon: 'lucide:award' }
-        : { text: 'Pending', tone: 'warning', icon: 'lucide:clock' },
-    ]
+    if (!p) return { kind: 'accommodation', title: 'Accommodation Preview', name: '', avatar: '' }
     const occupancyPct = p.totalCapacity ? Math.round((p.totalStudents / p.totalCapacity) * 100) : 0
-    // Occupants and occupancy are the overview's dial, which states the share and
-    // the raw beds in one place; repeating either here would be one fact twice.
-    const stats = [
-      { label: 'Rooms', value: p.totalRooms },
-      { label: 'Rating', value: p.rating != null ? `${p.rating} ★` : '—' },
-      { label: 'Response', value: p.responseRate != null ? `${p.responseRate}%` : '—' },
-    ]
     const overview: PreviewAccommodationOverview = {
       // '' when the landlord/landlady has uploaded none — see useAccommodations,
       // which deliberately does not substitute a stand-in photograph.
@@ -229,41 +216,6 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
         avatarUrl: p.landlordAvatarUrl || undefined,
       },
     }
-    const detailGroups = [
-      {
-        title: 'Identity',
-        icon: 'lucide:building-2',
-        rows: [
-          { label: 'Type', value: p.type },
-          { label: landlordTitle(p.landlordSex), value: p.landlord },
-        ],
-      },
-      {
-        title: 'Location',
-        icon: 'lucide:map-pin',
-        rows: [
-          { label: 'Address', value: p.address },
-          { label: 'Floors', value: p.floors ? String(p.floors) : '—' },
-        ],
-      },
-      {
-        title: 'Capacity',
-        icon: 'lucide:bed',
-        rows: [
-          { label: 'Total Rooms', value: String(p.totalRooms) },
-          { label: 'Occupants', value: `${p.totalStudents} / ${p.totalCapacity}` },
-          { label: 'Female / Male', value: `${p.femaleCount} / ${p.maleCount}` },
-        ],
-      },
-      {
-        title: 'Accreditation',
-        icon: 'lucide:award',
-        rows: [
-          { label: 'Response', value: p.responseRate != null ? `${p.responseRate}%` : '—' },
-          { label: 'Expires', value: p.accreditationExpiresAt || '—' },
-        ],
-      },
-    ]
     // Documents regarding the accommodation (permits / certificates with an uploaded file).
     // Each permit already carries its expiry from useAccommodations; the drawer
     // used to build a name and a link and throw the rest away, so a reviewer
@@ -373,12 +325,7 @@ export function useAccommodationRecord(rows: Ref<RecordRow[]>) {
       name: p.name,
       avatar: p.image,
       initials: p.initials,
-      chips,
-      meta: p.address,
-      org: { name: p.landlord, icon: 'lucide:user-round' },
-      stats,
       overview,
-      detailGroups,
       files,
       rooms,
       facilities,

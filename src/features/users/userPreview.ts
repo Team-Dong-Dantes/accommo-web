@@ -5,7 +5,7 @@
 import { getTone, type StatusTone } from '@/utils/status.config'
 import { cap, composeAddress, escapeHtml, fmtDate, humanizeEnum, landlordTitle } from '@/utils/format'
 import { PERMIT_STATE, expiryLabel, permitStateOf } from '@/utils/permitExpiry'
-import type { DrawerPreview, PreviewChip, PreviewLease, PreviewPayment } from '@/features/drawer/preview'
+import type { DrawerPreview, PreviewLease, PreviewPayment } from '@/features/drawer/preview'
 import { accountActivity, type ActivityLine } from './accountActivity'
 import { NO_STANDING, type AccountEvent, type AccountStanding } from '@/api/accounts'
 import type { LeaseLedgerRow } from '@/api/leases'
@@ -36,12 +36,6 @@ export function fmtMinutes(m: number | null | undefined) {
   const h = Math.floor(m / 60)
   const min = Math.round(m % 60)
   return h > 0 ? `${h}h ${min}m` : `${min}m`
-}
-
-function statusChip(label: string, tone: StatusTone, icon?: string): PreviewChip {
-  const c: PreviewChip = { text: label, tone }
-  if (icon) c.icon = icon
-  return c
 }
 
 function leaseStatusTone(status: string): StatusTone {
@@ -189,68 +183,11 @@ export interface UserDetailInput {
 
 export function buildUserPreview(input: UserDetailInput): DrawerPreview {
   const { selectedUser: u, userDetail: detail, housing, boardingHistory, accommodationRows, userReviews, verificationDocs, accommodationDocs, leases, payments } = input
-  if (!u) return { title: 'User Preview', name: '', avatar: '', stats: [], detailGroups: [] }
+  if (!u) return { title: 'User Preview', name: '', avatar: '' }
 
   const isStudent = (u.role || '').toLowerCase() === 'student'
   const isLandlord = (u.role || '').toLowerCase() === 'landlord'
   const respTime = fmtMinutes(detail?.avg_response_minutes)
-
-  const roleChip: PreviewChip = isStudent
-    ? { text: 'Student', tone: 'neutral', icon: 'lucide:graduation-cap' }
-    : isLandlord
-      ? { text: landlordTitle(u.sex), tone: 'primary', icon: 'lucide:building-2' }
-      : { text: cap(u.role), tone: 'neutral' }
-
-  const chips: PreviewChip[] = [roleChip, statusChip(u.status, u.statusStyle?.tone ?? 'neutral', u.statusStyle?.icon)]
-
-  const stats = isLandlord
-    ? [
-        { label: 'Accommodations', value: accommodationRows.length },
-        { label: 'Response Rate', value: detail?.response_rate != null ? `${detail.response_rate}%` : '—' },
-        { label: 'Avg Response', value: respTime },
-      ]
-    : []
-
-  const telLink = (c: string) => c.startsWith('+') ? `tel:${c.replace(/\s/g, '')}` : undefined
-  type PDetail = NonNullable<DrawerPreview['detailGroups']>[number]['rows'][number]
-  const detailRow = (label: string, value: string, link?: string): PDetail => {
-    const row: PDetail = { label, value }
-    if (link) row.link = link
-    return row
-  }
-
-  const contactGroup = {
-    title: 'Contact',
-    icon: 'lucide:contact',
-    rows: [
-      detailRow('Email', u.email, `mailto:${u.email}`),
-      detailRow('Phone', u.contact, telLink(u.contact)),
-      detailRow('Date of birth', fmtDate(u.dateOfBirth)),
-    ],
-  }
-  const accountGroup = {
-    title: 'Account',
-    icon: 'lucide:user',
-    rows: [detailRow('Joined', u.joined)],
-  }
-  // Landlords and landladies have no academic record, so they get two sections rather than an
-  // Academic block full of "Not set".
-  const detailGroups = isStudent
-    ? [
-        contactGroup,
-        {
-          title: 'Academic',
-          icon: 'lucide:graduation-cap',
-          rows: [
-            detailRow('College', detail?.college || '—'),
-            detailRow('Program', detail?.program || '—'),
-            detailRow('Year Level', String(detail?.year_level ?? '—')),
-            detailRow('Student ID', detail?.student_id || '—'),
-          ],
-        },
-        accountGroup,
-      ]
-    : [contactGroup, accountGroup]
 
   let card: DrawerPreview['card']
   const historyCards: any[] = []
@@ -487,21 +424,9 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
 
   type PHistory = NonNullable<DrawerPreview['history']>
   const history: PHistory = []
-  let placement: DrawerPreview['placement']
   if (isStudent) {
     if (housing?.placed) {
       const h = housing
-      placement = {
-        status: 'Housed',
-        statusTone: 'success',
-        accommodation: h.accommodationName || 'Accommodation',
-        // exactOptionalPropertyTypes is on: an optional field must be absent,
-        // not present-and-undefined.
-        ...(h.roomType ? { roomType: h.roomType } : {}),
-        ...(h.landlordName ? { landlord: h.landlordName } : {}),
-        ...(h.address ? { address: h.address } : {}),
-        moveIn: fmtDate(h.moveIn),
-      }
       history.push({
         title: h.accommodationName || 'Active Placement',
         desc: [cap(h.roomType), h.landlordName, h.address].filter(Boolean).join(' · '),
@@ -510,8 +435,6 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         icon: 'lucide:house',
         active: true,
       })
-    } else {
-      placement = { status: 'Not placed', statusTone: 'neutral', accommodation: 'No active placement' }
     }
     boardingHistory.forEach((hh) => {
       history.push({
@@ -577,15 +500,11 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
 
   const result: DrawerPreview = {
     title: 'User Preview',
-    viewDetailsLabel: 'View Full Details',
     name: u.name,
     // Their own photo when they have one; the generated initials image is the
     // fallback, since this drawer header is always an image slot.
     avatar: u.avatarUrl,
     initials: u.initials,
-    chips,
-    stats,
-    detailGroups,
     activity,
   }
   if (card) result.card = card
@@ -639,7 +558,6 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
   if (isStudent) {
        result.history = history
        result.historyCards = historyCards
-       if (placement) result.placement = placement
        result.studentId = u.id
        result.leases = leaseRows
        result.payments = paymentRows

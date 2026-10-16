@@ -36,10 +36,6 @@ describe('buildUserPreview — boarding history', () => {
     expect(preview.card).toBeUndefined()
   })
 
-  it('still records the placement status for the stats block', () => {
-    expect(previewFor().placement?.status).toBe('Not placed')
-  })
-
   it('builds a timeline once the student has a placement', () => {
     const preview = previewFor({
       housing: {

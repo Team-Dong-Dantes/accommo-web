@@ -231,7 +231,7 @@ export interface PreviewPayment {
  * The accommodation overview, as one typed block rather than as strings the
  * pane would have to parse back out of `stats` and `detailGroups`.
  *
- * When this is set, PreviewBody renders the cover-led layout in place of the
+ * When this is set, the record renders the cover-led layout in place of the
  * generic identity block, stat strip and field list. Nothing is lost by that
  * swap: type and floors read as a line under the name, the address sits beneath
  * them, occupancy and the sex split are the dial, accreditation and its expiry
@@ -356,8 +356,6 @@ export interface PreviewRoomOverview {
 export interface DrawerPreview {
   kind?: 'user' | 'accommodation' | 'room'
   title?: string
-  positionLabel?: string
-  viewDetailsLabel?: string
   name: string
   avatar: string
   /**
@@ -367,19 +365,12 @@ export interface DrawerPreview {
    * generated placeholder image.
    */
   initials?: string
-  subtitle?: string
-  chips?: PreviewChip[]
-  meta?: string
-  metaIcon?: string
-  stats?: PreviewStat[]
-  detailGroups?: PreviewDetailGroup[]
   /** Accommodations only — see PreviewAccommodationOverview. */
   overview?: PreviewAccommodationOverview
   /** A person's record overview (Users); drives UserRecord. */
   userOverview?: PreviewUserOverview
   /** A room's record overview (Room Hub); drives RoomRecord. */
   roomOverview?: PreviewRoomOverview
-  placement?: PreviewPlacement
   history?: PreviewTimelineItem[]
   files?: PreviewFile[]
   rooms?: PreviewRoom[]

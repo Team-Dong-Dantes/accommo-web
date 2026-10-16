@@ -44,26 +44,6 @@
               @go-hub="goToHub"
             />
 
-            <!-- Data-driven reference layout (our system's data, on-brand) -->
-            <q-card
-              v-else-if="preview || loading"
-              class="dd-surface text-body2 dd-preview"
-              style="height: 100%; border-radius: var(--radius); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden; font-family: var(--font-body);"
-            >
-              <PreviewSkeleton v-if="loading" :kind="preview?.kind" />
-               <PreviewBody
-                 v-else-if="preview"
-                 :preview="preview"
-                 :loading="loading"
-                 :management-actions="managementActions"
-                 v-model:tab="ddTab"
-                 @close="close"
-                 @manage="onManage"
-                 @go-hub="goToHub"
-                 @go-room="goToRoom"
-               />
-            </q-card>
-
             <!-- Generic slot mode (backward compatible, on-brand) -->
             <q-card
               v-else
@@ -114,15 +94,12 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
-import PreviewSkeleton from '@/features/drawer/PreviewSkeleton.vue'
-import PreviewBody from '@/features/drawer/PreviewBody.vue'
 import AccommodationRecord from '@/features/drawer/accommodation/AccommodationRecord.vue'
 import UserRecord from '@/features/drawer/user/UserRecord.vue'
 import RoomRecord from '@/features/drawer/room/RoomRecord.vue'
 import type {
   DrawerPreview,
   HubKind,
-  PreviewRoom,
 } from '@/features/drawer/preview'
 
 // Backward-compat re-exports: RoomHub/AccommodationHub/Users import the preview
@@ -162,7 +139,7 @@ const props = withDefaults(
     /**
      * `panel` is the original right-hand drawer. `full` is the two-pane record
      * view: a centered dialog wide enough to show the record's fields and its
-     * tabbed content side by side (see PreviewBody.vue).
+     * tabbed content side by side (see the records in features/drawer).
      */
     size?: 'panel' | 'full'
     loading?: boolean
@@ -193,8 +170,6 @@ const emit = defineEmits<{
   (e: 'closed'): void
 }>()
 
-const ddTab = ref<string>('history')
-
 /**
  * The two-pane view needs room for a fixed-width detail column plus a tab panel
  * beside it; `min(1400px, 96vw)` is the point where both stay comfortable. The
@@ -220,13 +195,6 @@ function goToHub(kind: HubKind, accommodationId?: string) {
 }
 function onManage(action: string) {
   emit('manage', action)
-}
-function goToRoom(room: PreviewRoom) {
-  const query: Record<string, string> = {}
-  if (room.id) query.room = room.id
-  if (room.accommodationId) query.accommodation = room.accommodationId
-  router.push({ path: '/room-hub', query })
-  close()
 }
 function onBackdropClick() {
   if (props.anchored || modalIsOpen()) return
@@ -310,38 +278,6 @@ onUnmounted(() => {
   color: var(--c-text);
   border: 1px solid var(--c-border);
 }
-/* The record drawer runs its cover photo to its own edges, so a border would
-   read as a strip of surface down the left of the picture. The shadow already
-   separates it from the backdrop. */
-.dd-preview {
-  border: none;
-}
-
-/* Skeleton + entrance animations ------------------------------------- */
-.dd-preview :deep(.q-skeleton) {
-  background: linear-gradient(
-    90deg,
-    var(--c-surface-2) 25%,
-    color-mix(in srgb, var(--c-border) 65%, var(--c-surface-2)) 37%,
-    var(--c-surface-2) 63%
-  );
-  background-size: 400% 100%;
-  animation: dd-shimmer 1.4s ease infinite;
-}
-@keyframes dd-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: 0 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .dd-preview :deep(.q-skeleton) {
-    animation: none;
-  }
-}
-
 /* Shell ---------------------------------------------------------------- */
 .dd-backdrop {
   position: fixed;
@@ -417,8 +353,7 @@ onUnmounted(() => {
   max-width: none !important;
   height: 100%;
 }
-.dd-panel--anchored .dd-card-preview,
-.dd-panel--anchored .dd-preview {
+.dd-panel--anchored .dd-card-preview {
   height: 100%;
   border-radius: var(--radius);
 }
