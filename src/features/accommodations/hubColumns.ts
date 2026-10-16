@@ -27,7 +27,7 @@ const permitRank = (key: string) => (row: any) => PERMIT_ORDER.indexOf(permitSta
 
 export const complianceColumns = [
   { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'name', headerClasses: 'col-title' },
-  { name: 'fire', align: 'center', label: 'Fire Permit', field: 'fire', sortValue: permitRank('fire'), headerClasses: 'col-badge col-split' },
+  { name: 'fire', align: 'center', label: 'Fire Safety Certificate', field: 'fire', sortValue: permitRank('fire'), headerClasses: 'col-badge col-split' },
   { name: 'business', align: 'center', label: 'Business Permit', field: 'business', sortValue: permitRank('business'), headerClasses: 'col-badge' },
   { name: 'sanitary', align: 'center', label: 'Sanitary Permit', field: 'sanitary', sortValue: permitRank('sanitary'), headerClasses: 'col-badge' },
   { name: 'building', align: 'center', label: 'Building Permit', field: 'building', sortValue: permitRank('building'), headerClasses: 'col-badge' },

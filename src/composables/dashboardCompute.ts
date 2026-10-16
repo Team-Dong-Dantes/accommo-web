@@ -12,7 +12,7 @@ const VERIFICATION_REVIEW_SLA_DAYS = 3
 const SUPPORT_TICKET_SLA_DAYS = 3
 const REQUIRED_ACCOMMODATION_PERMITS = [
   { type: 'sanitary_permit', label: 'Sanitary permit' },
-  { type: 'fire_safety', label: 'Fire safety permit' },
+  { type: 'fire_safety', label: 'Fire safety certificate' },
   { type: 'business_permit', label: 'Business permit' },
   { type: 'building_permit', label: 'Building permit' },
 ]

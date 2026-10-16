@@ -184,7 +184,7 @@ export function accountInfoGroups(request: Record<string, any> | null, isLandlor
 /** The four permits, in the order the landlord/landlady uploads them. */
 export const PERMITS = [
   { type: 'sanitary_permit', label: 'Sanitary permit' },
-  { type: 'fire_safety', label: 'Fire safety permit' },
+  { type: 'fire_safety', label: 'Fire safety certificate' },
   { type: 'business_permit', label: 'Business permit' },
   { type: 'building_permit', label: 'Building permit' },
 ]
