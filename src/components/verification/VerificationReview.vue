@@ -10,36 +10,7 @@
              document fills the sheet at a time; the rail lists them all and
              says which one is open. -->
         <section class="tw-shell" role="dialog" aria-modal="true" aria-label="Verification review">
-          <header class="tw-bar">
-            <button type="button" class="tw-icon-btn" aria-label="Back" @click="closeWindow">
-              <Icon icon="lucide:arrow-left" width="19" height="19" />
-            </button>
-
-            <span class="tw-av" :style="{ background: request?.avatarColor || 'var(--c-primary)' }">
-              <img v-if="request?.avatarUrl" :src="request.avatarUrl" :alt="request.name" />
-              <template v-else>{{ request?.initials }}</template>
-            </span>
-            <span class="tw-who-text">
-              <span class="tw-name">{{ request?.name }}</span>
-              <span class="tw-sub">{{ request?.type }} · {{ request?.email || request?.owner || 'No contact info' }}</span>
-            </span>
-
-            <span class="tw-spacer" />
-
-            <span v-if="request?.status" class="tw-state" :class="`is-${String(request.statusStyle?.tone ?? 'neutral')}`">
-              {{ request.status }}
-            </span>
-            <span class="tw-age" :class="{ 'is-late': isLate }">
-              <Icon icon="lucide:clock" width="14" height="14" />
-              {{ request?.submitted || 'Unknown' }}
-            </span>
-
-            <span v-if="queueCount > 1" class="tw-pos">{{ queueIndex + 1 }} <i>/</i> {{ queueCount }}</span>
-
-            <button type="button" class="tw-icon-btn" aria-label="Close" @click="closeWindow">
-              <Icon icon="lucide:x" width="19" height="19" />
-            </button>
-          </header>
+          <ReviewHeader :request="request" :queue-index="queueIndex" :queue-count="queueCount" @close="closeWindow" />
 
           <!-- Queue arrows sit on the margins, out of the document's way. -->
           <button
@@ -64,173 +35,42 @@
           </button>
 
           <div class="tw-main">
-          <div class="tw-stage">
-            <article v-if="stageView === 'map'" class="tw-sheet">
-              <header class="tw-sheet-head">
-                <Icon icon="lucide:map-pin" width="15" height="15" />
-                <span class="tw-sheet-name">Location</span>
-              </header>
-              <PropertyMap
-                :key="request?.rawId ?? ''"
-                :lat="request?.accommodation?.lat ?? null"
-                :lng="request?.accommodation?.lng ?? null"
-                :name="request?.name ?? 'This property'"
-                :self-id="request?.rawId ?? ''"
-              />
-            </article>
-
-            <article v-else-if="activeFile" class="tw-sheet">
-              <header class="tw-sheet-head">
-                <Icon :icon="fileIcon(activeFile.name)" width="15" height="15" />
-                <span class="tw-sheet-name">{{ activeFile.name }}</span>
-              </header>
-              <DocumentViewer
-                :files="[activeFile]"
-                :index="0"
-                :request-key="`${request?.id ?? ''}-${activeDoc}`"
-                empty-caption=""
-              />
-            </article>
-
-            <p v-else class="tw-nofiles">
-              <Icon icon="lucide:file-x" width="46" height="46" />
-              <b>No documents attached</b>
-              <span>{{ isAccommodation
-                ? 'Sanitary, fire safety, business and building permits are all required for accreditation.'
-                : 'This applicant submitted no files.' }}</span>
-            </p>
-          </div>
+          <ReviewStage
+            :request="request"
+            :view="stageView"
+            :file="activeFile"
+            :active-doc="activeDoc"
+            :is-accommodation="!!isAccommodation"
+          />
 
 
           <!-- What the documents are checked against, beside them rather than
                beneath — the reviewer compares, so both sides stay on screen. -->
           <aside class="tw-rail">
-            <!-- What this request is asking for, and what OSAS said last time.
-                 A resubmission is judged against the previous decision, an
-                 appeal against its own message, a change against the values it
-                 would replace. -->
-            <section v-if="round" class="tw-sec">
-              <h3 class="tw-sec-head">
-                <Icon icon="lucide:history" width="15" height="15" />
-                {{ roundTitle }}
-              </h3>
-              <p v-if="round.live" class="tw-round-line">
-                Still listed for students while you decide{{ round.expiresAt ? ' · accredited until ' + stamp(round.expiresAt) : '' }}.
-              </p>
-              <div v-if="round.message" class="tw-quote">
-                <b>{{ round.kind === 'appeal' ? 'Their appeal' : 'Their note' }}</b>
-                <span>{{ round.message }}</span>
-              </div>
-              <dl v-if="changeRows.length" class="tw-facts">
-                <div v-for="row in changeRows" :key="row.label" class="is-block">
-                  <dt>{{ row.label }}</dt>
-                  <dd class="tw-change"><s>{{ row.from || 'Not set' }}</s> → {{ row.to }}</dd>
-                </div>
-              </dl>
-              <div v-if="round.previous" class="tw-prev">
-                <span class="tw-prev-head">
-                  Last decision: <b>{{ PREVIOUS_LABEL[round.previous.decision] }}</b> · {{ stamp(round.previous.decidedAt) }}
-                </span>
-                <span v-if="round.previous.flaggedDocs.length" class="tw-prev-line">
-                  Flagged: {{ round.previous.flaggedDocs.map(permitName).join(', ') }}
-                </span>
-                <span v-if="round.previous.tags.length" class="tw-prev-line">{{ round.previous.tags.join(' · ') }}</span>
-                <span v-if="round.previous.note" class="tw-prev-line">“{{ round.previous.note }}”</span>
-              </div>
-            </section>
+            <ReviewRound v-if="round" :round="round" :request="request" />
 
-            <!-- The switcher for the sheet beside it, so it sits at the top of
-                 the rail rather than under the record it is not part of. -->
-            <section v-if="files.length" class="tw-sec">
-              <h3 class="tw-sec-head">
-                <Icon icon="lucide:files" width="15" height="15" />
-                Documents
-                <span class="tw-count">{{ files.length }}</span>
-              </h3>
-              <ul class="tw-docs">
-                <li v-for="(f, i) in files" :key="i">
-                  <button
-                    type="button"
-                    class="tw-doc"
-                    :class="{ 'is-active': isOpen('doc', i) }"
-                    :aria-current="isOpen('doc', i) ? 'true' : undefined"
-                    :title="f.name"
-                    @click="show('doc', i)"
-                  >
-                    <Icon :icon="fileIcon(f.name)" width="15" height="15" />
-                    <span class="tw-doc-text">
-                      <span class="tw-doc-name">{{ f.name }}</span>
-                      <span v-if="isAccommodation" class="tw-doc-meta" :class="{ 'is-bad': expiryTone(f) === 'bad' }">
-                        {{ expiryText(f) }}<template v-if="(f.version ?? 1) > 1"> · v{{ f.version }}</template>
-                      </span>
-                    </span>
-                    <span v-if="f.replaced" class="tw-chip is-pass">Replaced</span>
-                    <Icon
-                      :icon="isOpen('doc', i) ? 'lucide:eye' : 'lucide:eye'"
-                      width="16"
-                      height="16"
-                      class="tw-doc-eye"
-                    />
-                  </button>
-                </li>
-              </ul>
-            </section>
+            <ReviewDocs
+              v-if="files.length"
+              :files="files"
+              :is-accommodation="!!isAccommodation"
+              :active="stageView === 'doc' ? activeDoc : null"
+              @show="(i) => show('doc', i)"
+            />
 
-            <section v-for="group in infoGroups" :key="group.title" class="tw-sec">
-              <h3 class="tw-sec-head">
-                <Icon :icon="group.icon" width="15" height="15" />
-                {{ group.title }}
-                <button
-                  v-if="group.view"
-                  type="button"
-                  class="tw-sec-eye"
-                  :class="{ 'is-active': isOpen(group.view) }"
-                  :aria-current="isOpen(group.view) ? 'true' : undefined"
-                  :title="isOpen(group.view) ? 'Showing the map' : 'Show on the map'"
-                  @click="show(group.view)"
-                >
-                  <Icon :icon="isOpen(group.view) ? 'lucide:eye' : 'lucide:eye'" width="16" height="16" />
-                </button>
-              </h3>
-              <dl class="tw-facts">
-                <div v-for="row in group.rows" :key="row.label" :class="{ 'is-block': row.block }">
-                  <dt>{{ row.label }}</dt>
-                  <dd :class="{ 'is-empty': !row.value }" :title="row.value">{{ row.value || 'Not set' }}</dd>
-                </div>
-              </dl>
-            </section>
+            <ReviewFacts
+              v-for="group in infoGroups"
+              :key="group.title"
+              :group="group"
+              :open="!!group.view && isOpen(group.view)"
+              @show="group.view && show(group.view)"
+            />
 
-            <section class="tw-sec">
-              <h3 class="tw-sec-head">
-                <Icon icon="lucide:shield-question" width="15" height="15" />
-                Checks
-              </h3>
-              <div class="tw-checks">
-                <span
-                  v-for="c in checksRef?.checks ?? []"
-                  :key="c.label"
-                  class="tw-chip"
-                  :class="`is-${c.status}`"
-                  :title="c.detail"
-                >
-                  <Icon :icon="c.status === 'pass' ? 'lucide:check' : c.status === 'warn' ? 'lucide:triangle-alert' : 'lucide:x'" width="13" height="13" />
-                  {{ c.label }}
-                </span>
-                <span v-if="!(checksRef?.checks ?? []).length" class="tw-chip is-muted">No automated checks</span>
-              </div>
-              <!-- Reads the school ID and assessment in this browser: for a
-                   file the phone did not scan, or a second look at one it did. -->
-              <button
-                v-if="checksRef?.canRead"
-                type="button"
-                class="tw-read"
-                :disabled="checksRef.reading"
-                @click="checksRef.readDocuments()"
-              >
-                <Icon :icon="checksRef.reading ? 'lucide:loader-circle' : 'lucide:scan-text'" width="14" height="14" :class="{ 'is-spinning': checksRef.reading }" />
-                {{ checksRef.reading ? 'Reading documents…' : 'Read documents' }}
-              </button>
-            </section>
+            <ReviewChecks
+              :checks="checksRef?.checks ?? []"
+              :can-read="checksRef?.canRead ?? false"
+              :reading="checksRef?.reading ?? false"
+              @read="checksRef?.readDocuments()"
+            />
 
             <footer class="tw-decide">
               <div class="tw-verdict" :class="`is-${checksRef?.verdict.tone ?? 'success'}`">
@@ -272,27 +112,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, type PropType } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Icon } from '@iconify/vue'
-import DocumentViewer from '@/features/verifications/DocumentViewer.vue'
-import PropertyMap from '@/features/verifications/PropertyMap.vue'
-import DecisionForm from '@/features/verifications/DecisionForm.vue'
+import ReviewStage from '@/features/verifications/ReviewStage.vue'
+import DecisionForm, { type DecisionPayload } from '@/features/verifications/DecisionForm.vue'
 import VerificationChecks from '@/features/verifications/VerificationChecks.vue'
-import { fileIcon } from '@/features/verifications/fileUtils'
-import { ROUND_KIND_LABEL, type RoundInfo } from '@/features/verifications/queue'
+import { type RoundInfo } from '@/features/verifications/queue'
+import { PERMITS, accommodationInfoGroups, accountInfoGroups } from '@/features/verifications/reviewInfo'
+import ReviewHeader from '@/features/verifications/ReviewHeader.vue'
+import ReviewChecks from '@/features/verifications/ReviewChecks.vue'
+import ReviewRound from '@/features/verifications/ReviewRound.vue'
+import ReviewDocs from '@/features/verifications/ReviewDocs.vue'
+import ReviewFacts from '@/features/verifications/ReviewFacts.vue'
 import { useAuthStore } from '@/stores/auth'
 
-const props = defineProps({
-  request: {
-    type: Object as PropType<Record<string, any> | null>,
-    default: null,
-  },
-  queueIndex: { type: Number, default: -1 },
-  queueCount: { type: Number, default: 0 },
-  hasPrev: { type: Boolean, default: false },
-  hasNext: { type: Boolean, default: false },
-})
-const emit = defineEmits(['close', 'submit', 'prev', 'next'])
+const props = withDefaults(
+  defineProps<{
+    request?: Record<string, any> | null
+    queueIndex?: number
+    queueCount?: number
+    hasPrev?: boolean
+    hasNext?: boolean
+  }>(),
+  { request: null, queueIndex: -1, queueCount: 0 },
+)
+const emit = defineEmits<{ close: []; submit: [payload: DecisionPayload]; prev: []; next: [] }>()
 
 const checksRef = ref<InstanceType<typeof VerificationChecks> | null>(null)
 const decisionRef = ref<InstanceType<typeof DecisionForm> | null>(null)
@@ -316,257 +160,14 @@ function isOpen(view: 'doc' | 'map', index = 0) {
   return stageView.value === view && (view !== 'doc' || activeDoc.value === index)
 }
 const activeFile = computed(() => files.value[activeDoc.value] ?? files.value[0] ?? null)
-const profile = computed<Record<string, any>>(() => props.request?.profile ?? {})
-
-/** Birth date with the age beside it, which is what a reviewer reads for. */
-function birthLine(value: string | null | undefined): string {
-  const shown = stamp(value)
-  if (!shown) return ''
-  const born = new Date(String(value))
-  const now = new Date()
-  let age = now.getFullYear() - born.getFullYear()
-  const beforeBirthday =
-    now.getMonth() < born.getMonth() ||
-    (now.getMonth() === born.getMonth() && now.getDate() < born.getDate())
-  if (beforeBirthday) age -= 1
-  return age >= 0 && age < 130 ? `${shown} · ${age}` : shown
-}
-
-function stamp(value: string | null | undefined): string {
-  if (!value) return ''
-  const d = new Date(value)
-  return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-PH', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-const SEX_LABEL: Record<string, string> = { F: 'Female', M: 'Male', O: 'Other' }
-
-/** Enum columns ('bedspace', 'mixed_gender') read as words; typed text is left
- *  exactly as the landlord/landlady entered it. */
-function label(value: string | null | undefined): string {
-  if (!value) return ''
-  const words = String(value).replace(/_/g, ' ')
-  return /^[a-z ]+$/.test(words) ? words.charAt(0).toUpperCase() + words.slice(1) : words
-}
-
-interface InfoRow {
-  label: string
-  value: string
-  /** A sentence or a list, which reads left-aligned under its label rather
-   *  than squeezed into the right-hand half of the row. */
-  block?: boolean
-}
-interface InfoGroup {
-  title: string
-  icon: string
-  rows: InfoRow[]
-  /** Set when the group has something to look at, opened from its heading. */
-  view?: 'map'
-}
-
-/**
- * An accreditation request is about a property, not a person, so it gets its
- * own record: what it is, where it is, who runs it, and where its accreditation
- * stands. The account groups below would be entirely blank for one.
- *
- * Only what the landlord/landlady submits with the property belongs here. Its size —
- * rooms, floors, per-room types, the capacity summed from them — is built after
- * accreditation, so those fields are empty at exactly the moment this panel is
- * read, and nothing in either app ever writes `business_name` or `address`.
- */
-/** A house rule is a yes or a no, and an unanswered one is neither. */
-function allowed(value: boolean | null | undefined): string {
-  return value == null ? '' : value ? 'Allowed' : 'Not allowed'
-}
-
-const accommodationGroups = computed<InfoGroup[]>(() => {
-  const a = props.request?.accommodation ?? {}
-  const rules = a.extras?.policies
-  return [
-    {
-      title: 'Property',
-      icon: 'lucide:building-2',
-      rows: [
-        { label: 'Name', value: props.request?.name || '' },
-        { label: 'Type', value: label(a.accommodation_type) },
-        { label: 'Gender policy', value: label(a.gender_policy) },
-        { label: 'Description', value: a.description || '', block: true },
-      ],
-    },
-    {
-      title: 'Location',
-      icon: 'lucide:map-pin',
-      // No street address is collected — the listing shows "Barangay, City", and
-      // where the property really sits is a question for the map, not for a pair
-      // of coordinates nobody can read.
-      ...(a.lat != null && a.lng != null ? { view: 'map' as const } : {}),
-      rows: [
-        { label: 'Purok', value: a.purok || '' },
-        { label: 'Barangay', value: a.barangay || '' },
-        { label: 'City', value: a.city || '' },
-      ],
-    },
-    {
-      title: 'House rules',
-      icon: 'lucide:scroll-text',
-      rows: [
-        { label: 'Curfew', value: rules?.curfew_time || '' },
-        { label: 'Quiet hours', value: rules?.quiet_hours || '' },
-        { label: 'Cooking', value: allowed(rules?.cooking) },
-        { label: 'Laundry', value: allowed(rules?.laundry) },
-        { label: 'Pets', value: allowed(rules?.pets) },
-        { label: 'Visitors', value: rules?.visitor_policy || '', block: true },
-      ],
-    },
-    {
-      title: 'Amenities',
-      icon: 'lucide:list-checks',
-      rows: [
-        {
-          label: 'Offered',
-          value: (a.extras?.amenities ?? []).map(label).join(' · '),
-          block: true,
-        },
-      ],
-    },
-    {
-      title: 'Landlord/Landlady',
-      icon: 'lucide:user-round',
-      rows: [
-        { label: 'Name', value: props.request?.owner || '' },
-        { label: 'Email', value: a.landlord_email || '' },
-        { label: 'Phone', value: a.landlord_phone || '' },
-        { label: 'Account', value: label(a.landlord_status) },
-      ],
-    },
-  ]
-})
-
-/**
- * Grouped by the question each answers: who are they, are they really a student,
- * and what has the account itself done. All of it was already stored — the queue
- * function just never returned it.
- */
-const infoGroups = computed(() => {
-  if (isAccommodation.value) return accommodationGroups.value
-  const p = profile.value
-  const groups: InfoGroup[] = []
-
-  groups.push({
-    title: 'Applicant',
-    icon: 'lucide:user',
-    rows: [
-      { label: 'Name', value: props.request?.name || '' },
-      { label: 'Email', value: props.request?.email || '' },
-      { label: 'Phone', value: p.phone || '' },
-      { label: 'Sex', value: SEX_LABEL[String(p.sex ?? '').trim().toUpperCase()] || '' },
-      // The field the ID is checked against: a school or government ID prints a
-      // birth date, so this is the one comparable fact besides the name.
-      { label: 'Date of birth', value: birthLine(p.date_of_birth) },
-    ],
-  })
-
-  if (!isLandlord.value) {
-    groups.push({
-      title: 'Academic',
-      icon: 'lucide:graduation-cap',
-      rows: [
-        { label: 'Student no.', value: p.student_id || '' },
-        { label: 'College', value: p.college || '' },
-        { label: 'Program', value: p.program || '' },
-        { label: 'Year level', value: p.year_level != null ? String(p.year_level) : '' },
-      ],
-    })
-  }
-
-  groups.push({
-    title: 'Account',
-    icon: 'lucide:shield-user',
-    rows: [
-      { label: 'Registered', value: stamp(p.registered_at || p.created_at) },
-      { label: 'Email confirmed', value: stamp(p.email_verified_at) },
-      { label: 'Terms accepted', value: stamp(p.terms_accepted_at) },
-      { label: 'Privacy notice', value: stamp(p.privacy_accepted_at) },
-      {
-        label: 'Sign-up',
-        value: p.onboarding_complete == null ? '' : p.onboarding_complete ? 'Complete' : 'Incomplete',
-      },
-      { label: 'Last login', value: stamp(p.last_login_at) },
-    ],
-  })
-
-  return groups
-})
-
 const isLandlord = computed(() => props.request?.id?.startsWith('REQ-AM'))
 const isAccommodation = computed(() => props.request?.id?.startsWith('REQ-AC'))
 const authStore = useAuthStore()
 const canDecide = computed(() => authStore.can(isAccommodation.value ? 'accreditation' : 'verification', 'edit'))
-
-/** The four permits, in the order the landlord/landlady uploads them. */
-const PERMITS = [
-  { type: 'sanitary_permit', label: 'Sanitary permit' },
-  { type: 'fire_safety', label: 'Fire safety permit' },
-  { type: 'business_permit', label: 'Business permit' },
-  { type: 'building_permit', label: 'Building permit' },
-]
-function permitName(type: string) {
-  return PERMITS.find((p) => p.type === type)?.label ?? type
-}
-const PREVIOUS_LABEL: Record<string, string> = {
-  approved: 'approved',
-  returned: 'sent back for changes',
-  rejected: 'refused',
-}
-
+const infoGroups = computed(() =>
+  isAccommodation.value ? accommodationInfoGroups(props.request) : accountInfoGroups(props.request, !!isLandlord.value),
+)
 const round = computed<RoundInfo | null>(() => (props.request?.round as RoundInfo | undefined) ?? null)
-const roundTitle = computed(() => {
-  const r = round.value
-  if (!r) return ''
-  const base = ROUND_KIND_LABEL[r.kind] ?? 'Request'
-  return r.kind === 'resubmission' ? `${base} · round ${r.number}` : base
-})
-
-/** kind = 'change': each column asked for, beside what the listing says now. */
-const CHANGE_LABEL: Record<string, string> = {
-  name: 'Name',
-  accommodation_type: 'Type',
-  gender_policy: 'Gender policy',
-  purok: 'Purok',
-  barangay: 'Barangay',
-  city: 'City',
-  lat: 'Map pin (latitude)',
-  lng: 'Map pin (longitude)',
-}
-const changeRows = computed(() => {
-  const changes = round.value?.proposedChanges
-  if (!changes) return []
-  const a = (props.request?.accommodation ?? {}) as Record<string, unknown>
-  const current: Record<string, unknown> = { ...a, name: props.request?.name }
-  return Object.entries(changes).map(([key, to]) => ({
-    label: CHANGE_LABEL[key] ?? key,
-    from: label(current[key] == null ? '' : String(current[key])),
-    to: label(String(to)),
-  }))
-})
-
-/** A permit with no date, or one already past it, is the reviewer's problem. */
-function expiryTone(f: { expiresAt?: string | null }): 'bad' | 'ok' {
-  if (!f.expiresAt) return 'bad'
-  return new Date(f.expiresAt) < new Date() ? 'bad' : 'ok'
-}
-function expiryText(f: { expiresAt?: string | null }): string {
-  if (!f.expiresAt) return 'No expiry date given'
-  const when = stamp(f.expiresAt)
-  return new Date(f.expiresAt) < new Date() ? `Expired ${when}` : `Expires ${when}`
-}
-
-/** 97% of this queue is past the 3-day target, so the wait is worth colouring. */
-const isLate = computed(() => {
-  const text = String(props.request?.submitted ?? '')
-  const days = /(\d+)\s*d/.exec(text)
-  const months = /month|year/.test(text)
-  return months || (days ? Number(days[1]) > 3 : false)
-})
 
 /**
  * A queue of 69 should not need the mouse. Ignored while a field has focus, so
@@ -589,6 +190,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value = 0 })
 </script>
 
+<style scoped src="@/features/verifications/reviewRail.css"></style>
+
 <style scoped>
 .ticket-window { position: fixed; inset: 0; z-index: 4000; overflow: hidden; }
 .tw-scrim {
@@ -597,7 +200,6 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
   background: rgba(15, 23, 42, 0.55);
   backdrop-filter: blur(3px);
 }
-
 .tw-shell {
   --tw-rail-w: 420px;
   position: absolute;
@@ -610,100 +212,6 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
   background: var(--c-surface);
   box-shadow: 0 30px 80px rgba(15, 23, 42, 0.35);
 }
-
-/* ── bar ── */
-.tw-bar {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--c-border);
-}
-
-.tw-state {
-  flex: 0 0 auto;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--c-surface-2);
-  color: var(--c-muted);
-  font-size: 11.5px;
-  font-weight: 700;
-}
-.tw-state.is-warning { background: var(--c-warning-soft); color: var(--c-warning); }
-.tw-state.is-primary,
-.tw-state.is-info { background: var(--c-primary-soft); color: var(--c-primary); }
-.tw-state.is-danger { background: var(--c-danger-soft); color: var(--c-danger); }
-.tw-state.is-success { background: var(--c-success-soft); color: var(--c-success); }
-.tw-spacer { flex: 1 1 auto; }
-.tw-icon-btn {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid var(--c-border);
-  border-radius: 10px;
-  background: var(--c-surface-2);
-  color: var(--c-muted);
-  cursor: pointer;
-}
-.tw-icon-btn:hover { border-color: var(--c-primary); color: var(--c-primary); }
-.tw-icon-btn:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
-
-.tw-av img {
-  width: 100%;
-  height: 100%;
-  border-radius: 999px;
-  object-fit: cover;
-}
-.tw-av {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 999px;
-  color: #fff;
-  font-size: 12.5px;
-  font-weight: 700;
-}
-.tw-who-text { display: flex; min-width: 0; flex-direction: column; }
-.tw-name {
-  overflow: hidden;
-  color: var(--c-ink);
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tw-sub { overflow: hidden; color: var(--c-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-
-.tw-age {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--c-surface-2);
-  color: var(--c-muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-.tw-age.is-late { background: var(--c-danger-soft); color: var(--c-danger); }
-
-.tw-pos {
-  flex: 0 0 auto;
-  padding-left: 4px;
-  color: var(--c-ink);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-}
-.tw-pos i { color: var(--c-muted); font-style: normal; font-weight: 500; }
-
 /* ── queue arrows on the margins ── */
 .tw-step {
   position: absolute;
@@ -725,7 +233,6 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
 .tw-step--prev { left: 10px; }
 /* Clear of the rail: the arrows belong to the document area, not the window. */
 .tw-step--next { right: calc(var(--tw-rail-w) + 10px); }
-
 /* ── documents ── */
 .tw-main {
   display: grid;
@@ -733,56 +240,6 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
   min-height: 0;
   grid-template-columns: minmax(0, 1fr) var(--tw-rail-w);
 }
-.tw-stage {
-  display: grid;
-  min-height: 0;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-  padding: 10px;
-  overflow-y: auto;
-  background: var(--c-bg);
-}
-.tw-sheet {
-  display: flex;
-  min-height: 260px;
-  min-width: 0;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  background: var(--c-surface);
-}
-.tw-sheet-head {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--c-border);
-  color: var(--c-muted);
-}
-.tw-sheet-name {
-  overflow: hidden;
-  color: var(--c-ink);
-  font-size: 12.5px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tw-nofiles {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  margin: 0;
-  color: var(--c-muted);
-  text-align: center;
-}
-.tw-nofiles b { color: var(--c-ink); font-family: var(--font-display); font-size: 15px; }
-.tw-nofiles span { max-width: 44ch; font-size: 12.5px; line-height: 1.5; }
-
 /* ── the account's own facts, under the documents ── */
 /* Everything at once: a reviewer comparing a document against an account should
    not have to scroll a panel to see what they are comparing against. The
@@ -799,208 +256,10 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
   overflow-y: auto;
   background: var(--c-surface);
 }
-/* The group title is a real heading rather than another micro-caption: at the
-   same size and weight as the field labels the two read as peers, so the rail
-   had no top level. Space above separates the groups — no rules needed. */
-.tw-sec-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  padding: 16px 14px 4px;
-  color: var(--c-ink);
-  font-size: 12.5px;
-  font-weight: 700;
-}
-.tw-sec-head :deep(svg) { flex: 0 0 auto; color: var(--c-muted); }
-
-/* One column, label left and value right, with a hairline between rows only.
-   The two-column grid boxed every fact in its own cell and left a dead half
-   cell whenever a group held an odd number of them. */
-.tw-facts { margin: 0; padding: 0; }
-.tw-facts > div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 7px 14px;
-  border-top: 1px solid var(--c-border);
-}
-.tw-facts > div:first-child { border-top: 0; }
-/* Prose under its label, full width and left-aligned: a description or a
-   visitor policy is a sentence, and a sentence right-aligned in half a rail is
-   unreadable. */
-.tw-facts > div.is-block {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 3px;
-}
-.tw-facts > div.is-block dd { text-align: left; }
-.tw-facts dt {
-  flex: 0 0 auto;
-  color: var(--c-muted);
-  font-size: 12px;
-  font-weight: 500;
-}
-/* Values wrap rather than truncate — a programme or college name is the field
-   being compared against the document, so half of it is worse than two lines. */
-.tw-facts dd {
-  min-width: 0;
-  margin: 0;
-  color: var(--c-ink);
-  font-size: 12.5px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-  text-align: right;
-}
-/* A missing field is a fact about the request, so it is shown, not hidden. */
-.tw-facts dd.is-empty { color: var(--c-muted); font-style: italic; font-weight: 500; }
-
-/* One row per document, on the same rhythm as the facts below them. Weight and
-   a solid eye say which one is open — a tinted row would be a fourth thing
-   competing for the reviewer's attention with the checks and the verdict. */
-.tw-docs { margin: 0; padding: 0; list-style: none; }
-.tw-doc {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 9px;
-  padding: 8px 14px;
-  border: 0;
-  border-top: 1px solid var(--c-border);
-  background: transparent;
-  color: var(--c-muted);
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
-.tw-docs li:first-child .tw-doc { border-top: 0; }
-.tw-doc:hover { background: var(--c-surface-2); }
-.tw-doc-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--c-ink);
-  font-size: 12.5px;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tw-doc-eye { flex: 0 0 auto; opacity: 0.5; }
-.tw-doc-text { display: flex; flex: 1; min-width: 0; flex-direction: column; }
-.tw-doc-meta { color: var(--c-muted); font-size: 11px; }
-.tw-doc-meta.is-bad { color: var(--c-danger); font-weight: 700; }
-
-/* ── the round: what is asked, and what was said last time ── */
-.tw-round-line { margin: 0; padding: 0 14px 6px; color: var(--c-muted); font-size: 12px; }
-.tw-quote {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 4px 14px 8px;
-  padding: 8px 10px;
-  border-left: 3px solid var(--c-primary);
-  border-radius: 0 8px 8px 0;
-  background: var(--c-surface-2);
-  font-size: 12.5px;
-}
-.tw-quote b { color: var(--c-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-.tw-change s { color: var(--c-muted); font-weight: 500; }
-.tw-prev {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 4px 14px 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--c-border);
-  border-radius: 8px;
-  font-size: 12px;
-}
-.tw-prev-head { color: var(--c-ink); }
-.tw-prev-line { color: var(--c-muted); }
-/* On the heading, at the far right, where the document count sits on its own
-   section — the map belongs to the whole group, not to one line of it. */
-.tw-sec-eye {
-  display: inline-flex;
-  margin-left: auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--c-muted);
-  cursor: pointer;
-  opacity: 0.5;
-}
-.tw-sec-eye:hover { opacity: 1; }
-.tw-sec-eye.is-active { opacity: 1; color: var(--c-ink); }
-.tw-doc.is-active .tw-doc-name { font-weight: 700; }
-.tw-doc.is-active .tw-doc-eye { opacity: 1; color: var(--c-ink); }
-
-.tw-count {
-  margin-left: auto;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: var(--c-surface-2);
-  color: var(--c-muted);
-  font-size: 11px;
-  font-weight: 700;
-}
-.tw-subs { margin: 0; padding: 0; list-style: none; }
-.tw-subs li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--c-border);
-  color: var(--c-text);
-  font-size: 12.5px;
-}
-.tw-subs li:last-child { border-bottom: 0; }
-.tw-subs li :deep(svg) { flex: 0 0 auto; color: var(--c-muted); }
-.tw-subs span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tw-none { margin: 0; padding: 8px 12px; color: var(--c-muted); font-size: 12px; }
-
-/* ── automated checks ── */
-.tw-checks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 6px 14px 12px;
-}
-.tw-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-}
-.tw-chip.is-pass { background: var(--c-success-soft); color: var(--c-success); }
-.tw-chip.is-warn { background: var(--c-warning-soft); color: var(--c-warning); }
-.tw-chip.is-fail { background: var(--c-danger-soft); color: var(--c-danger); }
-.tw-chip.is-muted { background: var(--c-surface-2); color: var(--c-muted); }
 .tw-checks-src { display: none; }
-.tw-read {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: -4px 14px 12px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--c-primary);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-}
-.tw-read:disabled { color: var(--c-muted); cursor: default; }
-.tw-read .is-spinning { animation: tw-spin 0.9s linear infinite; }
-@keyframes tw-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   .tw-read .is-spinning { animation: none; }
 }
-
 /* ── decision ── */
 /* Sits on the floor of the rail, under everything it is a judgement about. */
 .tw-viewonly {
@@ -1024,7 +283,6 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
   border-top: 1px solid var(--c-border);
   background: var(--c-surface);
 }
-
 /* The verdict is the sentence that decides the request, so it is the largest
    line in the footer and the dot states its tone once. It was said three times
    over before — a tinted top border, a coloured icon and coloured text — which
@@ -1048,7 +306,6 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
 .tw-verdict.is-success .tw-dot { background: var(--c-success); }
 .tw-verdict.is-warning .tw-dot { background: var(--c-warning); }
 .tw-verdict.is-danger .tw-dot { background: var(--c-danger); }
-
 /* The form owns its own two states now; the rail only sizes what sits in it. */
 .tw-decide :deep(.reason-row) {
   display: flex;
@@ -1074,7 +331,6 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
 .tw-decide :deep(.rv-override .q-checkbox) { margin-top: -2px; }
 .tw-decide :deep(.rv-hint) { margin: 0; font-size: 11.5px; line-height: 1.4; }
 .tw-decide :deep(.btn-resolve) { width: 100%; padding: 9px 12px; font-size: 13px; }
-
 /* ── transition ── */
 .tw-enter-from .tw-shell,
 .tw-leave-to .tw-shell { transform: scale(0.985); opacity: 0; }
@@ -1084,7 +340,6 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
 .tw-leave-to .tw-scrim { opacity: 0; }
 .tw-enter-active .tw-scrim,
 .tw-leave-active .tw-scrim { transition: opacity 0.28s ease; }
-
 @media (max-width: 1100px) {
   .tw-shell { --tw-rail-w: 0px; }
   .tw-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
@@ -1096,6 +351,7 @@ watch(() => props.request?.id, () => { stageView.value = 'doc'; activeDoc.value 
 }
 @media (prefers-reduced-motion: reduce) {
   .tw-enter-active .tw-shell,
-  .tw-leave-active .tw-shell { transition: none; }
+    .tw-leave-active .tw-shell { transition: none; }
 }
+@keyframes tw-spin { to { transform: rotate(360deg); } }
 </style>

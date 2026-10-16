@@ -1,0 +1,84 @@
+/* ── bar ── */
+.tw-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--c-border);
+}
+.tw-stage {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px;
+  overflow-y: auto;
+  background: var(--c-bg);
+}
+/* The group title is a real heading rather than another micro-caption: at the
+   same size and weight as the field labels the two read as peers, so the rail
+   had no top level. Space above separates the groups — no rules needed. */
+.tw-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 16px 14px 4px;
+  color: var(--c-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.tw-sec-head :deep(svg) { flex: 0 0 auto; color: var(--c-muted); }
+/* One column, label left and value right, with a hairline between rows only.
+   The two-column grid boxed every fact in its own cell and left a dead half
+   cell whenever a group held an odd number of them. */
+.tw-facts { margin: 0; padding: 0; }
+.tw-facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 7px 14px;
+  border-top: 1px solid var(--c-border);
+}
+.tw-facts > div:first-child { border-top: 0; }
+/* Prose under its label, full width and left-aligned: a description or a
+   visitor policy is a sentence, and a sentence right-aligned in half a rail is
+   unreadable. */
+.tw-facts > div.is-block {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+}
+.tw-facts > div.is-block dd { text-align: left; }
+.tw-facts dt {
+  flex: 0 0 auto;
+  color: var(--c-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+/* Values wrap rather than truncate — a programme or college name is the field
+   being compared against the document, so half of it is worse than two lines. */
+.tw-facts dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--c-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+/* A missing field is a fact about the request, so it is shown, not hidden. */
+.tw-facts dd.is-empty { color: var(--c-muted); font-style: italic; font-weight: 500; }
+.tw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.tw-chip.is-pass { background: var(--c-success-soft); color: var(--c-success); }
+.tw-read .is-spinning { animation: tw-spin 0.9s linear infinite; }
