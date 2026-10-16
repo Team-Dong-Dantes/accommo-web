@@ -1,0 +1,25 @@
+.container { max-width: 1080px; margin: 0 auto; padding: 0 24px; width: 100%; }
+.measure { max-width: 720px; }
+.kicker { text-transform: uppercase; letter-spacing: 1.5px; font-size: clamp(10px, 1.1vw, 12px); font-weight: 700; color: var(--teal); margin: 0 0 clamp(10px, 1.4vh, 16px); }
+/* bands */
+.band { padding: 76px 0; border-bottom: 1px solid var(--line); }
+.paper { background: var(--paper); }
+.section-head { margin-bottom: 36px; }
+.title { font-family: var(--font-display); font-size: clamp(1.6rem, 3vw, 2.1rem); font-weight: 700; letter-spacing: -0.3px; margin: 0; color: var(--ink); }
+/* faq */
+.faq { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; }
+/* The page is light-only; with the console in dark mode, QItem painted the
+   questions white on these white rows. :dark="false" plus an explicit colour
+   keeps them readable. header-class never reached the item under scoping. */
+.faq :deep(.q-item) { color: var(--ink); font-weight: 600; font-size: 1rem; }
+.faq :deep(.q-expansion-item__toggle-icon) { color: var(--muted); }
+.a { background: #fff; }
+/* footer */
+.foot { background: #16201d; color: #aebab4; padding: 56px 0 26px; border-bottom: none; }
+.foot a, .foot span { display: block; color: #93a39d; font-size: 0.88rem; padding: 4px 0; }
+/* v-reveal (utils/reveal.ts) adds these at runtime. */
+.reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.reveal.is-visible { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}

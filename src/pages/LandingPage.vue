@@ -53,34 +53,7 @@
     </section>
 
     <!-- HOW IT WORKS -->
-    <section id="how" class="band">
-      <div class="container">
-        <div class="section-head" v-reveal>
-          <p class="kicker">How it works</p>
-          <h2 class="title">From sign-up to move-in</h2>
-        </div>
-
-        <div class="cols">
-          <div class="col-block" v-reveal>
-            <h3 class="sub">If you're a student</h3>
-            <ol class="steps">
-              <li><span>1</span><div><strong>Make an account</strong> with your school email — takes a minute.</div></li>
-              <li><span>2</span><div><strong>Browse nearby boarding houses</strong> by price, room type, and distance to campus.</div></li>
-               <li><span>3</span><div><strong>Message the landlord/landlady</strong> and sort out your stay, with OSAS there if something goes wrong.</div></li>
-            </ol>
-          </div>
-
-          <div class="col-block" v-reveal>
-             <h3 class="sub">If you're a landlord/landlady</h3>
-            <ol class="steps">
-               <li><span>1</span><div><strong>Add your accommodation and rooms</strong> with photos and house rules.</div></li>
-              <li><span>2</span><div><strong>OSAS reviews and accredits it</strong> — your listing goes live once it's cleared.</div></li>
-              <li><span>3</span><div><strong>Manage leases and rent</strong> from one dashboard instead of a spreadsheet.</div></li>
-            </ol>
-          </div>
-        </div>
-      </div>
-    </section>
+    <LandingHow />
 
     <!-- DOWNLOAD -->
     <section id="download" class="band paper">
@@ -110,56 +83,10 @@
     </section>
 
     <!-- FAQ -->
-    <section id="faq" class="band paper">
-      <div class="container measure" v-reveal>
-        <div class="section-head"><h2 class="title">A few things people ask</h2></div>
-        <div class="faq">
-          <q-expansion-item
-            v-for="(item, i) in faqs"
-            :key="i"
-            :label="item.q"
-            expand-separator
-            :dark="false"
-            :class="i % 2 ? 'b' : 'a'"
-          >
-            <div class="faq-a">{{ item.a }}</div>
-          </q-expansion-item>
-        </div>
-      </div>
-    </section>
+    <LandingFaq />
 
     <!-- FOOTER -->
-    <footer class="foot">
-      <div class="container foot-grid">
-        <div>
-          <div class="foot-brand">
-                      <span class="foot-logo-img"></span>
-                      accommo
-                    </div>
-          <p class="foot-tag">
-            Boarding-house listings for ISU Echague, reviewed by the Office of
-            Student Affairs and Services.
-          </p>
-        </div>
-        <div>
-          <div class="foot-h">Product</div>
-          <span>Find a room</span><span>List an accommodation</span><span>For OSAS</span>
-        </div>
-        <div>
-          <div class="foot-h">Campus</div>
-          <span>ISU Echague</span><span>Office of Student Affairs</span>
-        </div>
-        <div>
-          <div class="foot-h">Get the app</div>
-          <a :href="APP_URL">Web app</a>
-          <a :href="APK_URL" target="_blank" rel="noopener">Android (APK)</a>
-        </div>
-      </div>
-      <div class="container foot-bar">
-        <span>© {{ year }} Accommo</span>
-        <span>Made for ISU Echague students and landlords/landladies</span>
-      </div>
-    </footer>
+    <LandingFooter />
 
     <transition name="fade">
       <q-btn v-show="showTop" round color="primary" class="totop" @click="scrollTop">
@@ -171,9 +98,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { APP_URL, APK_URL, SIGN_IN_URL } from '@/utils/appLinks';
+import { APK_URL, SIGN_IN_URL } from '@/utils/appLinks';
+import { vReveal } from '@/utils/reveal';
+import LandingHow from '@/features/landing/LandingHow.vue';
+import LandingFaq from '@/features/landing/LandingFaq.vue';
+import LandingFooter from '@/features/landing/LandingFooter.vue';
 
-const year = new Date().getFullYear();
 const showTop = ref(false);
 const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 function onScroll() { showTop.value = window.scrollY > 600; }
@@ -183,27 +113,9 @@ function onScroll() { showTop.value = window.scrollY > 600; }
 // the thing it is trying to get read.
 onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }));
 onUnmounted(() => window.removeEventListener('scroll', onScroll));
-
-const vReveal = {
-  mounted(el: HTMLElement) {
-    el.classList.add('reveal');
-    const obs = new IntersectionObserver(
-      (entries) => entries.forEach((e) => {
-        if (e.isIntersecting) { el.classList.add('is-visible'); obs.unobserve(el); }
-      }),
-      { threshold: 0.12 },
-    );
-    obs.observe(el);
-  },
-};
-
-const faqs = [
-  { q: 'How much does it cost for students?', a: 'Nothing. Students browse and message landlords/landladies for free.' },
-  { q: 'Why does a listing say "Accredited"?', a: 'It means OSAS has reviewed the boarding house — ownership, documents, and location — before it was listed.' },
-  { q: 'I\'m a landlord/landlady. How do I get listed?', a: 'Add your accommodation in the app and submit the requirements. OSAS reviews and accredits it, then your listing goes live.' },
-  { q: 'Something\'s wrong with my stay — what do I do?', a: 'Open a support ticket in the app. OSAS can step in if a landlord/landlady or accommodation is not holding up their side.' },
-];
 </script>
+
+<style scoped src="@/features/landing/landing.css"></style>
 
 <style scoped>
 .landing {
@@ -221,16 +133,12 @@ const faqs = [
      companion the rest of the app already loads and uses. */
   font-family: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
-.container { max-width: 1080px; margin: 0 auto; padding: 0 24px; width: 100%; }
-.measure { max-width: 720px; }
-
 /* hero — two fields, split down the middle.
    The type used to sit directly on the campus photo under a green wash and a
    radial vignette; that is what made it read as a template. Now the type has a
    calm solid ground of its own and the photograph runs at full strength beside
    it, undimmed. */
 .landing { --hero-ground: #06332e; }
-
 /* The same photograph the mobile app opens on — accommo-mobile's AuthLayout
    splash, where the role fork sits. Bundled here rather than hotlinked from
    isu.edu.ph the way mobile does it: this is the public front door, and it
@@ -293,7 +201,6 @@ const faqs = [
 }
 .hero > * { position: relative; z-index: 1; }
 .hero-copy { width: 100%; }
-
 .hero-foot {
   margin: clamp(22px, 3vh, 32px) 0 0;
   padding-top: clamp(18px, 2.5vh, 26px);
@@ -302,7 +209,6 @@ const faqs = [
   font-size: 0.82rem;
   letter-spacing: 0.01em;
 }
-.kicker { text-transform: uppercase; letter-spacing: 1.5px; font-size: clamp(10px, 1.1vw, 12px); font-weight: 700; color: var(--teal); margin: 0 0 clamp(10px, 1.4vh, 16px); }
 .headline {
   font-family: var(--font-display);
   font-size: clamp(2rem, 1rem + 4.2vw, 3.25rem);
@@ -352,7 +258,6 @@ const faqs = [
   margin: 0;
 }
 .hero .actions { justify-self: end; flex-wrap: nowrap; }
-
 /* hero actions */
 .cta {
   display: inline-flex; align-items: center; gap: 8px;
@@ -378,97 +283,35 @@ const faqs = [
 }
 .cta-quiet:hover { color: #ffffff; background: rgba(255,255,255,0.1); }
 .cta:focus-visible, .cta-quiet:focus-visible { outline: 3px solid #46ecd4; outline-offset: 3px; }
-
-/* bands */
-.band { padding: 76px 0; border-bottom: 1px solid var(--line); }
-.paper { background: var(--paper); }
-.section-head { margin-bottom: 36px; }
-  .title { font-family: var(--font-display); font-size: clamp(1.6rem, 3vw, 2.1rem); font-weight: 700; letter-spacing: -0.3px; margin: 0; color: var(--ink); }
 .body { font-size: 1.04rem; line-height: 1.7; color: var(--muted); margin: 16px 0 0; }
-
-/* how */
-.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-.col-block { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 28px; }
-.sub { font-size: 1.2rem; font-weight: 700; margin: 0 0 18px; color: var(--ink); }
-.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
-.steps li { display: flex; gap: 14px; align-items: flex-start; }
-.steps span { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--teal); color: #fff; font-weight: 700; font-size: 0.82rem; display: grid; place-items: center; }
-.steps div { font-size: 0.96rem; line-height: 1.55; color: #34433f; }
-.steps strong { color: var(--ink); }
-
-/* audience cards */
-.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-.card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 32px; }
-
-/* faq */
-.faq { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; }
-/* The page is light-only; with the console in dark mode, QItem painted the
-   questions white on these white rows. :dark="false" plus an explicit colour
-   keeps them readable. header-class never reached the item under scoping. */
-.faq :deep(.q-item) { color: var(--ink); font-weight: 600; font-size: 1rem; }
-.faq :deep(.q-expansion-item__toggle-icon) { color: var(--muted); }
-.a { background: #fff; } .b { background: var(--paper); }
-.faq-a { padding: 4px 16px 16px; color: var(--muted); font-size: 0.95rem; line-height: 1.6; }
-
-/* cta / store buttons (used in hero) */
-.store { background: #16201d; color: #fff; border-radius: 11px; padding: 10px 18px; display: inline-flex; align-items: center; }
-.store-txt { display: flex; flex-direction: column; line-height: 1.15; text-align: left; }
-.store-txt small { font-size: 10px; opacity: 0.8; } .store-txt strong { font-size: 14px; }
-.store.apk { background: var(--teal); }
-.store.apk:hover { background: var(--teal-d); }
-
-/* footer */
-.foot { background: #16201d; color: #aebab4; padding: 56px 0 26px; border-bottom: none; }
-.foot-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 28px; }
-.foot-brand { color: #fff; font-weight: 700; font-size: 1.15rem; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.foot-logo-img {
-  display: inline-block;
-  width: 28px; height: 28px;
-  background-color: #ffffff;
-  -webkit-mask: url(/accommo-logo.svg) no-repeat center / contain;
-  mask: url(/accommo-logo.svg) no-repeat center / contain;
-}
-.foot-tag { font-size: 0.9rem; max-width: 300px; line-height: 1.6; }
-.foot-h { color: #fff; font-weight: 700; font-size: 0.9rem; margin-bottom: 12px; }
-.foot a, .foot span { display: block; color: #93a39d; font-size: 0.88rem; padding: 4px 0; }
-.foot-bar { display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 34px; padding-top: 18px; font-size: 0.83rem; color: #7e8d87; }
-
 .totop { position: fixed; bottom: 24px; right: 24px; z-index: 50; box-shadow: 0 10px 24px rgba(22, 32, 29, 0.25); }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
-
-.reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.6s ease, transform 0.6s ease; }
-.reveal.is-visible { opacity: 1; transform: none; }
-
 @media (max-width: 980px) {
   /* The measures are set in ch, so the type reflows on its own; only the frame
-     needs adjusting. */
+       needs adjusting. */
   .hero { padding-left: 24px; padding-right: 24px; }
-  .cols, .cards { grid-template-columns: 1fr; }
-  .foot-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 860px) {
   /* Not enough width to hold the explanation against the actions, so the row
-     becomes two stacked bands on one rule. */
+       becomes two stacked bands on one rule. */
   .hero-row { grid-template-columns: 1fr; gap: clamp(20px, 3.5vh, 28px); }
   .hero .actions { justify-self: stretch; }
 }
 @media (max-width: 540px) {
   .hero { padding: 104px 20px 28px; }
   /* At phone widths 15ch would break the headline into six short lines; let it
-     use the full column instead. */
+       use the full column instead. */
   .hero .headline { max-width: none; letter-spacing: -0.028em; }
   /* Too narrow for a row: full-width primary with the quiet link centred under
-     it, rather than the primary stretching and shoving the link onto a second
-     line at its own inset. */
+       it, rather than the primary stretching and shoving the link onto a second
+       line at its own inset. */
   .hero .actions { flex-direction: column; align-items: stretch; width: 100%; gap: 2px; }
   .cta { justify-content: center; }
   .cta-quiet { text-align: center; }
   .band { padding: 52px 0; }
-  .foot-grid { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .reveal { opacity: 1; transform: none; transition: none; }
   .cta { transition: none; }
 }
 </style>
