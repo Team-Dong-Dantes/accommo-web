@@ -31,7 +31,7 @@
 <script setup lang="ts">
 import { errorMessage } from '@/utils/errors'
 import { onMounted, ref } from 'vue'
-import { supabase } from '@/utils/supabase'
+import { enrollTotp, fetchVerifiedTotp, unenrollFactor, verifyTotp } from '@/api/auth'
 import { useNotify } from '@/utils/notify'
 
 const notify = useNotify()
@@ -43,8 +43,7 @@ const code = ref('')
 const busy = ref(false)
 
 async function load() {
-  const { data } = await supabase.auth.mfa.listFactors()
-  factorId.value = data?.totp.find((f) => f.status === 'verified')?.id ?? null
+  factorId.value = (await fetchVerifiedTotp())?.id ?? null
 }
 
 async function start() {
@@ -52,13 +51,7 @@ async function start() {
   try {
     // A setup abandoned halfway leaves an unverified factor behind, and Supabase
     // refuses a second one with the same name.
-    const { data: list } = await supabase.auth.mfa.listFactors()
-    for (const f of list?.all ?? []) {
-      if (f.status === 'unverified') await supabase.auth.mfa.unenroll({ factorId: f.id })
-    }
-    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Accommo OSAS' })
-    if (error) throw error
-    enrolling.value = { id: data.id, qr: data.totp.qr_code, secret: data.totp.secret }
+    enrolling.value = await enrollTotp('Accommo OSAS')
     code.value = ''
   } catch (e) {
     notify.error(errorMessage(e, 'Could not start two-factor setup'))
@@ -71,8 +64,7 @@ async function verify() {
   if (!enrolling.value || code.value.length !== 6) return
   busy.value = true
   try {
-    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: enrolling.value.id, code: code.value })
-    if (error) throw error
+    await verifyTotp(enrolling.value.id, code.value)
     factorId.value = enrolling.value.id
     enrolling.value = null
     notify.success('Two-factor authentication is on')
@@ -85,7 +77,7 @@ async function verify() {
 }
 
 async function cancel() {
-  if (enrolling.value) await supabase.auth.mfa.unenroll({ factorId: enrolling.value.id })
+  if (enrolling.value) await unenrollFactor(enrolling.value.id)
   enrolling.value = null
 }
 

@@ -39,7 +39,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import DocumentViewer from '@/features/verifications/DocumentViewer.vue'
 import { signDocUrl } from '@/utils/docUrl'
-import { supabase } from '@/utils/supabase'
+import { sendSystemNotice } from '@/api/notifications'
 import { useNotify } from '@/utils/notify'
 import type { PreviewFile } from '../preview'
 
@@ -101,14 +101,13 @@ async function notifyLandlord(kind: 'renew' | 'reupload') {
   }
   sending.value = true
   const renew = kind === 'renew'
-  const { error } = await supabase.from('notifications').insert({
-    user_id: props.landlordId,
-    type: 'system',
-    title: renew ? `Renew your ${props.file.name}` : `Upload your ${props.file.name} again`,
-    body: renew
+  const error = await sendSystemNotice(
+    props.landlordId,
+    renew ? `Renew your ${props.file.name}` : `Upload your ${props.file.name} again`,
+    renew
       ? `OSAS: the ${props.file.name} for ${props.accommodationName} needs renewing (${props.file.expiry || 'no expiry recorded'}). Please upload the renewed permit.`
       : `OSAS asks you to upload the ${props.file.name} for ${props.accommodationName} again.`,
-  } as never)
+  ).then(() => null, (e) => e)
   sending.value = false
   if (error) notify.error(`Could not notify the ${(props.landlordTitle ?? 'landlord/landlady').toLowerCase()}`, error.message)
   else notify.success(renew ? 'Renewal reminder sent.' : 'Re-upload requested.')

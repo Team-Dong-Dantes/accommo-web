@@ -118,7 +118,7 @@ import { errorMessage } from '@/utils/errors'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useSort } from '@/composables/useSort'
 import { useQuasar } from 'quasar'
-import { supabase } from '@/utils/supabase'
+import { sessionUserId } from '@/api/announcements'
 import { useNotify } from '@/utils/notify'
 import { counted } from '@/utils/filterOptions'
 import TabNav from '@/components/ui/TabNav.vue'
@@ -270,8 +270,8 @@ function openView(row: any) {
 async function togglePublish(row: any) {
   const publishing = row.status !== 'live'
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    await setAnnouncementPublished(row.id, publishing ? new Date().toISOString() : null, publishing ? session?.user?.id : null)
+    const userId = await sessionUserId()
+    await setAnnouncementPublished(row.id, publishing ? new Date().toISOString() : null, publishing ? userId : null)
     notify.success(publishing ? 'Announcement published.' : 'Announcement unpublished.')
     await fetchAll()
   } catch (e) {

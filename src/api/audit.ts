@@ -65,3 +65,20 @@ export async function insertAuditLog(row: AuditInsert): Promise<void> {
   const { error } = await supabase.from('audit_logs').insert(row as never)
   if (error) throw error
 }
+
+/** One page of the audit log, newest first, inside a window and before a cursor. */
+export async function fetchAuditPage(from: string, to: string | null, before: string | null, limit: number): Promise<any[]> {
+  let q = supabase.from('audit_logs').select(AUDIT_COLUMNS).gte('created_at', from)
+  if (to) q = q.lt('created_at', to)
+  if (before) q = q.lt('created_at', before)
+  const { data, error } = await q.order('created_at', { ascending: false }).limit(limit)
+  if (error) throw error
+  return data ?? []
+}
+
+/** The admins the audit log's filters and avatars name. */
+export async function fetchAdminAccounts() {
+  const { data, error } = await supabase.from('users').select('id, full_name, initials, avatar_color').eq('role', 'admin')
+  if (error) throw error
+  return data ?? []
+}

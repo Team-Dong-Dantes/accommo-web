@@ -19,7 +19,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import AccessEditor, { type AccessDraft } from './AccessEditor.vue'
-import { supabase } from '@/utils/supabase'
+import { saveAdminAccess } from '@/api/settings'
 import { useNotify } from '@/utils/notify'
 import { useAuthStore } from '@/stores/auth'
 import { errorMessage } from '@/utils/errors'
@@ -48,14 +48,14 @@ async function save() {
   if (!props.admin) return
   saving.value = true
   // The database checks this too (admin_access_write): system admin only, never yourself.
-  const { error } = await supabase.from('admin_access').upsert({
+  const error = await saveAdminAccess({
     user_id: props.admin.id,
     preset: draft.value.preset,
     levels: draft.value.levels,
     expires_at: draft.value.expiresAt ? endOfDayIso(draft.value.expiresAt) : null,
     granted_by: auth.user?.id ?? null,
     updated_at: new Date().toISOString(),
-  })
+  }).then(() => null, (e) => e)
   saving.value = false
   if (error) return notify.error(errorMessage(error, 'Could not save access'))
   notify.success('Access saved')

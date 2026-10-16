@@ -47,7 +47,7 @@
 import { errorMessage } from '@/utils/errors'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { supabase } from '@/utils/supabase'
+import { fetchVerifiedTotp, setPassword, verifyTotp } from '@/api/auth'
 import { useNotify } from '@/utils/notify'
 import { useAuthStore } from '@/stores/auth'
 import AuthInput from '@/components/auth/AuthInput.vue'
@@ -72,17 +72,14 @@ async function submit() {
   try {
     if (isMfa.value) {
       if (!/^\d{6}$/.test(code.value)) throw new Error('Enter the 6-digit code from your app.')
-      const { data } = await supabase.auth.mfa.listFactors()
-      const factor = data?.totp.find((f) => f.status === 'verified')
+      const factor = await fetchVerifiedTotp()
       if (!factor) throw new Error('No authenticator is set up for this account.')
-      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code.value })
-      if (error) throw error
+      await verifyTotp(factor.id, code.value)
     } else {
       const weak = passwordProblem(password.value)
       if (weak) throw new Error(weak)
       if (password.value !== confirm.value) throw new Error('The passwords do not match.')
-      const { error } = await supabase.auth.updateUser({ password: password.value })
-      if (error) throw error
+      await setPassword(password.value)
       notify.success('Password updated')
     }
     await router.replace(authStore.needsOnboarding ? '/onboarding' : '/dashboard')

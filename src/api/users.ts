@@ -331,3 +331,49 @@ export async function fetchPersonSummary(userId: string, role: 'student' | 'land
     landlord: role === 'landlord' ? { responseRate: p?.response_rate ?? null } : null,
   }
 }
+
+/**
+ * The Users directory: every student and landlord/landlady with their profile,
+ * current stay and accommodations.
+ */
+export async function fetchDirectory() {
+  // Paged: the directory can outgrow PostgREST's 1,000-row cap. The profile
+  // tables are read whole (admin RLS allows it) rather than filtered by a
+  // list of user ids, which put every id in the URL and would overrun its
+  // length limit at a few hundred users.
+  const data = await fetchAll((from, to) => supabase
+    .from('users_full')
+    .select(
+      `id, full_name, email, phone, sex, role, status, created_at, registered_at, updated_at,
+       date_of_birth, avatar_url, email_verified_at, last_login_at, terms_accepted_at,
+       privacy_accepted_at, onboarding_complete, is_superadmin, reviewing_at`,
+    )
+    .in('role', ['student', 'landlord'])
+    .order('created_at', { ascending: false })
+    .order('id')
+    .range(from, to))
+
+  // `qr_code_token` is deliberately not selected — it is a live credential.
+  const [studentRows, landlordRows, leaseRes, accRes] = data.length
+    ? await Promise.all([
+        fetchAll((from, to) => supabase.from('student_profiles')
+          .select('user_id, student_id, program, year_level, college, osas_verified_at, emergency_contact_json, school_id_url, assessment_of_fees_url, extracted_name, extracted_school_id')
+          .order('user_id')
+          .range(from, to)),
+        fetchAll((from, to) => supabase.from('landlord_profiles')
+          .select('user_id, government_id_url, response_rate, avg_response_minutes, extracted_name, extracted_gov_id')
+          .order('user_id')
+          .range(from, to)),
+        supabase.from('leases')
+          .select('student_id, room:rooms!leases_room_id_fkey(room_number, label, accommodation:accommodations!rooms_accommodation_id_fkey(id, name))')
+          .eq('status', 'active'),
+        supabase.from('accommodations').select('landlord_id, status, rooms(capacity, current_pax)'),
+      ])
+    : [[], [], { data: [] }, { data: [] }]
+  return {
+    users: data,
+    profiles: [...studentRows, ...landlordRows],
+    leases: leaseRes.data ?? [],
+    accommodations: accRes.data ?? [],
+  }
+}

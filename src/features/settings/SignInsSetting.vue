@@ -33,8 +33,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useQuasar } from 'quasar'
 import BadgePill from '@/components/user/BadgePill.vue'
-import { supabase } from '@/utils/supabase'
+import { fetchMySignIns, signOutOtherDevices, signOutSession } from '@/api/auth'
 import { useNotify } from '@/utils/notify'
+import { errorMessage } from '@/utils/errors'
 import { deviceName, formatDateTime, getTimeAgo } from '@/utils/format'
 import type { Database } from '@/types/database.gen'
 
@@ -47,16 +48,18 @@ const busy = ref<string | null>(null)
 const others = computed(() => rows.value?.filter((r) => r.active && !r.current).length ?? 0)
 
 async function load() {
-  const { data, error } = await supabase.rpc('my_sign_ins')
-  if (error) return notify.error(error.message)
-  rows.value = data ?? []
+  try {
+    rows.value = await fetchMySignIns()
+  } catch (error) {
+    return notify.error(errorMessage(error, 'Could not load sign-ins'))
+  }
 }
 
 async function signOut(id: string) {
   busy.value = id
-  const { error } = await supabase.rpc('sign_out_session', { p_session: id })
+  const error = await signOutSession(id).then(() => null, (e) => e)
   busy.value = null
-  if (error) return notify.error(error.message)
+  if (error) return notify.error(errorMessage(error, 'Could not log that device out'))
   notify.success('That device has been logged out')
   await load()
 }
@@ -70,9 +73,9 @@ function confirmOthers() {
     persistent: true,
   }).onOk(async () => {
     busy.value = 'others'
-    const { error } = await supabase.auth.signOut({ scope: 'others' })
+    const error = await signOutOtherDevices().then(() => null, (e) => e)
     busy.value = null
-    if (error) return notify.error(error.message)
+    if (error) return notify.error(errorMessage(error, 'Could not log the other devices out'))
     notify.success('Other devices have been logged out')
     await load()
   })

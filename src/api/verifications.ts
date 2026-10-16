@@ -55,3 +55,47 @@ export async function fetchRoundEvidence(accommodationIds: string[]) {
   ])
   return { documents, documentError, pastRounds }
 }
+
+/** Other accounts on this email, for the duplicate-account check. */
+export async function fetchAccountsByEmail(email: string, excludeId: string) {
+  const { data, error } = await supabase.from('users_full').select('id, status').eq('email', email).neq('id', excludeId)
+  if (error) throw error
+  return data ?? []
+}
+
+/** Other accommodations with this name, for the duplicate-name check. */
+export async function fetchAccommodationsByName(name: string, excludeId: string) {
+  const { data, error } = await supabase.from('accommodations').select('id, status').eq('name', name).neq('id', excludeId)
+  if (error) throw error
+  return data ?? []
+}
+
+/** What the phone read off a student's documents when they were scanned. */
+export async function fetchStoredDocumentText(userId: string) {
+  const { data, error } = await supabase.from('student_profiles').select('document_text').eq('user_id', userId).maybeSingle()
+  if (error) throw error
+  return data?.document_text ?? null
+}
+
+/** Accommodations other than this one holding a permit file with any of these hashes. */
+export async function fetchDocsWithHashes(hashes: string[], excludeAccommodationId: string) {
+  const { data, error } = await supabase
+    .from('accommodation_documents')
+    .select('accommodation_id, doc_type')
+    .in('file_sha256', hashes)
+    .neq('accommodation_id', excludeAccommodationId)
+  if (error) throw error
+  return data ?? []
+}
+
+/** Other accommodations pinned inside a small lat/lng box. */
+export async function fetchAccommodationsNear(lat: number, lng: number, d: number, excludeId: string) {
+  const { data, error } = await supabase
+    .from('accommodations')
+    .select('id, name, landlord_id')
+    .gte('lat', lat - d).lte('lat', lat + d)
+    .gte('lng', lng - d).lte('lng', lng + d)
+    .neq('id', excludeId)
+  if (error) throw error
+  return data ?? []
+}

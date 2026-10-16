@@ -28,11 +28,12 @@
 import { landlordTitle } from '@/utils/format'
 import { ref, computed, watch } from 'vue'
 import { Icon } from '@iconify/vue'
-import { supabase } from '@/utils/supabase'
+import { fetchAccommodationsByName, fetchAccommodationsNear, fetchAccountsByEmail, fetchDocsWithHashes, fetchStoredDocumentText } from '@/api/verifications'
 import { useNotify } from '@/utils/notify'
 import { errorMessage } from '@/utils/errors'
 import { checkDocument, type DocReadings, type ReadDocType } from '@/utils/docReading'
 import { readImageText } from './ocr'
+import type { QueueFile } from './queue'
 
 export interface VerificationCheck {
   label: string
@@ -101,7 +102,7 @@ async function runAutoChecks() {
       { type: 'business_permit', label: 'Business permit' },
       { type: 'building_permit', label: 'Building permit' },
     ]
-    const submitted = new Set((r.files ?? []).map((file: any) => file.type))
+    const submitted = new Set((r.files ?? []).map((file: QueueFile) => file.type))
     const missing = requiredPermits.filter((permit) => !submitted.has(permit.type))
     list.push({
       label: 'Required accommodation permits',
@@ -115,7 +116,7 @@ async function runAutoChecks() {
       // entitled to it, so an empty one is a real failure. (The old check fetched
       // the file with HEAD, which cannot work cross-origin against the signing
       // endpoint and would warn every time.)
-      const unopenable = (r.files as any[]).filter((file) => !file.url).length
+      const unopenable = (r.files as QueueFile[]).filter((file) => !file.url).length
       list.push(unopenable
         ? { label: 'Permit files', status: 'fail', detail: `${unopenable} permit(s) could not be opened.` }
         : { label: 'Permit files', status: 'pass', detail: 'All permits opened for review.' })
@@ -138,7 +139,7 @@ async function runAutoChecks() {
         : `${(r.requirements ?? []).map((item: { label: string }) => item.label).join(' and ')} are attached.`,
     })
     if (have) {
-      const unopenable = (r.files as any[]).filter((f) => !f.url).length
+      const unopenable = (r.files as QueueFile[]).filter((f) => !f.url).length
       list.push(unopenable
         ? { label: 'Document files', status: 'fail', detail: `${unopenable} document(s) could not be opened.` }
         : { label: 'Document files', status: 'pass', detail: 'All documents opened for review.' })
@@ -164,14 +165,14 @@ async function runAutoChecks() {
 
   try {
     if (!props.isAccommodation && r.email) {
-      const { data } = await supabase.from('users_full').select('id, status').eq('email', r.email).neq('id', r.rawId)
-      const dup = (data ?? []).find((u: any) => ['verified', 'needs_resubmission', 'rejected'].includes(u.status))
+      const data = await fetchAccountsByEmail(r.email, r.rawId).catch(() => [])
+      const dup = data.find((u) => ['verified', 'needs_resubmission', 'rejected'].includes(u.status ?? ''))
       list.push(dup
         ? { label: 'Duplicate account', status: 'fail', detail: `Another account with this email is already ${String(dup.status).replace(/_/g, ' ')}.` }
         : { label: 'No duplicate account', status: 'pass', detail: 'No conflicting account found.' })
     } else if (props.isAccommodation && r.name) {
-       const { data } = await supabase.from('accommodations').select('id, status').eq('name', r.name).neq('id', r.rawId)
-      const dup = (data ?? []).find((p: any) => p.status === 'accredited')
+      const data = await fetchAccommodationsByName(r.name, r.rawId).catch(() => [])
+      const dup = data.find((p) => p.status === 'accredited')
       list.push(dup
          ? { label: 'Duplicate name', status: 'fail', detail: 'An accommodation with this name is already accredited.' }
          : { label: 'No duplicate name', status: 'pass', detail: 'No duplicate accommodation found.' })
@@ -204,12 +205,12 @@ const isStudent = computed(() => !props.isAccommodation && String(props.request?
 
 function studentDocs(r: Record<string, any>) {
   return READ_DOCS
-    .map((d) => ({ ...d, file: (r.files ?? []).find((f: any) => f.type === d.type) }))
+    .map((d) => ({ ...d, file: (r.files ?? []).find((f: QueueFile) => f.type === d.type) }))
     .filter((d) => d.file)
 }
 
 /** An image this browser can read: signed, and not a PDF. */
-const readable = (file: any) => !!file.url && !/\.pdf$/i.test(file.name ?? '')
+const readable = (file: QueueFile) => !!file.url && !/\.pdf$/i.test(file.name ?? '')
 
 const canRead = computed(() => isStudent.value && !!props.request && studentDocs(props.request).some((d) => readable(d.file)))
 
@@ -221,9 +222,7 @@ const canRead = computed(() => isStudent.value && !!props.request && studentDocs
 async function documentChecks(r: Record<string, any>): Promise<VerificationCheck[]> {
   const docs = studentDocs(r)
   if (!docs.length) return []
-  const { data, error } = await supabase.from('student_profiles').select('document_text').eq('user_id', r.rawId).maybeSingle()
-  if (error) throw error
-  const stored = (data?.document_text ?? {}) as DocReadings
+  const stored = ((await fetchStoredDocumentText(r.rawId)) ?? {}) as DocReadings
   const expected = { fullName: r.name ?? '', studentId: r.studentNumber ?? '', college: r.college ?? '' }
   return docs.flatMap(({ type, label }): VerificationCheck[] => {
     const text = readHere.value[`${r.rawId}:${type}`] ?? stored[type]?.text
@@ -257,7 +256,7 @@ async function readDocuments() {
  * would grant. A permit that runs out mid-term takes the listing down with it
  * (sweep_expired_permits), so that is worth knowing before accrediting.
  */
-function permitDateChecks(files: any[]): VerificationCheck[] {
+function permitDateChecks(files: QueueFile[]): VerificationCheck[] {
   const now = new Date()
   const termEnd = new Date(now)
   termEnd.setFullYear(termEnd.getFullYear() + 1)
@@ -281,14 +280,10 @@ function permitDateChecks(files: any[]): VerificationCheck[] {
 
 /** The same permit file submitted for another accommodation. */
 async function sameFileChecks(r: Record<string, any>): Promise<VerificationCheck[]> {
-  const hashes = (r.files ?? []).map((f: any) => f.sha256).filter(Boolean)
+  const hashes = (r.files ?? []).map((f: QueueFile) => f.sha256).filter(Boolean)
   if (!hashes.length) return []
-  const { data } = await supabase
-    .from('accommodation_documents')
-    .select('accommodation_id, doc_type')
-    .in('file_sha256', hashes)
-    .neq('accommodation_id', r.rawId)
-  const others = new Set((data ?? []).map((d: any) => d.accommodation_id))
+  const data = await fetchDocsWithHashes(hashes, r.rawId).catch(() => [])
+  const others = new Set(data.map((d) => d.accommodation_id))
   return [others.size
     ? { label: 'Permit reused', status: 'fail', detail: `The same permit file was submitted for ${others.size} other accommodation(s).` }
     : { label: 'Permits not reused', status: 'pass', detail: 'These permit files appear on no other listing.' }]
@@ -303,15 +298,10 @@ async function nearbyChecks(r: Record<string, any>): Promise<VerificationCheck[]
   const lng = Number(r.accommodation?.lng)
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return []
   const d = 0.0003 // ~33 m of latitude; longitude is close enough at 17°N
-  const { data } = await supabase
-    .from('accommodations')
-    .select('id, name, landlord_id')
-    .gte('lat', lat - d).lte('lat', lat + d)
-    .gte('lng', lng - d).lte('lng', lng + d)
-    .neq('id', r.rawId)
-  const others = (data ?? []).filter((a: any) => a.landlord_id !== r.ownerId)
+  const data = await fetchAccommodationsNear(lat, lng, d, r.rawId).catch(() => [])
+  const others = data.filter((a) => a.landlord_id !== r.ownerId)
   return [others.length
-    ? { label: 'Listing nearby', status: 'warn', detail: `Another owner's listing is within 30 m: ${others.map((a: any) => a.name).join(', ')}.` }
+    ? { label: 'Listing nearby', status: 'warn', detail: `Another owner's listing is within 30 m: ${others.map((a) => a.name).join(', ')}.` }
     : { label: 'No listing nearby', status: 'pass', detail: 'No other owner has a listing at this spot.' }]
 }
 
@@ -324,7 +314,7 @@ defineExpose({ hasBlockingFail, verdict, checks: sortedChecks, checksLoading, ca
 // whose `url` was still empty and reported every permit as unopenable. Re-run
 // once the signing lands.
 watch(
-  () => `${props.requestKey}:${(props.request?.files ?? []).filter((f: any) => f.url).length}`,
+  () => `${props.requestKey}:${(props.request?.files ?? []).filter((f: QueueFile) => f.url).length}`,
   () => runAutoChecks(),
   { immediate: true },
 )

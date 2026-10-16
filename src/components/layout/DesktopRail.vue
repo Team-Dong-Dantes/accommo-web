@@ -48,6 +48,7 @@ import { dashboardLeaf, navGroups } from './nav-config';
 import { useAuthStore } from '@/stores/auth';
 import CommandPalette from '@/components/ui/CommandPalette.vue';
 import { supabase } from '@/utils/supabase';
+import { fetchWorkCounts } from '@/api/notifications';
 
 const route = useRoute();
 const router = useRouter();
@@ -93,11 +94,7 @@ const groups = computed<Row[][]>(() => [
 ]);
 
 async function loadWorkCounts() {
-  const [usersResult, propertiesResult, ticketsResult] = await Promise.all([
-    supabase.from('users').select('id', { count: 'exact', head: true }).in('status', ['pending', 'reviewing']),
-    supabase.from('accommodations').select('*', { count: 'exact', head: true }).in('status', ['pending', 'reviewing']),
-    supabase.from('tickets').select('*', { count: 'exact', head: true }).in('status', ['open', 'in_progress']),
-  ]);
+  const { users: usersResult, accommodations: propertiesResult, tickets: ticketsResult } = await fetchWorkCounts();
 
   if (!usersResult.error || !propertiesResult.error) {
     workCounts.value.verifications = (usersResult.error ? 0 : usersResult.count ?? 0)

@@ -75,7 +75,7 @@ import PanelHeader from '@/components/ui/PanelHeader.vue'
 import { useNotify } from '@/utils/notify'
 import { useAuthStore } from '@/stores/auth'
 import { useQuasar } from 'quasar'
-import { supabase } from '@/utils/supabase'
+import { fetchAdminAccessRows, fetchAdmins } from '@/api/settings'
 import { callEdgeFunction } from '@/utils/edgeFunction'
 import { type StatusTone } from '@/utils/status.config'
 
@@ -96,15 +96,10 @@ const $q = useQuasar()
 const admins = ref<AdminRow[]>([])
 
 async function loadAdmins() {
-  const { data, error } = await supabase
-    .from('users_full')
-    .select('id, full_name, email, initials, avatar_url, is_superadmin, onboarding_complete')
-    .eq('role', 'admin')
-    .order('is_superadmin', { ascending: false })
-    .order('full_name')
-  if (!error) admins.value = (data as AdminRow[]) ?? []
+  const data = await fetchAdmins().catch(() => null)
+  if (data) admins.value = data as AdminRow[]
   // The system admin reads every row of admin_access.
-  const { data: rows } = await supabase.from('admin_access').select('user_id, preset, levels, expires_at')
+  const rows = await fetchAdminAccessRows().catch(() => null)
   accessById.value = Object.fromEntries((rows ?? []).map((r) => [r.user_id, { preset: r.preset, levels: normalizeLevels(r.levels), expires_at: r.expires_at }]))
 }
 

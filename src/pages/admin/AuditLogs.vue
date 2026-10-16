@@ -93,7 +93,7 @@ import TabNav from '@/components/ui/TabNav.vue'
 import TableCard from '@/components/table/TableCard.vue'
 import DateRangeButton from '@/features/audit/DateRangeButton.vue'
 import AuditDrawer from '@/features/audit/AuditDrawer.vue'
-import { AUDIT_COLUMNS, fetchAuditEvent, fillNames } from '@/api/audit'
+import { fetchAdminAccounts, fetchAuditEvent, fetchAuditPage, fillNames } from '@/api/audit'
 import AuditRail, { type RailPerson } from '@/features/audit/AuditRail.vue'
 import {
   AREA_LABEL, dayLabelOf, getActionColor, mapLog, type AuditArea, type AuditEvent,
@@ -135,12 +135,7 @@ function windowBounds(): { from: string; to: string | null } {
 
 async function fetchBatch(before: string | null) {
   const { from, to } = windowBounds()
-  let q = supabase.from('audit_logs').select(AUDIT_COLUMNS).gte('created_at', from)
-  if (to) q = q.lt('created_at', to)
-  if (before) q = q.lt('created_at', before)
-  const { data, error } = await q.order('created_at', { ascending: false }).limit(BATCH)
-  if (error) throw error
-  const rows = (data ?? []) as any[]
+  const rows = await fetchAuditPage(from, to, before, BATCH)
   hasMore.value = rows.length === BATCH
   if (rows.length) oldestRaw.value = rows[rows.length - 1].created_at
   return fillNames(rows.map(mapLog))
@@ -263,8 +258,7 @@ let logsChannel: ReturnType<typeof supabase.channel> | null = null
 
 onMounted(() => {
   void fetchLogs()
-  void supabase.from('users').select('id, full_name, initials, avatar_color').eq('role', 'admin')
-    .then(({ data }) => { adminAccounts.value = data ?? [] })
+  void fetchAdminAccounts().then((rows) => { adminAccounts.value = rows }, () => { adminAccounts.value = [] })
   logsChannel = supabase
     .channel('audit_logs_live')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload) => {

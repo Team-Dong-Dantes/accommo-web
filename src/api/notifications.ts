@@ -49,3 +49,23 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
     .is('read_at', null)
   if (error) throw error
 }
+
+/** A system notice to one person, with no link. */
+export async function sendSystemNotice(userId: string, title: string, body: string): Promise<void> {
+  const { error } = await supabase.from('notifications').insert({ user_id: userId, type: 'system', title, body } as never)
+  if (error) throw error
+}
+
+/**
+ * The rail's work badges: accounts and accommodations awaiting review, and
+ * open tickets. Each count's own error comes back with it, so one failing
+ * query does not blank the others.
+ */
+export async function fetchWorkCounts() {
+  const [users, accommodations, tickets] = await Promise.all([
+    supabase.from('users').select('id', { count: 'exact', head: true }).in('status', ['pending', 'reviewing']),
+    supabase.from('accommodations').select('*', { count: 'exact', head: true }).in('status', ['pending', 'reviewing']),
+    supabase.from('tickets').select('*', { count: 'exact', head: true }).in('status', ['open', 'in_progress']),
+  ])
+  return { users, accommodations, tickets }
+}

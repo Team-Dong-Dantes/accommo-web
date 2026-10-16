@@ -106,7 +106,8 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar, type QForm } from 'quasar';
 import { useAuthStore } from '@/stores/auth';
-import { supabase } from '@/utils/supabase';
+import { setPassword } from '@/api/auth';
+import { completeOnboarding } from '@/api/settings';
 import AuthInput from '@/components/auth/AuthInput.vue';
 import AuthButton from '@/components/auth/AuthButton.vue';
 import { passwordProblem } from '@/utils/format';
@@ -214,22 +215,12 @@ async function submit() {
     // Password first. If it fails the row keeps onboarding_complete = false, so
     // the guard sends them back here rather than leaving an admin who looks set
     // up but can only ever get in by magic link.
-    const { error: passwordError } = await supabase.auth.updateUser({
-      password: password.value,
+    await setPassword(password.value);
+    await completeOnboarding(user.id, {
+      full_name: fullName.value.trim(),
+      phone: phone.value.trim(),
+      initials: initialsFrom(fullName.value),
     });
-    if (passwordError) throw passwordError;
-
-    const { error } = await supabase
-      .from('users')
-      .update({
-        full_name: fullName.value.trim(),
-        phone: phone.value.trim(),
-        initials: initialsFrom(fullName.value),
-        onboarding_complete: true,
-      })
-      .eq('id', user.id);
-
-    if (error) throw error;
 
     await authStore.loadProfileById(user.id);
     $q.notify({ message: 'Profile complete. Welcome aboard!', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-check-circle', iconColor: 'teal-4', classes: 'custom-notify' });
