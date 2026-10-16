@@ -1,6 +1,6 @@
 // A student's stays and payments as the user record's Payments tab reads them.
 import type { StatusTone } from '@/utils/status.config'
-import { cap, fmtDate } from '@/utils/format'
+import { cap, fmtDate, peso } from '@/utils/format'
 import type { PreviewLease, PreviewPayment } from '@/features/drawer/preview'
 
 export function periodLabel(start: string | null, end: string | null) {
@@ -42,7 +42,7 @@ function paymentMethodLabel(method: string): string {
 
 function fmtCurrency(amount: number | null | undefined): string {
   if (amount == null) return '—'
-  return `₱${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+  return peso(amount, 0)
 }
 
 export function fmtMonth(month: string): string {

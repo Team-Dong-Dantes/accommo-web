@@ -12,48 +12,7 @@
       </div>
     </section>
 
-    <!-- Active-lease summary -->
-    <section v-if="activeLease" class="dd-summary border-all rounded-borders">
-      <div class="dd-summary-head">
-        <span class="dd-summary-badge">
-          <Icon icon="lucide:house" width="18" height="18" />
-        </span>
-        <div class="col min-width-0">
-          <div class="row items-center q-gutter-x-sm min-width-0">
-            <span class="dd-summary-name dd-ellipsis">{{ activeLease.accommodationName }}</span>
-            <BadgePill :tone="activeLease.statusTone || 'success'" :label="activeLease.statusLabel || activeLease.status" />
-          </div>
-
-          <div class="dd-summary-period">{{ activeLease.periodLabel }}</div>
-
-          <div v-if="activeLease.roomName || activeLease.roomType" class="dd-summary-room row items-center q-gutter-x-xs">
-            <Icon icon="lucide:door-closed" width="13" height="13" />
-            <span v-if="activeLease.roomName">Room {{ activeLease.roomName }}</span>
-            <span v-if="activeLease.roomName && activeLease.roomType" class="dd-room-sep">·</span>
-            <span v-if="activeLease.roomType">{{ activeLease.roomType }}</span>
-          </div>
-        </div>
-        <div v-if="rentValue(activeLease)" class="dd-summary-rent">
-          <span class="dd-rent-label">Monthly rent</span>
-          <span class="dd-rent-value">{{ rentValue(activeLease) }}</span>
-        </div>
-      </div>
-
-      <div v-if="totalPaid > 0 || payments.length || dueCount" class="dd-summary-stats border-top">
-        <div class="dd-stat">
-          <span class="dd-stat-value">{{ totalPaidLabel }}</span>
-          <span class="dd-stat-label">Total paid</span>
-        </div>
-        <div class="dd-stat">
-          <span class="dd-stat-value">{{ payments.length }}</span>
-          <span class="dd-stat-label">Payments</span>
-        </div>
-        <div v-if="dueCount" class="dd-stat">
-          <span class="dd-stat-value dd-stat-value--warn">{{ dueCount }}</span>
-          <span class="dd-stat-label">Unsettled</span>
-        </div>
-      </div>
-    </section>
+    <LeaseSummary v-if="activeLease" :lease="activeLease" :total-paid="totalPaid" :payment-count="payments.length" :due-count="dueCount" />
 
     <!-- Ledger -->
     <template v-if="payments.length">
@@ -111,7 +70,8 @@
 <script setup lang="ts">
 import TabEmptyState from './TabEmptyState.vue'
 import { computed, ref, watch } from 'vue'
-import { supabase } from '@/utils/supabase'
+import { fetchPastBalance } from '@/api/payments'
+import LeaseSummary from './LeaseSummary.vue'
 import { Icon } from '@iconify/vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import PhotoLightbox from './accommodation/PhotoLightbox.vue'
@@ -119,6 +79,7 @@ import { signDocUrl } from '@/utils/docUrl'
 import { isImage } from '@/features/verifications/fileUtils'
 import { useNotify } from '@/utils/notify'
 import { manilaToday } from '@/utils/facilities'
+import { peso } from '@/utils/format'
 import type { DrawerPreview, PreviewLease, PreviewPayment } from './preview'
 
 const props = withDefaults(
@@ -144,12 +105,11 @@ watch(
   async (id) => {
     pastOwed.value = []
     if (!id) return
-    const { data } = await supabase.rpc('student_past_balance', { p_student: id })
-    if (props.preview.studentId === id) pastOwed.value = data ?? []
+    const owed = await fetchPastBalance(id).catch(() => [])
+    if (props.preview.studentId === id) pastOwed.value = owed
   },
   { immediate: true },
 )
-const peso = (n: number) => `₱${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 // proof_url holds a private `cld:` reference, not a link, so it is signed on
 // demand. Images open in the viewer; a PDF proof can only open in a tab, and
@@ -177,18 +137,8 @@ const sortedPayments = computed<PreviewPayment[]>(() => {
   return [...payments.value].sort((a, b) => (a.month < b.month ? 1 : a.month > b.month ? -1 : 0))
 })
 
-function rentValue(lease: PreviewLease): string {
-  const r = lease.monthlyRent
-  // Treat missing or zero as "no rent on file" so we never show a misleading ₱0/mo.
-  if (!r || isNaN(r)) return ''
-  return `₱${r.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}/mo`
-}
-
 const totalPaid = computed(() =>
   payments.value.filter((p) => p.status === 'paid' || p.status === 'settled').reduce((s, p) => s + (p.amount || 0), 0),
-)
-const totalPaidLabel = computed(() =>
-  `₱${totalPaid.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
 )
 // Items owed by now or awaiting confirmation, off the ledger: payment rows
 // never carry due/overdue, since a month nobody paid has no row.
@@ -225,7 +175,6 @@ function dotColor(pay: PreviewPayment): string {
   flex-direction: column;
   gap: 18px;
 }
-
 /* ---------- Summary ---------- */
 .dd-summary {
   background: var(--c-surface);
@@ -253,100 +202,6 @@ function dotColor(pay: PreviewPayment): string {
   margin-top: 4px;
   opacity: 0.85;
 }
-.dd-summary-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-}
-.dd-summary-badge {
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--c-primary) 12%, transparent);
-  color: var(--c-primary);
-}
-.dd-summary-name {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 16px;
-  color: var(--c-ink);
-}
-.dd-summary-period {
-  margin-top: 3px;
-  font-size: 12.5px;
-  color: var(--c-muted);
-}
-.dd-summary-room {
-  margin-top: 2px;
-  gap: 5px;
-  font-size: 12.5px;
-  color: var(--c-muted);
-}
-.dd-summary-room :deep(.iconify) {
-  color: var(--c-border-strong);
-}
-.dd-room-sep {
-  color: var(--c-border-strong);
-}
-.dd-summary-rent {
-  flex: 0 0 auto;
-  text-align: right;
-  margin-left: auto;
-}
-.dd-rent-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--c-muted);
-}
-.dd-rent-value {
-  display: block;
-  margin-top: 2px;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 16px;
-  color: var(--c-ink);
-  white-space: nowrap;
-}
-.dd-summary-stats {
-  display: flex;
-  border-top: 1px solid var(--c-border);
-}
-.dd-stat {
-  flex: 1 1 0;
-  padding: 12px 16px;
-  text-align: center;
-}
-.dd-stat + .dd-stat {
-  border-left: 1px solid var(--c-border);
-}
-.dd-stat-value {
-  display: block;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 16px;
-  color: var(--c-ink);
-}
-.dd-stat-value--warn {
-  color: var(--c-warning);
-}
-.dd-stat-label {
-  display: block;
-  margin-top: 2px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--c-muted);
-}
-
 /* ---------- Ledger ---------- */
 .dd-ledger-head {
   display: flex;
@@ -438,18 +293,11 @@ function dotColor(pay: PreviewPayment): string {
   border-color: var(--c-primary);
   background: var(--c-surface);
 }
-
 /* ---------- Empty ---------- */
 /* Shared helpers */
 .border-all { border: 1px solid var(--c-border); }
-.border-top { border-top: 1px solid var(--c-border); }
 .border-bottom { border-bottom: 1px solid var(--c-border); }
 .min-width-0 { min-width: 0; }
-.dd-ellipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .dd-ink { color: var(--c-ink); }
 .dd-muted { color: var(--c-muted); }
 </style>

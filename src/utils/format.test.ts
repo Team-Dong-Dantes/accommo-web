@@ -11,6 +11,7 @@ import {
   getInitials,
   getInitialsWide,
   passwordProblem,
+  peso,
   roleLabel,
 } from './format';
 
@@ -174,5 +175,13 @@ describe('passwordProblem', () => {
     for (const pw of ['accommo#2026', 'ACCOMMO#2026', 'Accommo#same', 'Accommo2026x']) {
       expect(passwordProblem(pw)).toMatch(/symbol/);
     }
+  });
+});
+
+describe('peso', () => {
+  it('shows centavos by default and whole pesos on request', () => {
+    expect(peso(3500)).toBe('₱3,500.00');
+    expect(peso(1234.5, 0)).toBe('₱1,235');
+    expect(peso(0)).toBe('₱0.00');
   });
 });

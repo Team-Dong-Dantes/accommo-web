@@ -17,3 +17,10 @@ async function fetchLandlordPaymentCount(status: 'pending_verification'): Promis
 export function fetchPendingLandlordPaymentVerificationCount(): Promise<number> {
   return fetchLandlordPaymentCount('pending_verification')
 }
+
+/** What a student still owes on ended stays (student_past_balance). */
+export async function fetchPastBalance(studentId: string): Promise<{ lease_id: string; accommodation: string; room: string; ended_on: string | null; balance: number }[]> {
+  const { data, error } = await supabase.rpc('student_past_balance', { p_student: studentId })
+  if (error) throw error
+  return data ?? []
+}

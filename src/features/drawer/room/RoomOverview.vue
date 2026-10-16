@@ -131,7 +131,7 @@
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import PhotoEmpty from '@/components/ui/PhotoEmpty.vue'
-import { formatPhone } from '@/utils/format'
+import { formatPhone, peso } from '@/utils/format'
 import type { DrawerPreview, HubKind, PreviewOccupant } from '../preview'
 import type { Tone } from '../accommodation/standing'
 
@@ -146,7 +146,6 @@ const occupants = computed(() => props.preview.occupants ?? [])
 const vacant = computed(() => Math.max((o.value?.capacity ?? 0) - occupants.value.length, 0))
 const facilities = computed(() => props.preview.facilities ?? [])
 
-const peso = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const months = (n: number | null) => (n == null ? '—' : `${n} month${n === 1 ? '' : 's'}`)
 const monthLabel = (iso: string) => new Date(`${iso.slice(0, 7)}-01T00:00:00`).toLocaleString('en-US', { month: 'short', year: 'numeric' })
 const dayLabel = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleString('en-US', { month: 'short', day: 'numeric' })

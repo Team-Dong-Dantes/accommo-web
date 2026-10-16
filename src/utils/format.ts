@@ -205,6 +205,11 @@ export function composeAddress(
   return parts.join(', ') || '—'
 }
 
+/** "₱3,500.00", or whole pesos ("₱3,500") with `decimals` 0. */
+export function peso(n: number, decimals = 2): string {
+  return `₱${n.toLocaleString('en-PH', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`
+}
+
 /** ISO timestamp → YYYY-MM-DD, so a spreadsheet sorts the column. */
 export function csvDate(v: string | null | undefined): string {
   return v ? String(v).slice(0, 10) : ''
