@@ -64,12 +64,12 @@
       <section class="rc-sec">
         <div class="rc-sec-head"><span class="rc-title">Terms</span></div>
         <dl class="rc-facts">
-          <div><dt>Monthly rent</dt><dd>{{ o.rent != null ? peso(o.rent) : '—' }}<span class="ro-basis">{{ o.rentBasis === 'person' ? ' per boarder' : ' whole room' }}</span></dd></div>
-          <div v-if="share != null && o.rentBasis === 'room' && o.capacity > 1"><dt>Each boarder's share</dt><dd>{{ peso(share) }}<span class="ro-basis"> / mo</span></dd></div>
+          <div><dt>Monthly rent</dt><dd>{{ o.rent != null ? pesoWhole(o.rent) : '—' }}<span class="ro-basis">{{ o.rentBasis === 'person' ? ' per boarder' : ' whole room' }}</span></dd></div>
+          <div v-if="share != null && o.rentBasis === 'room' && o.capacity > 1"><dt>Each boarder's share</dt><dd>{{ pesoWhole(share) }}<span class="ro-basis"> / mo</span></dd></div>
           <div><dt>Status</dt><dd>{{ o.statusLabel }}</dd></div>
-          <div><dt>Advance</dt><dd>{{ months(o.advanceMonths) }}<span v-if="share != null && o.advanceMonths" class="ro-basis"> · {{ peso(share * o.advanceMonths) }}</span></dd></div>
-          <div><dt>Deposit</dt><dd>{{ months(o.depositMonths) }}<span v-if="share != null && o.depositMonths" class="ro-basis"> · {{ peso(share * o.depositMonths) }}</span></dd></div>
-          <div v-if="share != null"><dt>Due at move-in, per boarder</dt><dd>{{ peso(share * ((o.advanceMonths ?? 0) + (o.depositMonths ?? 0))) }}</dd></div>
+          <div><dt>Advance</dt><dd>{{ months(o.advanceMonths) }}<span v-if="share != null && o.advanceMonths" class="ro-basis"> · {{ pesoWhole(share * o.advanceMonths) }}</span></dd></div>
+          <div><dt>Deposit</dt><dd>{{ months(o.depositMonths) }}<span v-if="share != null && o.depositMonths" class="ro-basis"> · {{ pesoWhole(share * o.depositMonths) }}</span></dd></div>
+          <div v-if="share != null"><dt>Due at move-in, per boarder</dt><dd>{{ pesoWhole(share * ((o.advanceMonths ?? 0) + (o.depositMonths ?? 0))) }}</dd></div>
         </dl>
       </section>
 
@@ -131,7 +131,7 @@
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import PhotoEmpty from '@/components/ui/PhotoEmpty.vue'
-import { formatPhone, peso } from '@/utils/format'
+import { formatPhone, peso, pesoWhole } from '@/utils/format'
 import type { DrawerPreview, HubKind, PreviewOccupant } from '../preview'
 import type { Tone } from '../accommodation/standing'
 

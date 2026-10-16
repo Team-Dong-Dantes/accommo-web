@@ -47,7 +47,7 @@
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import BadgePill from '@/components/user/BadgePill.vue'
-import { peso } from '@/utils/format'
+import { peso, pesoWhole } from '@/utils/format'
 import type { PreviewLease } from './preview'
 
 const props = defineProps<{ lease: PreviewLease; totalPaid: number; paymentCount: number; dueCount: number }>()
@@ -56,9 +56,9 @@ const rent = computed(() => {
   const r = props.lease.monthlyRent
   // Treat missing or zero as "no rent on file" so we never show a misleading ₱0/mo.
   if (!r || isNaN(r)) return ''
-  return `${peso(r, 0)}/mo`
+  return `${pesoWhole(r)}/mo`
 })
-const totalPaidLabel = computed(() => peso(props.totalPaid, 0))
+const totalPaidLabel = computed(() => peso(props.totalPaid))
 </script>
 
 <style scoped>

@@ -5,7 +5,7 @@
 // "Water interruption"", plus every field that changed.
 
 import type { StatusTone } from '@/utils/status.config'
-import { fmtDate, formatDateTime, humanizeEnum, utcIso, utcMs } from '@/utils/format'
+import { fmtDate, formatDateTime, humanizeEnum, peso, utcIso, utcMs } from '@/utils/format'
 import { ticketRef } from '@/utils/ticketTriage'
 
 // `humanizeEnum` renders a missing value as an em dash; field names never are.
@@ -125,14 +125,14 @@ const CUSTOM_VERB: Record<string, string> = {
   'accommodation.unhide': 'showed in listings',
 }
 
-function peso(v: unknown): string {
+function money(v: unknown): string {
   const n = Number(v)
-  return isNaN(n) ? String(v) : '₱' + n.toLocaleString('en-PH', { maximumFractionDigits: 2 })
+  return isNaN(n) ? String(v) : peso(n)
 }
 
 export function formatValue(key: string, v: unknown): string {
   if (v === null || v === undefined || v === '') return '—'
-  if (MONEY.has(key)) return peso(v)
+  if (MONEY.has(key)) return money(v)
   // Pages of recognised text; the documents themselves are what to look at.
   if (key === 'document_text') return 'Text read from: ' + Object.keys(v as object).map(humanizeEnum).join(', ')
   if (typeof v === 'boolean') return v ? 'Yes' : 'No'
@@ -171,7 +171,7 @@ function entityName(entityType: string, row: any): string {
     case 'accommodations':
     case 'accommodation': return pick('name', 'address')
     case 'rooms': return pick('label', 'room_number')
-    case 'payments': return json.amount != null ? peso(json.amount) + (json.description ? ' · ' + json.description : '') : ''
+    case 'payments': return json.amount != null ? money(json.amount) + (json.description ? ' · ' + json.description : '') : ''
     // Tickets are never merged, so two can share a subject; the number tells them apart.
     case 'tickets': return json.id ? `${ticketRef(json.ticket_no, json.id)} · ${pick('subject', 'category')}` : pick('subject', 'category')
     case 'announcements':

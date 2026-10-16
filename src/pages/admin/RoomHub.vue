@@ -67,7 +67,7 @@
             </q-td>
             <q-td key="rent" :props="props" class="col-rent num-right">
               <span class="rent-cell">
-                <span class="text-ink text-weight-bold">{{ props.row.rent != null ? amount(props.row.rent) : '—' }}</span>
+                <span class="text-ink text-weight-bold">{{ props.row.rent != null ? pesoWhole(props.row.rent) : '—' }}</span>
                 <span class="rent-basis"><Icon :icon="props.row.perBoarder ? 'lucide:user' : 'lucide:door-closed'" width="12" height="12" />{{ props.row.perBoarder ? 'per boarder' : 'whole room' }}</span>
               </span>
             </q-td>
@@ -110,7 +110,7 @@ import BadgePill from '@/components/user/BadgePill.vue'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
 import { getStatus } from '@/utils/status.config'
 import { counted } from '@/utils/filterOptions'
-import { roomStatusLabel } from '@/utils/format'
+import { pesoWhole, roomStatusLabel } from '@/utils/format'
 import { UTILITIES } from '@/utils/facilities'
 import type { UtilityStatus } from '@/utils/facilities'
 
@@ -156,7 +156,6 @@ watch(activeFilters, () => {
 })
 
 
-const amount = (n: number) => n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const TONE_ICON: Record<string, string> = { muted: 'lucide:clock', ok: 'lucide:check', warn: 'lucide:receipt', bad: 'lucide:triangle-alert' }
 const TONE_RANK: Record<UtilityStatus['tone'], number> = { bad: 0, warn: 1, muted: 2, ok: 3 }
@@ -320,7 +319,7 @@ onMounted(async () => {
 .prop-hub-body :deep(thead th.col-utility),
 .prop-hub-body :deep(tbody td.col-utility) { flex: 1 1 130px !important; min-width: 0; }
 
-/* Wide enough for "₱10,000.00" on one line. */
+/* Wide enough for "₱10,000" on one line. */
 .prop-hub-body :deep(thead th.col-rent),
 .prop-hub-body :deep(tbody td.col-rent) { flex: 0 1 120px !important; }
 </style>

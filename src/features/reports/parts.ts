@@ -1,7 +1,7 @@
 // Pieces more than one report uses: labels, dates, money, and the January to
 // December rent grid the payment timeline and the student's record share.
 
-import { escapeHtml } from '@/utils/format'
+import { escapeHtml, peso } from '@/utils/format'
 import type { LedgerRow } from '@/api/reports'
 import type { ReportInput } from './reports'
 
@@ -28,7 +28,7 @@ export function scopeLine(parts: (string | false | null | undefined)[], note?: s
   return text ? `<p class="scope">${e(text)}</p>` : ''
 }
 
-export const peso = (n: number) => `₱${n.toLocaleString('en-PH', { maximumFractionDigits: 2 })}`
+export { peso }
 
 // ── Rent, January to December ───────────────────────────────────────────────
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']

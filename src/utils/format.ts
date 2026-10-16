@@ -205,9 +205,23 @@ export function composeAddress(
   return parts.join(', ') || '—'
 }
 
-/** "₱3,500.00", or whole pesos ("₱3,500") with `decimals` 0. */
-export function peso(n: number, decimals = 2): string {
-  return `₱${n.toLocaleString('en-PH', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`
+/**
+ * Money billed, paid or owed, exactly: "₱412.50", and "₱3,500" when there are
+ * no centavos. accommo-mobile's formatPesoExact; the two apps show the same
+ * figure the same way.
+ */
+export function peso(n: number): string {
+  const cents = !Number.isInteger(Math.round(n * 100) / 100)
+  return `₱${n.toLocaleString('en-PH', { minimumFractionDigits: cents ? 2 : 0, maximumFractionDigits: 2 })}`
+}
+
+/**
+ * A quoted price — a rent, a boarder's share, an advance — in whole pesos, as
+ * accommo-mobile's formatPeso: a split rent of ₱2,666.67 reads as a billing
+ * error rather than a share.
+ */
+export function pesoWhole(n: number): string {
+  return `₱${n.toLocaleString('en-PH', { maximumFractionDigits: 0 })}`
 }
 
 /** ISO timestamp → YYYY-MM-DD, so a spreadsheet sorts the column. */

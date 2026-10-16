@@ -35,7 +35,7 @@ import DetailSections from '../DetailSections.vue'
 import TabEmptyState from '../TabEmptyState.vue'
 import PropertyMap from '@/features/verifications/PropertyMap.vue'
 import { fetchStaySummary, type StaySummary } from '@/api/leases'
-import { cap, composeAddress, humanizeEnum, landlordTitle, roomStatusLabel } from '@/utils/format'
+import { cap, composeAddress, humanizeEnum, landlordTitle, pesoWhole, roomStatusLabel } from '@/utils/format'
 import { fmtMonthYear, type HubKind, type PreviewDetailGroup } from '../preview'
 
 const props = defineProps<{ kind: HubKind; accommodationId: string; leaseId: string | null }>()
@@ -63,7 +63,7 @@ watch(
   { immediate: true },
 )
 
-const peso = (n: number | null | undefined) => (n ? `₱${n.toLocaleString('en-US')}/mo` : '—')
+const rentLabel = (n: number | null | undefined) => (n ? `${pesoWhole(n)}/mo` : '—')
 
 const title = computed(() => {
   const acc = data.value?.accommodation
@@ -118,7 +118,7 @@ const roomGroups = computed<PreviewDetailGroup[]>(() => {
         { label: 'Type', value: type },
         { label: 'Floor', value: r.floor != null ? String(r.floor) : '—' },
         { label: 'Capacity', value: r.capacity != null ? `${r.capacity}` : '—' },
-        { label: 'Monthly rent', value: peso(r.monthly_rent) },
+        { label: 'Monthly rent', value: rentLabel(r.monthly_rent) },
         { label: 'Status', value: roomStatusLabel(r.status) || '—' },
       ],
     },

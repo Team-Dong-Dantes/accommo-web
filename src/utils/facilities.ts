@@ -1,3 +1,5 @@
+import { peso } from './format'
+
 /**
  * Icon and label per facility type.
  *
@@ -83,7 +85,7 @@ export function roomUtilitiesSummary(r: RoomUtilityColumns): string {
   ] as const) {
     if (!billing) continue
     const how = BILLING_SHORT[billing] ?? billing
-    parts.push(billing === 'flat_fee' && fee ? `${label} ₱${Number(fee).toLocaleString('en-PH')}/mo` : `${label} ${how}`)
+    parts.push(billing === 'flat_fee' && fee ? `${label} ${peso(Number(fee))}/mo` : `${label} ${how}`)
   }
   return parts.join(' · ')
 }
@@ -121,7 +123,6 @@ export interface UtilityStatus {
   tone: 'muted' | 'ok' | 'warn' | 'bad'
 }
 
-const shortPeso = (n: number) => `₱${n.toLocaleString('en-PH', { maximumFractionDigits: 2 })}`
 const monthName = (iso: string) => new Date(`${iso.slice(0, 7)}-01T00:00:00`).toLocaleString('en-US', { month: 'short' })
 const shortDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleString('en-US', { month: 'short', day: 'numeric' })
 
@@ -137,7 +138,7 @@ export const manilaToday = () => new Date().toLocaleDateString('en-CA', { timeZo
  */
 export function utilityStatus(billing: string | null | undefined, flatFee: number | null | undefined, boarders: number, bills: PostedBill[], today: string): UtilityStatus {
   if (!billing) return { terms: '—', bill: 'Not specified', tone: 'muted' }
-  if (billing === 'flat_fee') return { terms: flatFee ? `${shortPeso(flatFee)} / mo` : 'Flat fee', bill: 'flat fee', tone: 'muted' }
+  if (billing === 'flat_fee') return { terms: flatFee ? `${peso(flatFee)} / mo` : 'Flat fee', bill: 'flat fee', tone: 'muted' }
   if (billing !== 'own_meter' && billing !== 'split') return { terms: UTILITY_BILLING_LABEL[billing] ?? billing, bill: '', tone: 'muted' }
 
   const terms = billing === 'own_meter' ? 'Own meter' : 'Split'
@@ -145,8 +146,8 @@ export function utilityStatus(billing: string | null | undefined, flatFee: numbe
   if (unpaid.length) {
     const total = unpaid.reduce((s, b) => s + b.amount, 0)
     const due = unpaid.map((b) => b.dueDate).sort()[0]!
-    if (due < today) return { terms, bill: `${shortPeso(total)} overdue`, tone: 'bad' }
-    return { terms, bill: `${shortPeso(total)} · ${unpaid.length} unpaid · due ${shortDate(due)}`, tone: 'warn' }
+    if (due < today) return { terms, bill: `${peso(total)} overdue`, tone: 'bad' }
+    return { terms, bill: `${peso(total)} · ${unpaid.length} unpaid · due ${shortDate(due)}`, tone: 'warn' }
   }
   const thisMonth = today.slice(0, 7)
   if (bills.some((b) => b.month.slice(0, 7) === thisMonth)) return { terms, bill: `${monthName(today)} paid`, tone: 'ok' }

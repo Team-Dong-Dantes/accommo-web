@@ -42,7 +42,7 @@ function paymentMethodLabel(method: string): string {
 
 function fmtCurrency(amount: number | null | undefined): string {
   if (amount == null) return '—'
-  return peso(amount, 0)
+  return peso(amount)
 }
 
 export function fmtMonth(month: string): string {

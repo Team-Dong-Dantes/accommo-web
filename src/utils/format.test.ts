@@ -12,6 +12,7 @@ import {
   getInitialsWide,
   passwordProblem,
   peso,
+  pesoWhole,
   roleLabel,
 } from './format'
 
@@ -179,9 +180,13 @@ describe('passwordProblem', () => {
 })
 
 describe('peso', () => {
-  it('shows centavos by default and whole pesos on request', () => {
-    expect(peso(3500)).toBe('₱3,500.00')
-    expect(peso(1234.5, 0)).toBe('₱1,235')
-    expect(peso(0)).toBe('₱0.00')
+  it('shows centavos only when there are any', () => {
+    expect(peso(3500)).toBe('₱3,500')
+    expect(peso(412.5)).toBe('₱412.50')
+    expect(peso(0)).toBe('₱0')
+  })
+
+  it('rounds a quoted price to whole pesos', () => {
+    expect(pesoWhole(2666.67)).toBe('₱2,667')
   })
 })

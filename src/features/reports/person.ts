@@ -3,7 +3,7 @@
 // accommodation status report — numbered sections, ruled grids — and the same
 // rule on personal details: off unless the officer asks (RA 10173).
 
-import { escapeHtml, fmtDate, formatPhone, humanizeEnum, landlordTitle } from '@/utils/format'
+import { escapeHtml, fmtDate, formatPhone, humanizeEnum, landlordTitle, pesoWhole } from '@/utils/format'
 import type { StayRow } from '@/api/reports'
 import { fmtMinutes } from '@/features/users/userPreview'
 import { table } from './document'
@@ -74,7 +74,7 @@ export const studentRecord: ReportDef = {
 
     const stays = [...s.stays].sort((a, b) => (b.since ?? '').localeCompare(a.since ?? ''))
     const history = stays.map((st, i) => `<tr><td class="c">${i + 1}</td><td><b>${e(st.accommodation)}</b></td><td class="c">${e(st.room)}</td>
-      <td>${e(st.landlord)}</td><td>${e(period(st))}</td><td class="n">${st.monthlyRent ? peso(st.monthlyRent) : '—'}</td>
+      <td>${e(st.landlord)}</td><td>${e(period(st))}</td><td class="n">${st.monthlyRent ? pesoWhole(st.monthlyRent) : '—'}</td>
       <td>${e(STAY[st.status] ?? humanizeEnum(st.status))}${st.endedReason ? `<br><small>${e(humanizeEnum(st.endedReason))}</small>` : ''}</td></tr>`).join('')
 
     const rent = rentYear(s.ledger, year, now).sort((a, b) => (b.first.month ?? '').localeCompare(a.first.month ?? ''))
