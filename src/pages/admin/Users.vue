@@ -1,7 +1,6 @@
 <template>
   <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
-
-    <div class="row justify-between items-end non-shrink">
+<div class="row justify-between items-end non-shrink">
       <TabNav v-model="activeTab" :tabs="tabs" />
 
       <q-btn v-if="auth.can('reports')" unelevated color="teal-7" no-caps class="text-weight-bold rounded-button q-mb-md" @click="reportOpen = true">
@@ -28,11 +27,13 @@
           <!-- Students -->
           <q-tab-panel name="students" class="q-pa-none">
             <DataTable :rows="paginatedRows" :columns="studentColumns" row-key="rawId" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron v-model:sort="sort">
-              <template #no-data><div class="full-width row flex-center text-muted q-pa-xl column">
+              <template #no-data>
+<div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon :icon="loadError ? 'lucide:circle-alert' : 'lucide:user-x'" width="48" height="48" class="q-mb-md" />
                   <div class="text-h6 text-weight-bold">{{ loadError ? 'Could not load accounts' : 'No students match' }}</div>
                   <div v-if="loadError" class="text-caption q-mt-xs" style="color: var(--c-danger)">{{ loadError }}</div>
-                </div></template>
+                </div>
+</template>
               <template #body="{ props, rowNumber }">
                 <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openUser(props.row)">
                   <q-td class="row-num-cell">{{ rowNumber }}</q-td>
@@ -65,11 +66,13 @@
           <!-- Landlords / landladies -->
           <q-tab-panel name="landlords" class="q-pa-none">
             <DataTable :rows="paginatedRows" :columns="landlordColumns" row-key="rawId" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron v-model:sort="sort">
-              <template #no-data><div class="full-width row flex-center text-muted q-pa-xl column">
+              <template #no-data>
+<div class="full-width row flex-center text-muted q-pa-xl column">
                   <Icon :icon="loadError ? 'lucide:circle-alert' : 'lucide:user-x'" width="48" height="48" class="q-mb-md" />
                   <div class="text-h6 text-weight-bold">{{ loadError ? 'Could not load accounts' : 'No landlords/landladies match' }}</div>
                   <div v-if="loadError" class="text-caption q-mt-xs" style="color: var(--c-danger)">{{ loadError }}</div>
-                </div></template>
+                </div>
+</template>
               <template #body="{ props, rowNumber }">
                 <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openUser(props.row)">
                   <q-td class="row-num-cell">{{ rowNumber }}</q-td>
@@ -131,10 +134,8 @@
       :reports="[String(selectedUser?.role).toLowerCase() === 'landlord' ? 'landlord' : 'student']"
       :record-id="selectedUser?.rawId"
     />
-
-    </div><!-- /users-body -->
-
-  </q-page>
+</div><!-- /users-body -->
+</q-page>
 </template>
 
 <script setup lang="ts">

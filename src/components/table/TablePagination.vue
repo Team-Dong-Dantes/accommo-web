@@ -1,14 +1,12 @@
 <template>
   <q-card flat class="pagination-card q-pa-sm q-px-md">
     <div class="row items-center justify-between">
-
-      <div class="text-muted text-caption text-weight-medium">
+<div class="text-muted text-caption text-weight-medium">
         Showing {{ startItem }}–{{ endItem }} of {{ totalItems }} {{ itemName }}
       </div>
 
       <div class="row items-center q-gutter-x-lg">
-
-        <div class="row items-center no-wrap q-gutter-x-sm">
+<div class="row items-center no-wrap q-gutter-x-sm">
           <span class="text-caption text-muted text-weight-medium">Go to page:</span>
           <q-input
             outlined
@@ -45,8 +43,7 @@
             <Icon icon="lucide:chevron-right" width="18" height="18" />
           </q-btn>
         </div>
-
-      </div>
+</div>
     </div>
   </q-card>
 </template>

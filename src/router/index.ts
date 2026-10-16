@@ -1,19 +1,19 @@
-import { defineRouter } from '#q-app';
+import { defineRouter } from '#q-app'
 import {
   createMemoryHistory,
   createRouter,
   createWebHashHistory,
   createWebHistory,
-} from 'vue-router';
-import routes from './routes';
-import { supabase } from '@/utils/supabase';
-import { markActive } from '@/utils/activity';
-import { useAuthStore, type AppUser } from '@/stores/auth';
+} from 'vue-router'
+import routes from './routes'
+import { supabase } from '@/utils/supabase'
+import { markActive } from '@/utils/activity'
+import { useAuthStore, type AppUser } from '@/stores/auth'
 
 export default defineRouter(() => {
   const createHistory = import.meta.env.QUASAR_SERVER
     ? createMemoryHistory
-    : (import.meta.env.QUASAR_VUE_ROUTER_MODE === 'history' ? createWebHistory : createWebHashHistory);
+    : (import.meta.env.QUASAR_VUE_ROUTER_MODE === 'history' ? createWebHistory : createWebHashHistory)
 
   const Router = createRouter({
     // Safari reports a same-page anchor (#download on the landing page) as a
@@ -23,19 +23,19 @@ export default defineRouter(() => {
       to.hash ? { el: to.hash, top: 72, behavior: 'smooth' } : { left: 0, top: 0 },
     routes,
     history: createHistory(import.meta.env.QUASAR_VUE_ROUTER_BASE)
-  });
+  })
 
-  let roleFetchInProgress: Promise<string | null> | null = null;
+  let roleFetchInProgress: Promise<string | null> | null = null
   // Set when check_session refuses the session because admin access ran out.
-  let accessExpired = false;
+  let accessExpired = false
 
   // Deliberately NOT cached across navigations. `status` has to be re-read, or a
   // session minted before a suspension keeps the run of the admin console until
   // its token expires. The in-flight promise still collapses the redirect chain
   // of a single navigation into one query.
   async function fetchUserRole(session: { user: { id: string } }): Promise<string | null> {
-    const authStore = useAuthStore();
-    if (roleFetchInProgress) return roleFetchInProgress;
+    const authStore = useAuthStore()
+    if (roleFetchInProgress) return roleFetchInProgress
 
     roleFetchInProgress = (async () => {
        try {
@@ -43,145 +43,145 @@ export default defineRouter(() => {
            .from('users_full')
             .select('id, full_name, email, initials, avatar_color, phone, is_superadmin, onboarding_complete, role, status')
            .eq('id', session.user.id)
-           .maybeSingle();
+           .maybeSingle()
 
-         if (error?.message?.includes('admin access has expired')) accessExpired = true;
-         if (error || !data) return null;
+         if (error?.message?.includes('admin access has expired')) accessExpired = true
+         if (error || !data) return null
 
-         authStore.user = data as unknown as AppUser;
-         authStore.cachedRole = data.role;
-         await authStore.loadAccess();
-         return data.role;
+         authStore.user = data as unknown as AppUser
+         authStore.cachedRole = data.role
+         await authStore.loadAccess()
+         return data.role
        } catch {
-        return null;
+        return null
       } finally {
-        roleFetchInProgress = null;
+        roleFetchInProgress = null
       }
-    })();
+    })()
 
-    return roleFetchInProgress;
+    return roleFetchInProgress
   }
 
   Router.beforeEach(async (to) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const authStore = useAuthStore();
-    const isAuthenticated = !!session;
+    const { data: { session } } = await supabase.auth.getSession()
+    const authStore = useAuthStore()
+    const isAuthenticated = !!session
 
-    const publicRoutes = ['/', '/auth/login'];
-    const isPublicRoute = publicRoutes.includes(to.path);
-    const isOnboarding = to.path === '/onboarding';
+    const publicRoutes = ['/', '/auth/login']
+    const isPublicRoute = publicRoutes.includes(to.path)
+    const isOnboarding = to.path === '/onboarding'
 
     // Unauthenticated users may only reach public routes.
     if (!isAuthenticated) {
-      if (isPublicRoute) return true;
+      if (isPublicRoute) return true
       // A reset link that has expired or was already used arrives with no session.
-      if (to.path === '/auth/reset-password') return '/auth/login?reset=expired';
-      return '/auth/login';
+      if (to.path === '/auth/reset-password') return '/auth/login?reset=expired'
+      return '/auth/login'
     }
 
     // Authenticated: load the role/profile so we can check onboarding state.
-    const role = await fetchUserRole(session);
+    const role = await fetchUserRole(session)
 
     // Time-limited access ran out: every request is refused, so sign out and say why.
     if (accessExpired) {
-      accessExpired = false;
-      await authStore.logout();
-      return '/auth/login?access=expired';
+      accessExpired = false
+      await authStore.logout()
+      return '/auth/login?access=expired'
     }
 
     // Suspension has to bite on every navigation, not just at sign-in — an admin
     // suspended mid-session would otherwise keep working until their token ran
     // out. Mirrors the same check in accommo-mobile/src/router/guard.ts.
     if (authStore.user?.status === 'suspended') {
-      await supabase.auth.signOut();
-      authStore.user = null;
-      authStore.clearCachedRole();
-      return '/auth/login?suspended=true';
+      await supabase.auth.signOut()
+      authStore.user = null
+      authStore.clearCachedRole()
+      return '/auth/login?suspended=true'
     }
 
     // Opening the console counts as being active ("Last active" on Users).
-    markActive();
+    markActive()
 
     // Second factor before anything else an admin can reach. The database
     // enforces the same rule (is_admin() needs aal2 once a factor exists), so
     // this is about sending them to the code screen, not about security.
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    const needsCode = aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2';
-    if (to.path === '/auth/mfa') return needsCode ? true : '/dashboard';
-    if (needsCode) return '/auth/mfa';
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    const needsCode = aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2'
+    if (to.path === '/auth/mfa') return needsCode ? true : '/dashboard'
+    if (needsCode) return '/auth/mfa'
 
     // No authenticator enrolled: the database refuses an admin until they have
     // one (mfa_ok), so enrolment comes before anything else.
-    const needsSetup = role === 'admin' && aal?.nextLevel !== 'aal2';
-    if (to.path === '/auth/mfa-setup') return needsSetup ? true : '/dashboard';
-    if (needsSetup) return '/auth/mfa-setup';
+    const needsSetup = role === 'admin' && aal?.nextLevel !== 'aal2'
+    if (to.path === '/auth/mfa-setup') return needsSetup ? true : '/dashboard'
+    if (needsSetup) return '/auth/mfa-setup'
 
     // The e-mailed reset link signs the person in, then lands here.
-    if (to.path === '/auth/reset-password') return true;
+    if (to.path === '/auth/reset-password') return true
 
     const needsOnboarding =
       !!authStore.user &&
       authStore.user.role === 'admin' &&
-      !authStore.user.onboarding_complete;
+      !authStore.user.onboarding_complete
 
     // The onboarding screen is only for admins who haven't completed it yet.
     if (isOnboarding) {
-      return needsOnboarding ? true : '/dashboard';
+      return needsOnboarding ? true : '/dashboard'
     }
 
     if (needsOnboarding) {
-      return '/onboarding';
+      return '/onboarding'
     }
 
     if (isPublicRoute) {
-      if (role === 'admin') return '/dashboard';
+      if (role === 'admin') return '/dashboard'
       // A non-admin session is useless in the console; drop it so the login
       // page can be reached with an admin account.
       if (to.path === '/auth/login') {
-        await authStore.logout();
-        return true;
+        await authStore.logout()
+        return true
       }
       // Non-admins (or a failed role read) stay on the landing page. Returning
       // '/' while already on '/' loops the guard forever.
-      return to.path === '/' ? true : '/';
+      return to.path === '/' ? true : '/'
     }
 
-    const requiresAuth = to.matched.some((record) => record.meta?.requiresAuth);
+    const requiresAuth = to.matched.some((record) => record.meta?.requiresAuth)
     if (!requiresAuth) {
-      return true;
+      return true
     }
 
-    const requiredRole = to.matched.find((record) => record.meta?.role)?.meta?.role as string | undefined;
+    const requiredRole = to.matched.find((record) => record.meta?.role)?.meta?.role as string | undefined
 
     if (requiredRole && role !== requiredRole) {
-      return '/auth/login';
+      return '/auth/login'
     }
 
     // Pages outside this admin's access (the database refuses their data anyway).
     if (!authStore.canOpen(to.path)) {
-      return '/dashboard';
+      return '/dashboard'
     }
 
-    return true;
-  });
+    return true
+  })
 
   // A deploy deletes the old hashed chunks, and the SPA fallback answers for
   // them with index.html ("text/html is not a valid JavaScript MIME type"). A
   // tab opened before the deploy then fails every lazy route, which looked like
   // "Welcome back" with no redirect. Reload once onto the new build; the flag
   // stops a genuinely broken chunk from looping.
-  const STALE_CHUNK = /MIME type|dynamically imported module|Importing a module script failed|Failed to fetch/i;
+  const STALE_CHUNK = /MIME type|dynamically imported module|Importing a module script failed|Failed to fetch/i
   Router.onError((error, to) => {
-    if (!STALE_CHUNK.test(String((error as Error)?.message ?? error))) return;
+    if (!STALE_CHUNK.test(String((error as Error)?.message ?? error))) return
     try {
-      if (sessionStorage.getItem('chunk-reload') === to.fullPath) return;
-      sessionStorage.setItem('chunk-reload', to.fullPath);
+      if (sessionStorage.getItem('chunk-reload') === to.fullPath) return
+      sessionStorage.setItem('chunk-reload', to.fullPath)
     } catch {
-      return;
+      return
     }
-    window.location.assign(to.fullPath);
-  });
-  Router.afterEach(() => { try { sessionStorage.removeItem('chunk-reload'); } catch { /* non-fatal */ } });
+    window.location.assign(to.fullPath)
+  })
+  Router.afterEach(() => { try { sessionStorage.removeItem('chunk-reload') } catch { /* non-fatal */ } })
 
-  return Router;
-});
+  return Router
+})

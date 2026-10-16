@@ -1,7 +1,6 @@
 <template>
   <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
-
-    <!-- Body: section nav + content -->
+<!-- Body: section nav + content -->
     <div class="settings-layout row q-mt-md q-gutter-md">
       <q-card flat class="section-nav">
         <q-list class="q-py-xs">
@@ -17,8 +16,7 @@
       </q-card>
 
       <div class="section-content col">
-
-        <!-- Profile -->
+<!-- Profile -->
         <q-card flat class="section-card" v-show="active === 'profile'">
           <PanelHeader title="Profile" subtitle="Your personal information and contact details." />
 
@@ -104,8 +102,7 @@
             </q-btn>
           </div>
         </div>
-
-      </div>
+</div>
     </div>
   </q-page>
 </template>

@@ -42,24 +42,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { dashboardLeaf, navGroups } from './nav-config';
-import { useAuthStore } from '@/stores/auth';
-import CommandPalette from '@/components/ui/CommandPalette.vue';
-import { supabase } from '@/utils/supabase';
-import { fetchWorkCounts } from '@/api/notifications';
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { dashboardLeaf, navGroups } from './nav-config'
+import { useAuthStore } from '@/stores/auth'
+import CommandPalette from '@/components/ui/CommandPalette.vue'
+import { supabase } from '@/utils/supabase'
+import { fetchWorkCounts } from '@/api/notifications'
 
-const route = useRoute();
-const router = useRouter();
+const route = useRoute()
+const router = useRouter()
 
 // Hover opens it, and only a mouse's hover: read per event, not per device —
 // a tablet with a paired trackpad answers `(hover: hover)` yes, and the tap's
 // synthetic pointerenter used to half-open the rail.
-const authStore = useAuthStore();
-const open = ref(false);
+const authStore = useAuthStore()
+const open = ref(false)
 function onPointer(e: PointerEvent, entering: boolean) {
-  if (e.pointerType === 'mouse') open.value = entering;
+  if (e.pointerType === 'mouse') open.value = entering
 }
 
 interface Row {
@@ -74,7 +74,7 @@ interface Row {
 const workCounts = ref<Record<string, number>>({
   verifications: 0,
   'support-tickets': 0,
-});
+})
 
 const leafRow = (leaf: { id: string; icon: string; label: string; to: string }): Row => ({
   key: leaf.id,
@@ -84,50 +84,50 @@ const leafRow = (leaf: { id: string; icon: string; label: string; to: string }):
   // The count is work waiting elsewhere; on its own page the list says it.
   badge: route.path === leaf.to ? 0 : workCounts.value[leaf.id] ?? 0,
   go: () => void router.push(leaf.to),
-});
+})
 
 const groups = computed<Row[][]>(() => [
   [leafRow(dashboardLeaf)],
   ...navGroups
     .map((g) => g.children.filter((c) => authStore.canOpen(c.to)).map(leafRow))
     .filter((rows) => rows.length),
-]);
+])
 
 async function loadWorkCounts() {
-  const { users: usersResult, accommodations: propertiesResult, tickets: ticketsResult } = await fetchWorkCounts();
+  const { users: usersResult, accommodations: propertiesResult, tickets: ticketsResult } = await fetchWorkCounts()
 
   if (!usersResult.error || !propertiesResult.error) {
     workCounts.value.verifications = (usersResult.error ? 0 : usersResult.count ?? 0)
-      + (propertiesResult.error ? 0 : propertiesResult.count ?? 0);
+      + (propertiesResult.error ? 0 : propertiesResult.count ?? 0)
   }
-  if (!ticketsResult.error) workCounts.value['support-tickets'] = ticketsResult.count ?? 0;
+  if (!ticketsResult.error) workCounts.value['support-tickets'] = ticketsResult.count ?? 0
 }
 
-const paletteOpen = ref(false);
+const paletteOpen = ref(false)
 function onKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-    e.preventDefault();
-    paletteOpen.value = true;
+    e.preventDefault()
+    paletteOpen.value = true
   }
 }
 
-let workChannel: ReturnType<typeof supabase.channel> | null = null;
+let workChannel: ReturnType<typeof supabase.channel> | null = null
 
 onMounted(() => {
-  window.addEventListener('keydown', onKeydown);
-  void loadWorkCounts();
+  window.addEventListener('keydown', onKeydown)
+  void loadWorkCounts()
   workChannel = supabase
     .channel('sidebar-work-counts')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, loadWorkCounts)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'accommodations' }, loadWorkCounts)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, loadWorkCounts)
-    .subscribe();
-});
+    .subscribe()
+})
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', onKeydown);
-  if (workChannel) void supabase.removeChannel(workChannel);
-});
+  window.removeEventListener('keydown', onKeydown)
+  if (workChannel) void supabase.removeChannel(workChannel)
+})
 </script>
 
 <style scoped>

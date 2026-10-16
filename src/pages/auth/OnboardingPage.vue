@@ -102,48 +102,48 @@
 
 <script setup lang="ts">
 import { errorMessage } from '@/utils/errors'
-import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { useQuasar, type QForm } from 'quasar';
-import { useAuthStore } from '@/stores/auth';
-import { setPassword } from '@/api/auth';
-import { completeOnboarding } from '@/api/settings';
-import AuthInput from '@/components/auth/AuthInput.vue';
-import AuthButton from '@/components/auth/AuthButton.vue';
-import { passwordProblem } from '@/utils/format';
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useQuasar, type QForm } from 'quasar'
+import { useAuthStore } from '@/stores/auth'
+import { setPassword } from '@/api/auth'
+import { completeOnboarding } from '@/api/settings'
+import AuthInput from '@/components/auth/AuthInput.vue'
+import AuthButton from '@/components/auth/AuthButton.vue'
+import { passwordProblem } from '@/utils/format'
 
-const router = useRouter();
-const $q = useQuasar();
-const authStore = useAuthStore();
+const router = useRouter()
+const $q = useQuasar()
+const authStore = useAuthStore()
 
-const fullName = ref('');
-const phone = ref('');
-const password = ref('');
-const confirmPassword = ref('');
-const showPassword = ref(false);
-const showConfirm = ref(false);
-const saving = ref(false);
-const connecting = ref(false);
-const photo = ref('');
-const formRef = ref<QForm | null>(null);
+const fullName = ref('')
+const phone = ref('')
+const password = ref('')
+const confirmPassword = ref('')
+const showPassword = ref(false)
+const showConfirm = ref(false)
+const saving = ref(false)
+const connecting = ref(false)
+const photo = ref('')
+const formRef = ref<QForm | null>(null)
 
 // Mirrors accommo-mobile's RegisterPage chips: the same five rules shown as a
 // row of short chips rather than a list of error messages that only appear
 // once you have already got it wrong.
 const passwordChecks = computed(() => {
-  const pwd = password.value;
+  const pwd = password.value
   return [
     { short: '8+ characters', ok: pwd.length >= 8 },
     { short: 'a–z', ok: /[a-z]/.test(pwd) },
     { short: 'A–Z', ok: /[A-Z]/.test(pwd) },
     { short: '0–9', ok: /\d/.test(pwd) },
     { short: '!@#$%^&*', ok: /[!@#$%^&*]/.test(pwd) },
-  ];
-});
+  ]
+})
 
 // Survives the full page load that linkIdentity's redirect causes, which a
 // module-scoped ref would not. Per tab, so it clears itself.
-const LINK_TRIED_KEY = 'accommo.googleLinkTried';
+const LINK_TRIED_KEY = 'accommo.googleLinkTried'
 
 /**
  * Accepting the invite is meant to connect the admin's Google account, so the
@@ -158,35 +158,35 @@ const LINK_TRIED_KEY = 'accommo.googleLinkTried';
  */
 onMounted(async () => {
   try {
-    const googleName = await authStore.syncGoogleProfile();
+    const googleName = await authStore.syncGoogleProfile()
     if (googleName || authStore.user?.avatar_url) {
       // Only ever prefill a real name. `full_name` still holds the email
       // address invite-admin parked there to satisfy the NOT NULL column, and
       // offering that as their display name is worse than an empty field.
-      fullName.value = googleName ?? '';
-      photo.value = authStore.user?.avatar_url ?? '';
-      return;
+      fullName.value = googleName ?? ''
+      photo.value = authStore.user?.avatar_url ?? ''
+      return
     }
   } catch {
     // Nothing linked, or the identity lookup failed. Fall through.
   }
 
-  if (sessionStorage.getItem(LINK_TRIED_KEY)) return;
+  if (sessionStorage.getItem(LINK_TRIED_KEY)) return
 
   // No address to hint with means Google would just show its chooser, which is
   // the thing this flow exists to avoid. Let them type their name instead.
-  const invitedEmail = authStore.user?.email;
-  if (!invitedEmail) return;
+  const invitedEmail = authStore.user?.email
+  if (!invitedEmail) return
 
-  connecting.value = true;
+  connecting.value = true
   try {
-    sessionStorage.setItem(LINK_TRIED_KEY, '1');
-    await authStore.connectGoogle(invitedEmail);
+    sessionStorage.setItem(LINK_TRIED_KEY, '1')
+    await authStore.connectGoogle(invitedEmail)
   } catch (e) {
-    connecting.value = false;
-    $q.notify({ message: errorMessage(e, 'Could not connect Google. Fill in your name instead.'), position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' });
+    connecting.value = false
+    $q.notify({ message: errorMessage(e, 'Could not connect Google. Fill in your name instead.'), position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' })
   }
-});
+})
 
 function initialsFrom(name: string): string {
   return name
@@ -195,46 +195,46 @@ function initialsFrom(name: string): string {
     .map((p) => p[0])
     .slice(0, 2)
     .join('')
-    .toUpperCase();
+    .toUpperCase()
 }
 
 async function submit() {
-  if (!formRef.value) return;
-  const valid = await formRef.value.validate();
-  if (!valid) return;
+  if (!formRef.value) return
+  const valid = await formRef.value.validate()
+  if (!valid) return
 
-  const user = authStore.user;
+  const user = authStore.user
   if (!user) {
-    $q.notify({ message: 'Your session expired. Please log in again.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' });
-    void router.push('/auth/login');
-    return;
+    $q.notify({ message: 'Your session expired. Please log in again.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' })
+    void router.push('/auth/login')
+    return
   }
 
-  saving.value = true;
+  saving.value = true
   try {
     // Password first. If it fails the row keeps onboarding_complete = false, so
     // the guard sends them back here rather than leaving an admin who looks set
     // up but can only ever get in by magic link.
-    await setPassword(password.value);
+    await setPassword(password.value)
     await completeOnboarding(user.id, {
       full_name: fullName.value.trim(),
       phone: phone.value.trim(),
       initials: initialsFrom(fullName.value),
-    });
+    })
 
-    await authStore.loadProfileById(user.id);
-    $q.notify({ message: 'Profile complete. Welcome aboard!', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-check-circle', iconColor: 'teal-4', classes: 'custom-notify' });
-    void router.push('/dashboard');
+    await authStore.loadProfileById(user.id)
+    $q.notify({ message: 'Profile complete. Welcome aboard!', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-check-circle', iconColor: 'teal-4', classes: 'custom-notify' })
+    void router.push('/dashboard')
   } catch (e) {
-    $q.notify({ message: errorMessage(e, 'Could not save your profile.'), position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' });
+    $q.notify({ message: errorMessage(e, 'Could not save your profile.'), position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' })
   } finally {
-    saving.value = false;
+    saving.value = false
   }
 }
 
 async function logout() {
-  await authStore.logout();
-  void router.push('/auth/login');
+  await authStore.logout()
+  void router.push('/auth/login')
 }
 </script>
 

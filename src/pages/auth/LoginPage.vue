@@ -44,38 +44,38 @@
 
 <script setup lang="ts">
 import { errorMessage } from '@/utils/errors'
-import { onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { useQuasar, type QForm } from 'quasar';
-import { useAuthStore } from '@/stores/auth';
-import { callEdgeFunction } from '@/utils/edgeFunction';
-import { captcha } from '@/utils/captcha';
-import { useNotify } from '@/utils/notify';
+import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useQuasar, type QForm } from 'quasar'
+import { useAuthStore } from '@/stores/auth'
+import { callEdgeFunction } from '@/utils/edgeFunction'
+import { captcha } from '@/utils/captcha'
+import { useNotify } from '@/utils/notify'
 
-import AuthInput from '@/components/auth/AuthInput.vue';
-import AuthButton from '@/components/auth/AuthButton.vue';
+import AuthInput from '@/components/auth/AuthInput.vue'
+import AuthButton from '@/components/auth/AuthButton.vue'
 
-const route = useRoute();
-const router = useRouter();
-const $q = useQuasar();
-const authStore = useAuthStore();
+const route = useRoute()
+const router = useRouter()
+const $q = useQuasar()
+const authStore = useAuthStore()
 
 // The router guard signs a suspended admin out mid-session and lands them here.
 // Without this they'd arrive at a blank login screen with no idea why.
 onMounted(() => {
   if (route.query.suspended === 'true') {
-    $q.notify({ message: 'This account has been suspended.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' });
+    $q.notify({ message: 'This account has been suspended.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' })
   }
   if (route.query.access === 'expired') {
-    notify.error('Your admin access has expired. Ask the system admin to extend it.');
+    notify.error('Your admin access has expired. Ask the system admin to extend it.')
   }
   if (route.query.reset === 'expired') {
-    notify.error('That reset link has expired or was already used. Request a new one.');
+    notify.error('That reset link has expired or was already used. Request a new one.')
   }
-});
+})
 
-const notify = useNotify();
-const resetting = ref(false);
+const notify = useNotify()
+const resetting = ref(false)
 
 // Goes through request-admin-reset, which only e-mails admin accounts —
 // calling Supabase directly here let any student or landlord/landlady reset
@@ -83,45 +83,45 @@ const resetting = ref(false);
 // used to find out which addresses are admins.
 async function sendReset() {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
-    notify.error('Enter your e-mail address first, then choose Forgot password.');
-    return;
+    notify.error('Enter your e-mail address first, then choose Forgot password.')
+    return
   }
-  resetting.value = true;
+  resetting.value = true
   try {
-    await callEdgeFunction('request-admin-reset', { email: email.value, ...(await captcha(captchaHost.value)) });
-    notify.success('If that is an OSAS admin account, a reset link is on its way.');
+    await callEdgeFunction('request-admin-reset', { email: email.value, ...(await captcha(captchaHost.value)) })
+    notify.success('If that is an OSAS admin account, a reset link is on its way.')
   } catch (e) {
-    notify.error(errorMessage(e, 'Could not send the reset e-mail.'));
+    notify.error(errorMessage(e, 'Could not send the reset e-mail.'))
   } finally {
-    resetting.value = false;
+    resetting.value = false
   }
 }
 
-const email = ref('');
-const password = ref('');
-const showPassword = ref(false);
-const loading = ref(false);
-const loginFormRef = ref<QForm | null>(null);
-const captchaHost = ref<HTMLElement | null>(null);
+const email = ref('')
+const password = ref('')
+const showPassword = ref(false)
+const loading = ref(false)
+const loginFormRef = ref<QForm | null>(null)
+const captchaHost = ref<HTMLElement | null>(null)
 
 async function handleLogin() {
-  if (!loginFormRef.value) return;
-  const success = await loginFormRef.value.validate();
+  if (!loginFormRef.value) return
+  const success = await loginFormRef.value.validate()
   if (!success) {
-    $q.notify({ message: 'Please enter your email and password.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' });
-    return;
+    $q.notify({ message: 'Please enter your email and password.', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-alert-circle', iconColor: 'amber-4', classes: 'custom-notify' })
+    return
   }
 
   try {
-    loading.value = true;
-    await authStore.login(email.value, password.value, captchaHost.value);
+    loading.value = true
+    await authStore.login(email.value, password.value, captchaHost.value)
 
-    $q.notify({ message: 'Welcome back!', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-check-circle', iconColor: 'teal-4', classes: 'custom-notify' });
-    void router.push(authStore.needsOnboarding ? '/onboarding' : '/dashboard');
+    $q.notify({ message: 'Welcome back!', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-check-circle', iconColor: 'teal-4', classes: 'custom-notify' })
+    void router.push(authStore.needsOnboarding ? '/onboarding' : '/dashboard')
   } catch (error: unknown) {
-    $q.notify({ message: errorMessage(error, 'An unexpected error occurred'), position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' });
+    $q.notify({ message: errorMessage(error, 'An unexpected error occurred'), position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' })
   } finally {
-    loading.value = false;
+    loading.value = false
   }
 }
 </script>

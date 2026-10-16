@@ -42,73 +42,73 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import { flattenNav, type FlatNavItem } from '@/components/layout/nav-config';
-import { useAuthStore } from '@/stores/auth';
+import { ref, computed, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { flattenNav, type FlatNavItem } from '@/components/layout/nav-config'
+import { useAuthStore } from '@/stores/auth'
 
-defineProps<{ modelValue: boolean }>();
-const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>();
+defineProps<{ modelValue: boolean }>()
+const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>()
 
-const router = useRouter();
-const query = ref('');
-const activeIndex = ref(0);
-const inputRef = ref<HTMLInputElement | null>(null);
+const router = useRouter()
+const query = ref('')
+const activeIndex = ref(0)
+const inputRef = ref<HTMLInputElement | null>(null)
 
-const authStore = useAuthStore();
+const authStore = useAuthStore()
 // Only pages this admin can open.
-const allItems = computed(() => flattenNav().filter((i) => authStore.canOpen(i.to)));
+const allItems = computed(() => flattenNav().filter((i) => authStore.canOpen(i.to)))
 
 const filtered = computed<FlatNavItem[]>(() => {
-  const q = query.value.trim().toLowerCase();
-  if (!q) return allItems.value;
+  const q = query.value.trim().toLowerCase()
+  if (!q) return allItems.value
   return allItems.value.filter(
     (i) => i.label.toLowerCase().includes(q) || (i.group ?? '').toLowerCase().includes(q)
-  );
-});
+  )
+})
 
 function showGroup(item: FlatNavItem, idx: number) {
-  if (idx === 0) return true;
-  return filtered.value[idx - 1]?.group !== item.group;
+  if (idx === 0) return true
+  return filtered.value[idx - 1]?.group !== item.group
 }
 
 function move(delta: number) {
-  if (filtered.value.length === 0) return;
-  const next = activeIndex.value + delta;
-  activeIndex.value = (next + filtered.value.length) % filtered.value.length;
-  scrollActiveIntoView();
+  if (filtered.value.length === 0) return
+  const next = activeIndex.value + delta
+  activeIndex.value = (next + filtered.value.length) % filtered.value.length
+  scrollActiveIntoView()
 }
 
 function selectItem(item: FlatNavItem) {
-  emit('update:modelValue', false);
-  void router.push(item.to);
+  emit('update:modelValue', false)
+  void router.push(item.to)
 }
 
 function selectActive() {
-  const item = filtered.value[activeIndex.value];
-  if (item) selectItem(item);
+  const item = filtered.value[activeIndex.value]
+  if (item) selectItem(item)
 }
 
 function onShow() {
-  query.value = '';
-  activeIndex.value = 0;
-  void nextTick(() => inputRef.value?.focus());
+  query.value = ''
+  activeIndex.value = 0
+  void nextTick(() => inputRef.value?.focus())
 }
 
 function onHide() {
-  activeIndex.value = 0;
+  activeIndex.value = 0
 }
 
 function scrollActiveIntoView() {
   void nextTick(() => {
-    const el = document.querySelector('.cp-item--active');
-    el?.scrollIntoView({ block: 'nearest' });
-  });
+    const el = document.querySelector('.cp-item--active')
+    el?.scrollIntoView({ block: 'nearest' })
+  })
 }
 
 watch(filtered, () => {
-  activeIndex.value = 0;
-});
+  activeIndex.value = 0
+})
 </script>
 
 <style scoped>

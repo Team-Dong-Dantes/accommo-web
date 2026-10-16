@@ -10,8 +10,7 @@
     hide-bottom
     :pagination="pagination"
   >
-
-    <template v-slot:header="props">
+<template v-slot:header="props">
       <q-tr :props="props" :key="'header'" class="header-row border-bottom">
         <q-th class="text-muted text-weight-bold custom-th row-num-cell" scope="col">#</q-th>
         <q-th
@@ -93,8 +92,7 @@
         </template>
       </q-tr>
     </template>
-
-  </q-table>
+</q-table>
 </template>
 
 <script setup lang="ts">

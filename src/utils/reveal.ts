@@ -5,7 +5,7 @@ export const vReveal = {
     el.classList.add('reveal')
     const obs = new IntersectionObserver(
       (entries) => entries.forEach((e) => {
-        if (e.isIntersecting) { el.classList.add('is-visible'); obs.unobserve(el); }
+        if (e.isIntersecting) { el.classList.add('is-visible'); obs.unobserve(el) }
       }),
       { threshold: 0.12 },
     )

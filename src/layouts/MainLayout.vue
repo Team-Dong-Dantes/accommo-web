@@ -1,7 +1,6 @@
 <template>
   <q-layout view="lHh Lpr lFf" class="app-shell">
-
-    <DesktopRail />
+<DesktopRail />
 
     <q-header class="bg-transparent text-ink app-header" :class="{ 'is-scrolled': scrolled }">
         <q-toolbar class="q-py-xs q-px-sm">

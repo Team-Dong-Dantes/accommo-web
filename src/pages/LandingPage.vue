@@ -97,22 +97,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
-import { APK_URL, SIGN_IN_URL } from '@/utils/appLinks';
-import { vReveal } from '@/utils/reveal';
-import LandingHow from '@/features/landing/LandingHow.vue';
-import LandingFaq from '@/features/landing/LandingFaq.vue';
-import LandingFooter from '@/features/landing/LandingFooter.vue';
+import { ref, onMounted, onUnmounted } from 'vue'
+import { APK_URL, SIGN_IN_URL } from '@/utils/appLinks'
+import { vReveal } from '@/utils/reveal'
+import LandingHow from '@/features/landing/LandingHow.vue'
+import LandingFaq from '@/features/landing/LandingFaq.vue'
+import LandingFooter from '@/features/landing/LandingFooter.vue'
 
-const showTop = ref(false);
-const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
-function onScroll() { showTop.value = window.scrollY > 600; }
+const showTop = ref(false)
+const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
+function onScroll() { showTop.value = window.scrollY > 600 }
 
 // The hero's phone used to run a 2.5s colour-cycling timer behind a logo. The
 // screen is a static app view now — a hero that animates forever competes with
 // the thing it is trying to get read.
-onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }));
-onUnmounted(() => window.removeEventListener('scroll', onScroll));
+onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }))
+onUnmounted(() => window.removeEventListener('scroll', onScroll))
 </script>
 
 <style scoped src="@/features/landing/landing.css"></style>

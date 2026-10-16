@@ -1,7 +1,6 @@
 <template>
   <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
-
-    <div class="row justify-between items-end non-shrink">
+<div class="row justify-between items-end non-shrink">
       <TabNav v-model="activeTab" :tabs="tabs" />
 
       <q-btn
@@ -32,8 +31,7 @@
       >
       <template #panels>
         <q-tab-panels v-model="activeTab" animated style="background: transparent; height: 100%;">
-
-          <!-- OVERVIEW -->
+<!-- OVERVIEW -->
           <q-tab-panel name="overview" class="q-pa-none">
             <OverviewTable v-model:sort="sort" :rows="paginatedAccommodations" :loading="loading" :start-index="(currentPage - 1) * 10" @open="openAccommodation" />
           </q-tab-panel>
@@ -47,8 +45,7 @@
           <q-tab-panel name="performance" class="q-pa-none">
             <PerformanceTable v-model:sort="sort" :rows="paginatedAccommodations" :loading="loading" :start-index="(currentPage - 1) * 10" @open="openAccommodation" />
           </q-tab-panel>
-
-        </q-tab-panels>
+</q-tab-panels>
       </template>
     </TableCard>
 
@@ -62,8 +59,7 @@
       :management-actions="accommodationActions"
       @manage="onManageAccommodation"
     />
-
-    </div><!-- /prop-hub-body -->
+</div><!-- /prop-hub-body -->
 
     <ReportDialog
       v-model="reportOpen"

@@ -17,7 +17,7 @@ export const dashboardLeaf: NavLeaf = {
   label: 'Dashboard',
   icon: 'lucide:layout-dashboard',
   to: '/dashboard',
-};
+}
 
 export const navGroups: NavGroup[] = [
   {
@@ -56,18 +56,18 @@ export const navGroups: NavGroup[] = [
       { id: 'audit-logs', label: 'Audit Logs', icon: 'lucide:clipboard-list', to: '/audit-logs' },
     ],
   },
-];
+]
 
 export interface FlatNavItem extends NavLeaf {
   group?: string;
 }
 
 export function flattenNav(): FlatNavItem[] {
-  const items: FlatNavItem[] = [{ ...dashboardLeaf }];
+  const items: FlatNavItem[] = [{ ...dashboardLeaf }]
   for (const group of navGroups) {
     for (const child of group.children) {
-      items.push({ ...child, group: group.label });
+      items.push({ ...child, group: group.label })
     }
   }
-  return items;
+  return items
 }

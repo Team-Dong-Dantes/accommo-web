@@ -1,8 +1,8 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@/types/database.gen';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database.gen'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 interface MockSupabaseClient {
   auth: {
@@ -23,14 +23,14 @@ interface MockSupabaseClient {
   };
 }
 
-let _supabaseInstance: SupabaseClient<Database>;
+let _supabaseInstance: SupabaseClient<Database>
 
 if (supabaseUrl && supabaseAnonKey) {
-  _supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey);
+  _supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey)
 } else {
   console.warn(
     'Supabase environment variables are not set. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local',
-  );
+  )
 
   _supabaseInstance = {
     auth: {
@@ -55,8 +55,8 @@ if (supabaseUrl && supabaseAnonKey) {
         }),
       }),
     }),
-  } as unknown as SupabaseClient<Database>;
+  } as unknown as SupabaseClient<Database>
 }
 
-export const supabase = _supabaseInstance;
-export type { MockSupabaseClient };
+export const supabase = _supabaseInstance
+export type { MockSupabaseClient }

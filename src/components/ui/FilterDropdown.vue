@@ -3,8 +3,7 @@
   <q-btn v-if="shown.length" flat class="bg-surface text-muted text-weight-bold rounded-button custom-border" no-caps>
     <Icon icon="lucide:sliders-horizontal" class="on-left" width="18" height="18" />Filter
     <q-menu anchor="bottom right" self="top right" :offset="[0, 8]" class="filter-menu" :style="{ width: wide ? '460px' : '220px' }">
-
-      <!-- Past four groups one column runs off the screen, so they flow into two. -->
+<!-- Past four groups one column runs off the screen, so they flow into two. -->
       <div class="q-pa-md" :class="{ 'filter-grid': wide }">
         <div v-for="(filterGroup, index) in shown" :key="filterGroup.key">
           <div class="text-weight-bold text-ink q-mb-xs" style="font-size: 13px">{{ filterGroup.label }}</div>
@@ -27,8 +26,7 @@
       <div class="bg-surface-2 q-pa-sm row justify-end filter-footer">
         <q-btn flat dense label="Clear All" color="primary" size="12px" class="text-weight-bold" no-caps @click="$emit('clear')" />
       </div>
-
-    </q-menu>
+</q-menu>
   </q-btn>
 </template>
 

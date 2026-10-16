@@ -1,7 +1,6 @@
 <template>
   <q-page class="users-page q-pa-md column no-wrap" style="background-color: var(--c-bg)">
-
-    <div class="row justify-between items-end non-shrink q-gutter-x-sm">
+<div class="row justify-between items-end non-shrink q-gutter-x-sm">
       <TabNav v-model="activeTab" :tabs="tabs" />
     </div>
 
@@ -72,8 +71,7 @@
         @next="selectNext"
       />
     </div>
-
-  </q-page>
+</q-page>
 </template>
 
 <script setup lang="ts">

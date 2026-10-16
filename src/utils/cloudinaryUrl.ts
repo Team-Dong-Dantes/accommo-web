@@ -2,7 +2,7 @@
 // so that a stored Cloudinary asset is served optimized regardless of which app
 // fetched it. Non-Cloudinary URLs (legacy Supabase storage, external) pass through.
 
-const CLOUD_DELIVERY_RE = /(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)/;
+const CLOUD_DELIVERY_RE = /(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)/
 
 /** True when the URL points at a Cloudinary delivery. */
 export function isCloudinaryUrl(url: string | null | undefined): boolean {

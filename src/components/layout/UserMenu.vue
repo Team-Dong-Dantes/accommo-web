@@ -4,8 +4,7 @@
     :class="{ 'is-open': menuOpen }"
     tabindex="0"
   >
-
-    <q-avatar size="42px" font-size="18px" color="primary" text-color="white" class="text-weight-bold">
+<q-avatar size="42px" font-size="18px" color="primary" text-color="white" class="text-weight-bold">
       <img v-if="authStore.user?.avatar_url" :src="authStore.user.avatar_url" :alt="authStore.user.full_name" />
       <template v-else>{{ authStore.user?.initials || 'MA' }}</template>
     </q-avatar>
@@ -58,30 +57,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { useAuthStore } from '@/stores/auth';
-import { useNotify } from '@/utils/notify';
-import { getStoredTheme, setStoredTheme } from '@/utils/theme';
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useNotify } from '@/utils/notify'
+import { getStoredTheme, setStoredTheme } from '@/utils/theme'
 
-const router = useRouter();
-const authStore = useAuthStore();
-const { error: notifyError } = useNotify();
+const router = useRouter()
+const authStore = useAuthStore()
+const { error: notifyError } = useNotify()
 
-const menuOpen = ref(false);
+const menuOpen = ref(false)
 
-const darkMode = ref(getStoredTheme() === 'dark');
+const darkMode = ref(getStoredTheme() === 'dark')
 function onToggleDark(value: boolean) {
-  darkMode.value = value;
-  setStoredTheme(value ? 'dark' : 'light');
+  darkMode.value = value
+  setStoredTheme(value ? 'dark' : 'light')
 }
 
 async function handleLogout() {
   try {
-    await authStore.logout();
-    void router.push('/login');
+    await authStore.logout()
+    void router.push('/login')
   } catch {
-    notifyError('Error logging out');
+    notifyError('Error logging out')
   }
 }
 </script>

@@ -7,7 +7,7 @@
 </template>
 
 <script setup lang="ts">
-const model = defineModel<string | number | null>();
+const model = defineModel<string | number | null>()
 </script>
 
 <style scoped>

@@ -1,7 +1,6 @@
 <template>
   <div class="row items-center no-wrap">
-
-    <q-avatar :color="avatarColor" :rounded="rounded" text-color="white" class="text-weight-bold q-mr-md">
+<q-avatar :color="avatarColor" :rounded="rounded" text-color="white" class="text-weight-bold q-mr-md">
       <img v-if="avatarUrl && !broken" :src="avatarUrl" :alt="name" @error="broken = true" />
       <template v-else>{{ initials }}</template>
     </q-avatar>
@@ -10,8 +9,7 @@
       <div class="uic-name text-weight-bold text-ink ellipsis">{{ name }}</div>
       <div class="uic-sub text-muted q-mt-xs ellipsis">{{ subtitle || email }}</div>
     </div>
-
-  </div>
+</div>
 </template>
 
 <script setup lang="ts">
