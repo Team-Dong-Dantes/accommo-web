@@ -17,21 +17,24 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
-const props = defineProps({
-  initials: { type: String, required: true },
-  name: { type: String, required: true },
-  email: { type: String, default: '' },
-  subtitle: { type: String, default: '' },
-  avatarColor: { type: String, default: 'grey-5' },
-  /** A profile photo, when the person has one. Falls back to the initials. */
-  avatarUrl: { type: String, default: '' },
-  /**
-   * Rounded square instead of a circle. For the rows where the image is a
-   * place rather than a person — a boarding house photo in a circle reads as
-   * somebody's profile picture.
-   */
-  rounded: { type: Boolean, default: false }
-})
+const props = withDefaults(
+  defineProps<{
+    initials: string
+    name: string
+    email?: string
+    subtitle?: string
+    avatarColor?: string
+    /** A profile photo, when the person has one. Falls back to the initials. */
+    avatarUrl?: string
+    /**
+     * Rounded square instead of a circle. For the rows where the image is a
+     * place rather than a person — a boarding house photo in a circle reads as
+     * somebody's profile picture.
+     */
+    rounded?: boolean
+  }>(),
+  { email: '', subtitle: '', avatarColor: 'grey-5', avatarUrl: '' },
+)
 
 // Avatars are third-party URLs (a Google account photo) that can disappear, and
 // a q-table recycles this component across rows — so the failure has to reset

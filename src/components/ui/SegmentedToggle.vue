@@ -23,10 +23,7 @@ interface SegOption {
   /** Optional lucide icon shown before the label. */
   icon?: string
 }
-defineProps({
-  modelValue: { type: String, required: true },
-  options: { type: Array as () => SegOption[], required: true },
-})
+defineProps<{ modelValue: string; options: SegOption[] }>()
 defineEmits<{ (e: 'update:modelValue', value: string): void }>()
 </script>
 

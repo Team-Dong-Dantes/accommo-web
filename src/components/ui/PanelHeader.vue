@@ -14,13 +14,10 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 
-defineProps({
-  icon: { type: String, default: '' },
-  title: { type: String, required: true },
-  subtitle: { type: String, default: '' },
-  compact: { type: Boolean, default: false },
-  titleClass: { type: String, default: '' },
-})
+withDefaults(
+  defineProps<{ icon?: string; title: string; subtitle?: string; compact?: boolean; titleClass?: string }>(),
+  { icon: '', subtitle: '', titleClass: '' },
+)
 </script>
 
 <style scoped>

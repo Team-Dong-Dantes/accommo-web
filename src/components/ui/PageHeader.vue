@@ -23,12 +23,10 @@ import BadgePill from '@/components/user/BadgePill.vue'
 import { useAuthStore } from '@/stores/auth'
 import { PATH_AREAS } from '@/utils/access'
 
-const props = defineProps({
-  title: { type: String, default: '' },
-  subtitle: { type: String, default: '' },
-  eyebrow: { type: String, default: '' },
-  variant: { type: String as () => 'page' | 'bar', default: 'page' },
-})
+const props = withDefaults(
+  defineProps<{ title?: string; subtitle?: string; eyebrow?: string; variant?: 'page' | 'bar' }>(),
+  { title: '', subtitle: '', eyebrow: '', variant: 'page' },
+)
 
 const route = useRoute()
 const resolvedTitle = computed(

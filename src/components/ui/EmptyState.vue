@@ -21,13 +21,10 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 
-defineProps({
-  variant: { type: String as () => 'inline' | 'rich', default: 'inline' },
-  icon: { type: String, default: 'lucide:info' },
-  title: { type: String, default: 'Nothing here yet' },
-  message: { type: String, default: '' },
-  size: { type: [Number, String], default: 48 },
-})
+withDefaults(
+  defineProps<{ variant?: 'inline' | 'rich'; icon?: string; title?: string; message?: string; size?: number | string }>(),
+  { variant: 'inline', icon: 'lucide:info', title: 'Nothing here yet', message: '', size: 48 },
+)
 </script>
 
 <style scoped>

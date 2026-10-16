@@ -5,10 +5,7 @@
 </template>
 
 <script setup lang="ts">
-defineProps({
-  count: { type: Number, required: true },
-  label: { type: String, default: 'items' }
-})
+withDefaults(defineProps<{ count: number; label?: string }>(), { label: 'items' })
 </script>
 
 <style scoped>

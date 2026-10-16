@@ -9,14 +9,10 @@
 import { computed } from 'vue'
 import { getStatus, type StatusTone } from '@/utils/status.config'
 
-const props = defineProps({
-  bg: { type: String, default: '' },
-  textColor: { type: String, default: '' },
-  tone: { type: String as () => StatusTone, default: '' },
-  status: { type: String, default: '' },
-  icon: { type: String, default: '' },
-  label: { type: String, default: '' }
-})
+const props = withDefaults(
+  defineProps<{ bg?: string; textColor?: string; tone?: StatusTone | ''; status?: string; icon?: string; label?: string }>(),
+  { bg: '', textColor: '', tone: '', status: '', icon: '', label: '' },
+)
 
 const resolved = computed(() => {
   if (props.tone || props.status) {

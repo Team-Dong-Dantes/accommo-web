@@ -15,10 +15,7 @@
 </template>
 
 <script setup lang="ts">
-defineProps({
-  modelValue: { type: String, default: '' },
-  placeholder: { type: String, default: 'Search...' }
-})
+withDefaults(defineProps<{ modelValue?: string; placeholder?: string }>(), { modelValue: '', placeholder: 'Search...' })
 
 defineEmits(['update:modelValue'])
 </script>

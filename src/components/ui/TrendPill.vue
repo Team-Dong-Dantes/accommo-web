@@ -9,11 +9,10 @@
 import { Icon } from '@iconify/vue'
 import type { StatusTone } from '@/utils/status.config'
 
-defineProps({
-  tone: { type: String as () => StatusTone, default: 'primary' },
-  trend: { type: String as () => 'up' | 'down' | 'flat', default: 'flat' },
-  label: { type: String, required: true },
-})
+withDefaults(
+  defineProps<{ tone?: StatusTone; trend?: 'up' | 'down' | 'flat'; label: string }>(),
+  { tone: 'primary', trend: 'flat' },
+)
 </script>
 
 <style scoped>

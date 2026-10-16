@@ -11,15 +11,18 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 
-defineProps({
-  icon: { type: String, required: true },
-  label: { type: String, required: true },
-  value: { type: String, default: '' },
-  last: { type: Boolean, default: false },
-  mono: { type: Boolean, default: false },
-  /** Wrap long values (IDs, user agents) instead of cutting them off with an ellipsis. */
-  wrap: { type: Boolean, default: false },
-})
+withDefaults(
+  defineProps<{
+    icon: string
+    label: string
+    value?: string
+    last?: boolean
+    mono?: boolean
+    /** Wrap long values (IDs, user agents) instead of cutting them off with an ellipsis. */
+    wrap?: boolean
+  }>(),
+  { value: '' },
+)
 </script>
 
 <style scoped>

@@ -36,12 +36,10 @@ import { Icon } from '@iconify/vue'
 import { fetchUsersInRange, type RangeUserRow } from '@/api/users'
 import { cap as capitalize, getInitials, getTimeAgoShort as timeAgo } from '@/utils/format'
 
-const props = defineProps({
-  modelValue: { type: Boolean, default: false },
-  from: { type: String, default: '' },
-  to: { type: String, default: '' },
-  label: { type: String, default: '' },
-})
+const props = withDefaults(
+  defineProps<{ modelValue?: boolean; from?: string; to?: string; label?: string }>(),
+  { from: '', to: '', label: '' },
+)
 const emit = defineEmits(['update:modelValue'])
 
 const open = computed({

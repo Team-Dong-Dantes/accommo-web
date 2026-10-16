@@ -54,12 +54,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 
-const props = defineProps({
-  modelValue: { type: Number, required: true },
-  totalItems: { type: Number, required: true },
-  rowsPerPage: { type: Number, default: 10 },
-  itemName: { type: String, default: 'items' }
-})
+const props = withDefaults(
+  defineProps<{ modelValue: number; totalItems: number; rowsPerPage?: number; itemName?: string }>(),
+  { rowsPerPage: 10, itemName: 'items' },
+)
 
 const emit = defineEmits(['update:modelValue'])
 

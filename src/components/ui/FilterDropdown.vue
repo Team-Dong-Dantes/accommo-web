@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, PropType } from 'vue'
+import { computed } from 'vue'
 
 interface FilterOption {
   label: string;
@@ -46,10 +46,10 @@ interface FilterGroup {
   options: FilterOption[];
 }
 
-const props = defineProps({
-  filters: { type: Array as PropType<FilterGroup[]>, default: () => [] },
-  activeFilters: { type: Object as PropType<Record<string, any[]>>, default: () => ({}) }
-})
+const props = withDefaults(
+  defineProps<{ filters?: FilterGroup[]; activeFilters?: Record<string, any[]> }>(),
+  { filters: () => [], activeFilters: () => ({}) },
+)
 
 // A group with a single option can't narrow anything (every row has that
 // value), so it isn't offered — unless it is in use, so it can be cleared.

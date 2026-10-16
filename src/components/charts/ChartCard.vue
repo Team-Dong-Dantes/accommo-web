@@ -9,15 +9,18 @@
 import { computed } from 'vue'
 import { chartBase, chartPreset } from '@/utils/chartTheme'
 
-const props = defineProps({
-  type: { type: String as () => 'area' | 'bar' | 'donut' | 'line' | 'radialBar', required: true },
-  series: { type: Array, required: true },
-  options: { type: Object, default: () => ({}) },
-  height: { type: String, default: '100%' },
-  hasData: { type: Boolean, default: true },
-  emptyText: { type: String, default: 'No data' },
-  preset: { type: String as () => 'area' | 'bar' | 'donut' | 'line' | '', default: '' },
-})
+const props = withDefaults(
+  defineProps<{
+    type: 'area' | 'bar' | 'donut' | 'line' | 'radialBar'
+    series: any[]
+    options?: Record<string, any>
+    height?: string
+    hasData?: boolean
+    emptyText?: string
+    preset?: 'area' | 'bar' | 'donut' | 'line' | ''
+  }>(),
+  { options: () => ({}), height: '100%', hasData: true, emptyText: 'No data', preset: '' },
+)
 
 function deepMerge(base: any, override: any): any {
   const out = Array.isArray(base) ? [...base] : { ...base }

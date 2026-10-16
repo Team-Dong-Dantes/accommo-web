@@ -17,7 +17,6 @@
 </template>
 
 <script setup lang="ts">
-import { PropType } from 'vue'
 import { Icon } from '@iconify/vue'
 
 export interface QuickAction {
@@ -25,10 +24,7 @@ export interface QuickAction {
   label: string
 }
 
-defineProps({
-  title: { type: String, default: 'Quick Actions' },
-  items: { type: Array as PropType<QuickAction[]>, required: true },
-})
+withDefaults(defineProps<{ title?: string; items: QuickAction[] }>(), { title: 'Quick Actions' })
 
 defineEmits<{ (e: 'select', item: QuickAction): void }>()
 </script>

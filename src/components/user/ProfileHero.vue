@@ -27,17 +27,29 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 
-defineProps({
-  name: { type: String, required: true },
-  initials: { type: String, default: '' },
-  avatarColor: { type: String, default: 'primary' },
-  avatarSize: { type: String, default: '200px' },
-  avatarFontSize: { type: String, default: '74px' },
-  roleLabel: { type: String, default: '' },
-  statusLabel: { type: String, default: '' },
-  roleStyle: { type: Object as () => { icon: string }, default: () => ({ icon: 'lucide:user' }) },
-  statusStyle: { type: Object as () => { icon: string }, default: () => ({ icon: 'lucide:circle-help' }) },
-})
+withDefaults(
+  defineProps<{
+    name: string
+    initials?: string
+    avatarColor?: string
+    avatarSize?: string
+    avatarFontSize?: string
+    roleLabel?: string
+    statusLabel?: string
+    roleStyle?: { icon: string }
+    statusStyle?: { icon: string }
+  }>(),
+  {
+    initials: '',
+    avatarColor: 'primary',
+    avatarSize: '200px',
+    avatarFontSize: '74px',
+    roleLabel: '',
+    statusLabel: '',
+    roleStyle: () => ({ icon: 'lucide:user' }),
+    statusStyle: () => ({ icon: 'lucide:circle-help' }),
+  },
+)
 </script>
 
 <style scoped>

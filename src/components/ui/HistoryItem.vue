@@ -15,14 +15,10 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 
-defineProps({
-  title: { type: String, required: true },
-  subtitle: { type: String, default: '' },
-  meta: { type: String, default: '' },
-  chip: { type: String, default: '' },
-  pin: { type: Boolean, default: false },
-  clickable: { type: Boolean, default: false },
-})
+withDefaults(
+  defineProps<{ title: string; subtitle?: string; meta?: string; chip?: string; pin?: boolean; clickable?: boolean }>(),
+  { subtitle: '', meta: '', chip: '' },
+)
 defineEmits<{ (e: 'click'): void }>()
 </script>
 
