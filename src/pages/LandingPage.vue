@@ -389,7 +389,7 @@ const faqs = [
 /* how */
 .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
 .col-block { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 28px; }
-.sub { font-size: 1.2rem; font-weight: 700; margin: 0 0 18px; }
+.sub { font-size: 1.2rem; font-weight: 700; margin: 0 0 18px; color: var(--ink); }
 .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
 .steps li { display: flex; gap: 14px; align-items: flex-start; }
 .steps span { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--teal); color: #fff; font-weight: 700; font-size: 0.82rem; display: grid; place-items: center; }
