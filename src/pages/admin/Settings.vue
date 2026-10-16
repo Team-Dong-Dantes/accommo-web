@@ -111,20 +111,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import PanelHeader from '@/components/ui/PanelHeader.vue'
-import { useNotify } from '@/utils/notify'
 import { useAuthStore } from '@/stores/auth'
-import { supabase } from '@/utils/supabase'
-import { type StatusTone } from '@/utils/status.config'
 import AdministratorsSection from '@/features/settings/AdministratorsSection.vue'
 import TwoFactorSetting from '@/features/settings/TwoFactorSetting.vue'
 import SignInsSetting from '@/features/settings/SignInsSetting.vue'
 import { useRoute } from 'vue-router'
-import { passwordProblem } from '@/utils/format'
+import { useAdminSettings } from '@/composables/useAdminSettings'
 
-const notify = useNotify()
 const authStore = useAuthStore()
 // ?section=<id> opens a section directly.
 const requested = useRoute().query.section
@@ -142,164 +138,7 @@ const sections = computed(() => {
   return list
 })
 
-const form = reactive({
-  name: '',
-  email: '',
-  phone: '',
-  role: '',
-})
-
-const initials = computed(() =>
-  authStore.user?.initials ||
-  (form.name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase() || 'A')
-)
-
-function applyProfile() {
-  const u = authStore.user
-  if (!u) return
-  form.name = u.full_name
-  form.phone = (u as any).phone ?? ''
-  form.email = u.email
-  form.role = authStore.roleLabel(u.role)
-}
-
-const roleStyle: { tone: StatusTone; icon: string } = { tone: 'primary', icon: 'lucide:shield-user' }
-
-const notifications = reactive({
-  emailAlerts: true,
-  pushAlerts: false,
-  weeklyDigest: true,
-  grievanceAlerts: true,
-})
-
-const notificationOptions: { key: keyof typeof notifications; label: string; desc: string }[] = [
-  { key: 'emailAlerts', label: 'Email alerts', desc: 'Important account and verification updates.' },
-  { key: 'pushAlerts', label: 'Push notifications', desc: 'Real-time alerts in your browser.' },
-  { key: 'weeklyDigest', label: 'Weekly digest', desc: 'A Monday summary of platform activity.' },
-  { key: 'grievanceAlerts', label: 'Support ticket alerts', desc: 'Notify me about new student support tickets.' },
-]
-
-// Saved on toggle, straight to users.login_alerts — read by the sign-in trigger.
-const loginAlerts = ref<boolean | null>(null)
-
-async function setLoginAlerts(on: boolean) {
-  const id = authStore.user?.id
-  if (!id) return
-  const { error } = await supabase.from('users').update({ login_alerts: on }).eq('id', id)
-  if (error) return notify.error(error.message)
-  loginAlerts.value = on
-}
-
-const password = reactive({
-  current: '',
-  next: '',
-  confirm: '',
-})
-
-async function saveAll() {
-  const u = authStore.user
-  if (u) {
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ full_name: form.name, phone: form.phone })
-        .eq('id', u.id)
-      if (error) {
-        notify.error(error.message)
-        return
-      }
-      u.full_name = form.name
-      u.phone = form.phone
-    } catch {
-      notify.error('Could not save profile')
-      return
-    }
-  }
-  saved.value = snapshot()
-  try {
-    localStorage.setItem('accommo-settings', saved.value)
-  } catch {
-    /* ignore */
-  }
-  notify.success('Settings saved')
-  password.current = ''
-  password.next = ''
-  password.confirm = ''
-}
-
-function cancel() {
-  const snap = saved.value ? JSON.parse(saved.value) : null
-  if (!snap) return
-  Object.assign(form, snap.form)
-  Object.assign(notifications, snap.notifications)
-  password.current = ''
-  password.next = ''
-  password.confirm = ''
-}
-
-function snapshot() {
-  return JSON.stringify({
-    form: { ...form },
-    notifications: { ...notifications },
-  })
-}
-
-const saved = ref('')
-
-const dirty = computed(() => {
-  if (password.current || password.next || password.confirm) return true
-  return snapshot() !== saved.value
-})
-
-onMounted(async () => {
-  if (!authStore.user) {
-    try { await authStore.getSessionProfile() } catch { /* no session */ }
-  }
-  applyProfile()
-
-  const raw = localStorage.getItem('accommo-settings')
-  if (raw) {
-    try {
-      const p = JSON.parse(raw)
-      // Profile fields are sourced from the real user record, not local storage.
-      if (p.notifications) Object.assign(notifications, p.notifications)
-    } catch { /* ignore corrupt data */ }
-  }
-  saved.value = snapshot()
-
-  if (authStore.user) {
-    const { data } = await supabase.from('users').select('login_alerts').eq('id', authStore.user.id).maybeSingle()
-    loginAlerts.value = data?.login_alerts ?? true
-  }
-})
-
-async function savePassword() {
-  if (password.next && password.next !== password.confirm) {
-    notify.error('New passwords do not match')
-    return
-  }
-  const weak = password.next ? passwordProblem(password.next) : null
-  if (weak) {
-    notify.error(weak)
-    return
-  }
-  try {
-    // Supabase checks current_password itself (Auth → "require current password"),
-    // so a session left open on a shared desk can't be used to take the account.
-    const { error } = await supabase.auth.updateUser({ password: password.next, current_password: password.current })
-    if (error) {
-      notify.error(error.message)
-      return
-    }
-    notify.success('Password updated')
-    password.current = ''
-    password.next = ''
-    password.confirm = ''
-  } catch {
-    notify.error('Could not update password')
-  }
-}
-
+const { form, initials, roleStyle, notifications, notificationOptions, loginAlerts, setLoginAlerts, password, saveAll, cancel, dirty, savePassword } = useAdminSettings()
 </script>
 
 <style scoped>
