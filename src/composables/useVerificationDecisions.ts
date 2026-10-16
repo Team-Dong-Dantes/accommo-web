@@ -1,6 +1,7 @@
 // Deciding a verification request: an accommodation's accreditation round
 // (one RPC) or a student's or landlord/landlady's account (one status write,
 // then a best-effort audit row and the admin's own notice).
+import { insertAuditLog } from '@/api/audit'
 import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { humanizeEnum, landlordTitle } from '@/utils/format'
@@ -78,7 +79,7 @@ export function useVerificationDecisions() {
     // The function's own history keeps the note; the tags and the override
     // live only here (best-effort, after the decision itself has landed).
     {
-      const { error: auditErr } = await supabase.from('audit_logs').insert({
+      await insertAuditLog({
         action: allowResub ? 'verification.resubmit' : `verification.${decision}`,
         actor_id: actorId,
         entity_id: rawId,
@@ -92,8 +93,7 @@ export function useVerificationDecisions() {
           tags: decisionPayload?.tags ?? null,
           notes: decisionPayload?.notes ?? null,
         },
-      } as any)
-      if (auditErr) notify.warning('Decision not recorded in the audit log', auditErr.message)
+      }).catch((auditErr) => notify.warning('Decision not recorded in the audit log', auditErr.message))
     }
 
     // The admin's own copy; the applicant's notice came with the decision.

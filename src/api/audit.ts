@@ -50,3 +50,18 @@ export async function fetchRecordAuditRows(entityTypes: string[], entityId: stri
 export async function fetchRecordAudit(entityTypes: string[], entityId: string, limit = 100): Promise<AuditEvent[]> {
   return fillNames((await fetchRecordAuditRows(entityTypes, entityId, limit)).map(mapLog))
 }
+
+/** One audit-log entry, written after the change it records has landed. */
+export interface AuditInsert {
+  action: string
+  actor_id: string | null
+  entity_id: string
+  entity_type: string
+  before_json: unknown
+  after_json: unknown
+}
+
+export async function insertAuditLog(row: AuditInsert): Promise<void> {
+  const { error } = await supabase.from('audit_logs').insert(row as never)
+  if (error) throw error
+}

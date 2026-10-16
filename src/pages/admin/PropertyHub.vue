@@ -35,109 +35,17 @@
 
           <!-- OVERVIEW -->
           <q-tab-panel name="overview" class="q-pa-none">
-            <DataTable :rows="paginatedAccommodations" :columns="overviewColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron v-model:sort="sort">
-              <template #no-data>
-                <div class="full-width row flex-center text-muted q-pa-xl column">
-                  <Icon icon="lucide:map-pin-house" width="48" height="48" class="q-mb-md" />
-                  <div class="text-h6 text-weight-bold">No accommodations yet</div>
-                  <div>Listed accommodations will appear here.</div>
-                </div>
-              </template>
-              <template #body="{ props, rowNumber }">
-                <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openAccommodation(props.row)">
-                  <q-td class="row-num-cell">{{ rowNumber }}</q-td>
-                  <q-td key="accommodation" :props="props" class="col-title">
-                    <UserInfoCell rounded :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :avatar-url="props.row.image" :subtitle="props.row.address" />
-                  </q-td>
-                  <q-td key="landlord" :props="props" class="col-person">
-                    <UserInfoCell :initials="props.row.landlordInitials" :name="props.row.landlord" :avatar-color="'indigo-5'" :avatar-url="props.row.landlordAvatarUrl" :subtitle="props.row.contact" />
-                  </q-td>
-                  <q-td key="rooms" :props="props" class="num-cell col-num-wide col-split text-ink">
-                    <span class="rooms-cell">
-                      <Icon icon="lucide:door-closed" width="13" height="13" />{{ props.row.totalRooms }}
-                    </span>
-                  </q-td>
-                  <q-td key="floors" :props="props" class="num-cell col-num-wide text-ink">
-                    <span class="rooms-cell">
-                      <Icon icon="lucide:layers" width="13" height="13" />{{ props.row.floors || '—' }}
-                    </span>
-                  </q-td>
-                  <q-td key="occupants" :props="props" class="num-cell col-occupants">
-                    <span class="occupants-cell">
-                      <span class="text-ink text-weight-bold">{{ props.row.totalStudents }}</span>
-                      <span class="gender-split">
-                        <span class="gender-figure is-male"><Icon icon="lucide:mars" width="12" height="12" />{{ props.row.maleCount }}</span>
-                        <span class="gender-figure is-female"><Icon icon="lucide:venus" width="12" height="12" />{{ props.row.femaleCount }}</span>
-                      </span>
-                    </span>
-                  </q-td>
-                  <q-td key="status" :props="props" class="col-badge-wide">
-                    <BadgePill :tone="props.row.statusStyle.tone" :icon="props.row.statusStyle.icon" :label="props.row.statusLabel" />
-                  </q-td>
-                </q-tr>
-              </template>
-            </DataTable>
+            <OverviewTable v-model:sort="sort" :rows="paginatedAccommodations" :loading="loading" :start-index="(currentPage - 1) * 10" @open="openAccommodation" />
           </q-tab-panel>
 
           <!-- COMPLIANCE (one row per house; a capsule per required permit) -->
           <q-tab-panel name="compliance" class="q-pa-none">
-            <DataTable :rows="paginatedAccommodations" :columns="complianceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron v-model:sort="sort">
-              <template #no-data>
-                <div class="full-width row flex-center text-muted q-pa-xl column">
-                  <Icon icon="lucide:file-check" width="48" height="48" class="q-mb-md" />
-                  <div class="text-h6 text-weight-bold">No accommodations yet</div>
-                  <div>Permit compliance appears once documents are uploaded.</div>
-                </div>
-              </template>
-              <template #body="{ props, rowNumber }">
-                <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openAccommodation(props.row)">
-                  <q-td class="row-num-cell">{{ rowNumber }}</q-td>
-                  <q-td key="accommodation" :props="props" class="col-title">
-                    <UserInfoCell rounded :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :avatar-url="props.row.image" :subtitle="props.row.address" />
-                  </q-td>
-                  <q-td v-for="(perm, i) in requiredPermits" :key="perm" :props="props" class="col-badge text-center" :class="{ 'col-split': i === 0 }">
-                    <BadgePill
-                      :tone="PERMIT_STATE[permitStatus(props.row, perm)].tone"
-                      :icon="PERMIT_STATE[permitStatus(props.row, perm)].icon"
-                      :label="PERMIT_STATE[permitStatus(props.row, perm)].label"
-                    />
-                  </q-td>
-                </q-tr>
-              </template>
-            </DataTable>
+            <ComplianceTable v-model:sort="sort" :rows="paginatedAccommodations" :loading="loading" :start-index="(currentPage - 1) * 10" @open="openAccommodation" />
           </q-tab-panel>
 
           <!-- PERFORMANCE -->
           <q-tab-panel name="performance" class="q-pa-none">
-            <DataTable :rows="paginatedAccommodations" :columns="performanceColumns" row-key="id" :loading="loading" :pagination="{ rowsPerPage: 10 }" :start-index="(currentPage - 1) * 10" row-chevron v-model:sort="sort">
-              <template #no-data>
-                <div class="full-width row flex-center text-muted q-pa-xl column">
-                  <Icon icon="lucide:chart-column" width="48" height="48" class="q-mb-md" />
-                  <div class="text-h6 text-weight-bold">No performance data</div>
-                  <div>Ratings aren't populated yet.</div>
-                </div>
-              </template>
-              <template #body="{ props, rowNumber }">
-                <q-tr :props="props" class="smart-row cursor-pointer" @click.stop="openAccommodation(props.row)">
-                  <q-td class="row-num-cell">{{ rowNumber }}</q-td>
-                  <q-td key="accommodation" :props="props" class="col-title">
-                    <UserInfoCell rounded :initials="props.row.initials" :name="props.row.name" :avatar-color="'teal-6'" :avatar-url="props.row.image" :subtitle="props.row.address" />
-                  </q-td>
-                  <q-td key="landlord" :props="props" class="col-person">
-                    <UserInfoCell :initials="props.row.landlordInitials" :name="props.row.landlord" :avatar-color="'indigo-5'" :avatar-url="props.row.landlordAvatarUrl" :subtitle="props.row.contact" />
-                  </q-td>
-                  <q-td key="rating" :props="props" class="col-num-wide col-split text-ink" style="font-size: 13px;">
-                    <span class="text-orange-5 text-weight-bold row items-center no-wrap">
-                      <Icon icon="lucide:star" width="14" height="14" class="q-mr-xs" /> {{ props.row.rating }}
-                    </span>
-                  </q-td>
-                  <q-td key="response" :props="props" class="col-num-wide text-ink text-weight-medium" style="font-size: 13px;">{{ props.row.responseRate != null ? `${props.row.responseRate}%` : '—' }}</q-td>
-                  <q-td key="occupancy" :props="props" class="num-cell col-badge text-ink text-weight-medium" style="font-size: 13px;">
-                    {{ props.row.totalStudents }}/{{ props.row.totalCapacity }}
-                  </q-td>
-                </q-tr>
-              </template>
-            </DataTable>
+            <PerformanceTable v-model:sort="sort" :rows="paginatedAccommodations" :loading="loading" :start-index="(currentPage - 1) * 10" @open="openAccommodation" />
           </q-tab-panel>
 
         </q-tab-panels>
@@ -179,24 +87,21 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import TabNav from '@/components/ui/TabNav.vue'
 import TableCard from '@/components/table/TableCard.vue'
-import DataTable from '@/components/table/DataTable.vue'
-import BadgePill from '@/components/user/BadgePill.vue'
-import UserInfoCell from '@/components/user/UserInfoCell.vue'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
-import { getStatus } from '@/utils/status.config'
-import { supabase } from '@/utils/supabase'
-import { useNotify } from '@/utils/notify'
 import { useAuthStore } from '@/stores/auth'
 import { counted } from '@/utils/filterOptions'
-import { humanizeEnum, landlordTitle } from '@/utils/format'
+import { humanizeEnum } from '@/utils/format'
 import ReportDialog from '@/features/reports/ReportDialog.vue'
 import AccountActionDialog from '@/features/users/AccountActionDialog.vue'
-import type { AccountActionSpec } from '@/features/users/accountActions'
 import type { ReportId } from '@/features/reports/reports'
-import { PERMIT_STATE, REQUIRED_PERMITS, requiredPermitState, type PermitState } from '@/utils/permitExpiry'
 import { useAccommodations } from '@/composables/useAccommodations'
 import { useSort } from '@/composables/useSort'
 import { useAccommodationRecord, toRecordRow } from '@/composables/useAccommodationRecord'
+import { useAccommodationActions } from '@/composables/useAccommodationActions'
+import OverviewTable from '@/features/accommodations/OverviewTable.vue'
+import ComplianceTable from '@/features/accommodations/ComplianceTable.vue'
+import PerformanceTable from '@/features/accommodations/PerformanceTable.vue'
+import { complianceColumns, overviewColumns, performanceColumns } from '@/features/accommodations/hubColumns'
 
 const search = ref('')
 const activeTab = ref('overview')
@@ -206,6 +111,7 @@ const activeFilters = ref<Record<string, any[]>>({})
 const { loading, accommodations: realAccommodations, load: loadAccommodations } = useAccommodations()
 
 const route = useRoute()
+const authStore = useAuthStore()
 
 const tabs = [
   { name: 'overview', label: 'Overview' },
@@ -275,209 +181,12 @@ onMounted(async () => {
   }
 })
 
-type ManagementAction = { label: string; action: string; danger?: boolean; group?: string; icon?: string }
-
-/**
- * OSAS pulling an accredited property is a different act from the landlord/landlady
- * delisting their own, and from a refusal at accreditation — so it gets its own
- * status rather than another meaning loaded onto `rejected`. Same shape as the
- * account actions in Users.vue.
- */
-const authStore = useAuthStore()
-const accommodationActions = computed<ManagementAction[]>(() => {
-  const a = selectedAccommodation.value
-  if (!a) return []
-  const status = String(a.status || '').toLowerCase()
-  // Grouped under headings, as a person's record is in Users.
-  const actions: ManagementAction[] = authStore.can('reports')
-    ? [{ group: 'Record', label: 'Generate report…', action: 'export', icon: 'lucide:file-chart-column' }]
-    : []
-  // Hide, suspend and restore are Accommodations edit (the database checks too).
-  if (!authStore.can('accommodations', 'edit')) return actions
-  if (status === 'accredited') {
-    actions.push(
-      a.hiddenFromListings
-        ? { group: 'Listing', label: 'Show in listings', action: 'unhide', icon: 'lucide:eye' }
-        : { group: 'Listing', label: 'Hide from listings', action: 'hide', icon: 'lucide:eye-off' },
-      { group: 'Accreditation', label: 'Suspend accreditation…', action: 'suspend', icon: 'lucide:ban', danger: true },
-    )
-  }
-  if (status === 'suspended') actions.push({ group: 'Accreditation', label: 'Restore accreditation', action: 'restore', icon: 'lucide:rotate-ccw' })
-  return actions
-})
-
-/**
- * Hiding takes an accredited property out of what students browse without
- * touching its accreditation — current boarders still see their own stay. Only
- * an admin can flip the flag; a trigger on `accommodations` enforces that.
- */
-async function setHidden(a: any, hidden: boolean) {
-  const { error } = await supabase
-    .from('accommodations')
-    .update({ hidden_from_listings: hidden } as never)
-    .eq('id', a.id)
-  if (error) {
-    notify.error('Could not change whether it is listed', error.message)
-    return
-  }
-  selectedAccommodation.value = { ...a, hiddenFromListings: hidden }
-  const row = realAccommodations.value.find((r) => r.id === a.id)
-  if (row) row.hiddenFromListings = hidden
-
-  const actorId = (await supabase.auth.getUser()).data.user?.id || null
-  const { error: auditErr } = await supabase.from('audit_logs').insert({
-    action: hidden ? 'accommodation.hide' : 'accommodation.unhide',
-    actor_id: actorId,
-    entity_id: a.id,
-    entity_type: 'accommodation',
-    before_json: { hidden_from_listings: !hidden },
-    after_json: { hidden_from_listings: hidden },
-  } as never)
-  if (auditErr) notify.warning('Change not recorded in the audit log', auditErr.message)
-
-  notify.success(hidden ? 'Hidden from student listings.' : 'Shown in student listings again.')
-  void loadAccommodationEvents(a.id)
-}
-
-async function onManageAccommodation(action: string) {
-  const a = selectedAccommodation.value
-  if (!a?.id) return
-  if (action === 'export') {
-    statusReportOpen.value = true
-    return
-  }
-  if (action === 'unhide') {
-    await setHidden(a, false)
-    return
-  }
-  if (action === 'hide') {
-    actionSpec.value = {
-      title: 'Hide from listings', name: a.name, icon: 'lucide:eye-off', reason: 'none', confirm: 'Hide',
-      blurb: 'Students browsing accommodations stop seeing it. Its accreditation and current boarders are not affected, and you can show it again at any time.',
-      run: () => setHidden(a, true),
-    }
-    return
-  }
-  if (action === 'restore') {
-    await setStatus(a, 'restore', 'accredited', '')
-    return
-  }
-  if (action !== 'suspend') return
-
-  // Suspending takes a property off Discover and tells everyone staying there
-  // (tg_accreditation_status_change), so the reviewer sees how many first.
-  const { count } = await supabase
-    .from('leases')
-    .select('id, rooms!inner(accommodation_id)', { count: 'exact', head: true })
-    .eq('rooms.accommodation_id', a.id)
-    .in('status', ['active', 'leave_requested'])
-  const boarders = count ?? 0
-  actionSpec.value = {
-    title: 'Suspend accreditation', name: a.name, icon: 'lucide:ban', danger: true, reason: 'required', confirm: 'Suspend',
-    blurb: (boarders
-      ? `${boarders} student${boarders === 1 ? ' stays' : 's stay'} here and will be notified. `
-      : 'Nobody stays here right now. ')
-      + `It leaves student listings until you restore it. The reason is recorded in the audit log and shown to the ${landlordTitle(a.landlordSex).toLowerCase()}.`,
-    run: (i) => setStatus(a, 'suspend', 'suspended', i.reason ?? ''),
-  }
-}
-
-/** Hide's and Suspend's confirmation; null when closed. */
-const actionSpec = ref<AccountActionSpec | null>(null)
-
-async function setStatus(a: any, action: 'suspend' | 'restore', next: 'suspended' | 'accredited', reason: string) {
-  // status_note travels with the change so the landlord/landlady's notice
-  // carries the reason (tg_accreditation_status_change); a restore clears it.
-  const { error } = await supabase
-    .from('accommodations')
-    .update({ status: next, status_note: reason || null } as never)
-    .eq('id', a.id)
-  if (error) {
-    notify.error('Could not change the property status', error.message)
-    return
-  }
-
-  // Only now is the row actually in this state, so only now does the UI say so.
-  const def = getStatus(next)
-  selectedAccommodation.value = {
-    ...a,
-    status: next,
-    verified: next === 'accredited',
-    statusLabel: humanizeEnum(next),
-    statusStyle: { tone: def.tone, icon: def.icon ?? 'lucide:circle' },
-  }
-  const row = accommodations.value.find((r) => r.id === a.id)
-  if (row) Object.assign(row, selectedAccommodation.value)
-
-  const actorId = (await supabase.auth.getUser()).data.user?.id || null
-  const { error: auditErr } = await supabase.from('audit_logs').insert({
-    action: `accommodation.${action}`,
-    actor_id: actorId,
-    entity_id: a.id,
-    entity_type: 'accommodation',
-    before_json: { status: a.status },
-    after_json: { status: next, reason: reason || null },
-  } as never)
-  if (auditErr) notify.warning('Change not recorded in the audit log', auditErr.message)
-
-  notify.success(action === 'suspend' ? 'Property suspended.' : 'Accreditation restored.')
-  void loadAccommodationEvents(a.id)
-}
-
-const notify = useNotify()
 
 const drawerOpen = ref(false)
-
-// Male and Female sit beside Total rather than under it, so a reviewer can scan
-// one column down the page. That costs width, hence the tighter percentages on
-// the two identity columns — both already truncate with an ellipsis.
-const overviewColumns = [
-  // Only Accommodation is left flexible, so it takes every pixel the sized
-  // columns do not. See the column-sizing block in DataTable.vue.
-  { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'name', headerClasses: 'col-title' },
-  { name: 'landlord', align: 'left', label: 'Landlord/Landlady', field: 'landlord', headerClasses: 'col-person' },
-  { name: 'rooms', align: 'center', label: 'No. of Rooms', field: 'totalRooms', headerClasses: 'num-cell col-num-wide col-split' },
-  { name: 'floors', align: 'center', label: 'No. of Stories', field: 'floors', headerClasses: 'num-cell col-num-wide' },
-  // Total, Male and Female used to be three separate columns of plain digits.
-  // One column now: the total leads, with a male/female breakdown in the same
-  // mars/venus icon + colour pairing PropertyDetail.vue already uses for this
-  // accommodation's gender split, so the table and its own detail drawer read
-  // as the same visual language rather than two different ones.
-  { name: 'occupants', align: 'center', label: 'Boarders', field: 'totalStudents', headerClasses: 'num-cell col-occupants' },
-  { name: 'status', align: 'left', label: 'Status', field: 'status', headerClasses: 'col-badge-wide' },
-]
-
-// Sorting a permit column puts the ones needing attention first.
-const PERMIT_ORDER: PermitState[] = ['expired', 'missing', 'expiring', 'valid']
-const permitRank = (key: string) => (row: any) => PERMIT_ORDER.indexOf(permitStatus(row, key))
-
-const complianceColumns = [
-  { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'name', headerClasses: 'col-title' },
-  { name: 'fire', align: 'center', label: 'Fire Permit', field: 'fire', sortValue: permitRank('fire'), headerClasses: 'col-badge col-split' },
-  { name: 'business', align: 'center', label: 'Business Permit', field: 'business', sortValue: permitRank('business'), headerClasses: 'col-badge' },
-  { name: 'sanitary', align: 'center', label: 'Sanitary Permit', field: 'sanitary', sortValue: permitRank('sanitary'), headerClasses: 'col-badge' },
-  { name: 'building', align: 'center', label: 'Building Permit', field: 'building', sortValue: permitRank('building'), headerClasses: 'col-badge' },
-]
-
-const performanceColumns = [
-  // Sized rather than flexible: this column carries an avatar, the name and the
-  // phone number underneath it.
-  { name: 'accommodation', align: 'left', label: 'Accommodation', field: 'name', headerClasses: 'col-title' },
-  { name: 'landlord', align: 'left', label: 'Landlord/Landlady', field: 'landlord', headerClasses: 'col-person' },
-  // `rating` is display text ("4.5", or "—" when unrated).
-  { name: 'rating', align: 'left', label: 'Rating', field: 'rating', sortValue: (r: any) => parseFloat(r.rating), headerClasses: 'col-num-wide col-split' },
-  { name: 'response', align: 'left', label: 'Response', field: 'responseRate', headerClasses: 'col-num-wide' },
-  { name: 'occupancy', align: 'center', label: 'Occupancy', field: 'totalStudents', headerClasses: 'num-cell col-badge' },
-]
 
 // Map real Supabase accommodations straight through; the mapping is shared with
 // the Map View so both open the same record.
 const accommodations = computed(() => realAccommodations.value.map(toRecordRow))
-
-// The required permits, one Compliance column each; the list and the matching
-// live in utils/permitExpiry, shared with the renewal report.
-const requiredPermits = REQUIRED_PERMITS.map((p) => p.key)
-const permitStatus = (prop: any, requiredType: string): PermitState => requiredPermitState(prop.permits, requiredType)
 
 const filteredAccommodations = computed(() => {
   let result = [...accommodations.value]
@@ -529,6 +238,14 @@ const {
   accommodationPreview,
 } = useAccommodationRecord(accommodations)
 
+const { accommodationActions, onManageAccommodation, actionSpec } = useAccommodationActions({
+  selected: selectedAccommodation,
+  realRows: realAccommodations,
+  rows: accommodations,
+  loadEvents: loadAccommodationEvents,
+  openReport: () => { statusReportOpen.value = true },
+})
+
 function openAccommodation(row: any) {
   openRecord(row)
   drawerOpen.value = true
@@ -540,41 +257,6 @@ function openAccommodation(row: any) {
   overflow: hidden !important;
   height: 100% !important;
 }
-
-.rooms-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: var(--c-ink);
-}
-.rooms-cell .iconify { color: var(--c-muted); }
-
-/* Total leads in ink; the gender breakdown underneath uses the same
-   mars/venus icon + colour pairing as this accommodation's own detail drawer
-   (features/drawer/accommodation), so a reviewer reads one gender
-   visual language across the table and the drawer it opens into. */
-.occupants-cell {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  font-size: 13px;
-}
-.gender-split {
-  display: inline-flex;
-  gap: 6px;
-}
-.gender-figure {
-  display: inline-flex;
-  align-items: center;
-  gap: 1px;
-  font-size: 11px;
-  font-weight: 600;
-}
-.gender-figure.is-male { color: #42a5f5; }
-.gender-figure.is-female { color: #e91e63; }
-
 /* Holds the table + the right-docked detail drawer together so the drawer
    anchors flush to the table's right edge (no margin, inside the card area). */
 .prop-hub-body {
@@ -584,34 +266,7 @@ function openAccommodation(row: any) {
   display: flex;
   flex-direction: column;
 }
-
 .non-shrink {
   flex-shrink: 0;
-}
-
-.room-badge {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--c-primary-soft);
-  color: var(--c-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-}
-
-/* Section transition (matches Users detail drawer) */
-.ph-fade-enter-active,
-.ph-fade-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-.ph-fade-enter-from {
-  opacity: 0;
-  transform: translateY(6px);
-}
-.ph-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
 }
 </style>
