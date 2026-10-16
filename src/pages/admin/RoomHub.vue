@@ -100,75 +100,23 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useSort } from '@/composables/useSort'
+import { useRooms, type RoomTableRow } from '@/composables/useRooms'
+import { useRoomRecord } from '@/composables/useRoomRecord'
 import { useRoute } from 'vue-router'
-
-const route = useRoute()
-import { supabase } from '@/utils/supabase'
 import TabNav from '@/components/ui/TabNav.vue'
 import PhotoEmpty from '@/components/ui/PhotoEmpty.vue'
 import TableCard from '@/components/table/TableCard.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
 import DetailDrawer from '@/components/ui/DetailDrawer.vue'
-import type { DrawerPreview, PreviewChip } from '@/components/ui/DetailDrawer.vue'
-import { getStatus, getTone } from '@/utils/status.config'
-import { resolveAsset } from '@/utils/cloudinaryUrl'
+import { getStatus } from '@/utils/status.config'
 import { counted } from '@/utils/filterOptions'
-import { avatarUrl, cap, getInitialsWide as initialsOf, humanizeEnum, landlordTitle, roomStatusLabel } from '@/utils/format'
-import { facilityIcon, facilityLabel, manilaToday, UTILITIES, UTILITY_BILLING_LABEL, utilityStatus } from '@/utils/facilities'
-import type { PostedBill, UtilityKey, UtilityStatus } from '@/utils/facilities'
+import { roomStatusLabel } from '@/utils/format'
+import { UTILITIES } from '@/utils/facilities'
+import type { UtilityStatus } from '@/utils/facilities'
 
-/** A room row as the rooms query returns it, before mapping to a table row. */
-interface RoomQueryRow {
-  id: string
-  label: string | null
-  room_number: string | null
-  room_type: string | null
-  custom_room_type: string | null
-  floor: number | null
-  capacity: number | null
-  current_pax: number | null
-  monthly_rent: number | null
-  rent_basis: string | null
-  status: string | null
-  accommodation_id: string | null
-  water_billing: string | null
-  water_flat_fee: number | null
-  electric_billing: string | null
-  electric_flat_fee: number | null
-  wifi_billing: string | null
-  wifi_flat_fee: number | null
-  accommodation?: unknown
-  room_images?: { url: string | null; sort_order: number | null }[]
-}
-
-/** One row of the Room Hub table; `_raw` is the query row the drawer reopens. */
-interface RoomTableRow {
-  id: string
-  name: string
-  image: string
-  type: string
-  accommodation: string
-  accommodationId: string | null
-  landlord: string
-  occupantNames: string[]
-  floor: number | null
-  capacity: number | null
-  occupants: number
-  maleCount: number
-  femaleCount: number
-  rent: number | null
-  perBoarder: boolean
-  status: string | null
-  utilities: Record<UtilityKey, UtilityStatus>
-  // Filter buckets derived from the fields above.
-  vacancy: 'empty' | 'partial' | 'full'
-  floorKey: string
-  rentBand: string
-  rentBasis: 'boarder' | 'room'
-  _raw: RoomQueryRow
-}
-
-const loading = ref(true)
+const route = useRoute()
+const { loading, rooms, fetchRooms } = useRooms()
+const { drawerOpen, detailLoading, openRoom, roomPreview } = useRoomRecord()
 const search = ref('')
 const currentPage = ref(1)
 
@@ -207,169 +155,12 @@ watch(activeFilters, () => {
   currentPage.value = 1
 })
 
-const rooms = ref<RoomTableRow[]>([])
 
-const drawerOpen = ref(false)
-const detailLoading = ref(false)
-const selectedRoom = ref<any | null>(null)
-function openRoom(r: RoomTableRow) {
-  const raw = r._raw
-  selectedRoom.value = raw
-  drawerOpen.value = true
-  void fetchRoomDetail(raw)
-}
-
-async function fetchRoomDetail(raw: any) {
-  detailLoading.value = true
-  try {
-    const { data: room, error } = await supabase
-      .from('rooms')
-       .select('id, label, room_number, room_type, custom_room_type, floor, capacity, current_pax, monthly_rent, advance_months, deposit_months, rent_basis, status, accommodation_id, water_billing, water_flat_fee, electric_billing, electric_flat_fee, wifi_billing, wifi_flat_fee, accommodation:accommodation_id ( name, landlord:users_full!accommodations_landlord_id_fkey ( id, full_name, sex, phone, initials, avatar_url ) )')
-      .eq('id', raw.id)
-      .single()
-    if (error) throw error
-    if (room) {
-      const accommodation = Array.isArray(room.accommodation) ? room.accommodation[0] : room.accommodation
-      const accommodationName = accommodation?.name || (typeof raw.accommodation === 'string' ? raw.accommodation : raw.accommodation?.name) || '—'
-      const manager = Array.isArray(accommodation?.landlord) ? accommodation.landlord[0] : accommodation?.landlord
-      const landlordName = manager?.full_name || null
-      selectedRoom.value = { ...raw, ...room, accommodation: accommodationName, landlord: landlordName, landlordInfo: manager ?? null }
-    }
-
-    const { data: leases, error: leasesError } = await supabase
-      .from('leases')
-      .select(
-        `id, status, start_date,
-         student:users!leases_student_id_fkey(id, full_name, initials, sex, avatar_url)`,
-      )
-      .eq('room_id', raw.id)
-      .in('status', ['active', 'leave_requested'])
-    if (!leasesError && leases) {
-      const occ = (leases as any[]).map((l) => {
-        const student = Array.isArray(l.student) ? l.student[0] : l.student
-        const name = student?.full_name || 'Unknown'
-        const initials = student?.initials || initialsOf(name)
-        // The student's own id, so the record can open their profile; users.sex
-        // is stored as M/F, which the drawer reads as male/female.
-        const sex = String(student?.sex ?? '').toUpperCase()
-        return {
-          id: student?.id || l.id,
-          name,
-          initials,
-          avatarUrl: student?.avatar_url || '',
-          gender: sex === 'F' ? 'female' : sex === 'M' ? 'male' : null,
-          since: l.start_date || null,
-          status: l.status,
-          statusTone: getTone(l.status),
-        }
-      })
-      selectedRoom.value = { ...selectedRoom.value, occupants: occ }
-
-      // Their posted utility bills, with whose each one is.
-      const boarderByLease = new Map((leases as any[]).map((l) => {
-        const student = Array.isArray(l.student) ? l.student[0] : l.student
-        return [l.id, student?.full_name || 'Unknown']
-      }))
-      const { data: bills } = boarderByLease.size
-        ? await supabase
-            .from('utility_bills')
-            .select('id, lease_id, utility, month, amount, due_date, payments ( status )')
-            .in('lease_id', [...boarderByLease.keys()])
-            .order('month', { ascending: false })
-        : { data: [] }
-      const today = manilaToday()
-      selectedRoom.value = {
-        ...selectedRoom.value,
-        bills: ((bills ?? []) as any[]).map((b) => ({
-          id: b.id,
-          utility: b.utility,
-          month: b.month,
-          amount: Number(b.amount),
-          dueDate: b.due_date,
-          paid: settles(b.payments),
-          boarder: boarderByLease.get(b.lease_id) ?? 'Unknown',
-          state: settles(b.payments) ? 'paid' : b.due_date < today ? 'overdue' : 'unpaid',
-        })),
-      }
-    }
-
-    if (room?.floor != null && room.accommodation_id) {
-      const { data: floor } = await supabase
-        .from('accommodation_floors')
-        .select('label')
-        .eq('accommodation_id', room.accommodation_id)
-        .eq('floor_number', room.floor)
-        .maybeSingle()
-      selectedRoom.value = { ...selectedRoom.value, floorName: floor?.label ?? null }
-    }
-
-    const { data: photos, error: photosError } = await supabase
-      .from('room_images')
-      .select('id, url, sort_order')
-      .eq('room_id', raw.id)
-      .order('sort_order', { ascending: true })
-    if (!photosError && photos) {
-      const imgs = (photos as any[])
-        .filter((p) => p.url)
-        .map((p) => ({ id: p.id, url: p.url }))
-      selectedRoom.value = { ...selectedRoom.value, photos: imgs }
-    }
-
-    // This room's own facilities — its private bathroom or balcony. The scope
-    // filter is belt and braces: accommodation_facilities already constrains a
-    // private row to carry a room_id and a shared one not to.
-    const { data: facilities, error: facilitiesError } = await supabase
-      .from('accommodation_facilities')
-      .select('id, facility_type, label, description, floor, sort_order')
-      .eq('room_id', raw.id)
-      .eq('access_scope', 'private')
-      .order('sort_order', { ascending: true })
-    if (!facilitiesError) {
-      const facilityIds = (facilities ?? []).map((f: any) => f.id)
-      const countById = new Map<string, number>()
-      if (facilityIds.length) {
-        const { data: facImgs } = await supabase
-          .from('accommodation_facility_images')
-          .select('facility_id')
-          .in('facility_id', facilityIds)
-        for (const fi of (facImgs ?? []) as any[]) {
-          countById.set(fi.facility_id, (countById.get(fi.facility_id) ?? 0) + 1)
-        }
-      }
-      selectedRoom.value = {
-        ...selectedRoom.value,
-        facilities: (facilities ?? []).map((f: any) => ({
-          id: f.id,
-          type: f.facility_type ?? 'other',
-          label: facilityLabel(f.facility_type, f.label),
-          icon: facilityIcon(f.facility_type),
-          description: f.description ?? '',
-          floor: f.floor ?? null,
-          photoCount: countById.get(f.id) ?? 0,
-        })),
-      }
-    }
-  } catch {
-    // keep the raw row already assigned above
-  } finally {
-    detailLoading.value = false
-  }
-}
-function roomTypeName(r: RoomQueryRow): string {
-  return r.custom_room_type || (r.room_type ? cap(String(r.room_type).replace('_', ' ')) : '')
-}
-// Number/label tells two rooms of the same type apart; the type is the fallback.
-function roomName(r: RoomQueryRow): string {
-  return r.label || (r.room_number ? `Room ${r.room_number}` : roomTypeName(r) || 'Room')
-}
 const amount = (n: number) => n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const peso = (n: number) => `₱${amount(n)}`
 
 const TONE_ICON: Record<string, string> = { muted: 'lucide:clock', ok: 'lucide:check', warn: 'lucide:receipt', bad: 'lucide:triangle-alert' }
 const TONE_RANK: Record<UtilityStatus['tone'], number> = { bad: 0, warn: 1, muted: 2, ok: 3 }
 
-/** A payment against a bill settles it once it is paid or awaiting verification — the rule mobile uses. */
-const settles = (payments: { status: string }[] | null) => (payments ?? []).some((p) => p.status === 'paid' || p.status === 'pending_verification')
 
 // Same column classes as the Accommodation Hub, so the two tables read alike.
 const columns = [
@@ -391,98 +182,6 @@ const columns = [
   { name: 'status', align: 'left', label: 'Status', field: 'status', headerClasses: 'col-badge-wide' },
 ]
 
-async function fetchRooms() {
-  loading.value = true
-  try {
-    const [roomsRes, leasesRes, billsRes] = await Promise.all([
-      supabase
-        .from('rooms')
-        .select(
-           'id, label, room_number, room_type, custom_room_type, floor, capacity, current_pax, monthly_rent, rent_basis, status, accommodation_id, water_billing, water_flat_fee, electric_billing, electric_flat_fee, wifi_billing, wifi_flat_fee, room_images ( url, sort_order ), accommodation:accommodation_id ( name, landlord:landlord_id ( full_name ) )',
-        )
-        .order('room_number', { ascending: true }),
-      supabase
-        .from('leases')
-        .select('id, room_id, student:users!leases_student_id_fkey(full_name, sex)')
-        .in('status', ['active', 'leave_requested']),
-      // The current boarders' posted bills; the lease join keeps them to this stay.
-      supabase
-        .from('utility_bills')
-        .select('utility, month, amount, due_date, payments ( status ), lease:leases!inner ( room_id, status )')
-        .in('lease.status', ['active', 'leave_requested']),
-    ])
-    const { data, error } = roomsRes
-    if (error) {
-      console.error('Error fetching rooms:', error.message)
-      return
-    }
-    const leases = (leasesRes.data || []) as any[]
-    const occMap = new Map<string, { name: string; sex: string }[]>()
-    for (const l of leases) {
-      const student = Array.isArray(l.student) ? l.student[0] : l.student
-      if (student && l.room_id) {
-        if (!occMap.has(l.room_id)) occMap.set(l.room_id, [])
-        // users.sex is M/F; older rows spelled it out.
-        occMap.get(l.room_id)!.push({ name: student.full_name ?? '', sex: String(student.sex ?? '').charAt(0).toUpperCase() })
-      }
-    }
-    const billMap = new Map<string, PostedBill[]>() // `${room_id}:${utility}`
-    for (const b of (billsRes.data || []) as any[]) {
-      const lease = Array.isArray(b.lease) ? b.lease[0] : b.lease
-      if (!lease?.room_id) continue
-      const k = `${lease.room_id}:${b.utility}`
-      if (!billMap.has(k)) billMap.set(k, [])
-      billMap.get(k)!.push({ month: b.month, amount: Number(b.amount), dueDate: b.due_date, paid: settles(b.payments) })
-    }
-    const today = manilaToday()
-    rooms.value = (data || []).map((r: RoomQueryRow) => {
-      const accommodation = Array.isArray(r.accommodation) ? r.accommodation[0] : r.accommodation
-      const accommodationName = accommodation?.name || '—'
-      const manager = Array.isArray(accommodation?.landlord) ? accommodation.landlord[0] : accommodation?.landlord
-      const landlordName = manager?.full_name || ''
-      const occ = occMap.get(r.id) || []
-      // Same rule as the mobile listings: a one-person room is always whole-room.
-      const perBoarder = r.rent_basis === 'person' && (r.capacity ?? 0) > 1
-      const name = roomName(r)
-      const cover = [...(r.room_images ?? [])]
-        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-        .find((im) => im.url)?.url
-      return {
-        id: r.id,
-        name,
-        image: resolveAsset(cover),
-        type: roomTypeName(r) || 'Room',
-        accommodation: accommodationName,
-        accommodationId: r.accommodation_id,
-        landlord: landlordName,
-        occupantNames: occ.map((o) => o.name).filter(Boolean),
-        floor: r.floor,
-        capacity: r.capacity,
-        occupants: occ.length,
-        maleCount: occ.filter((o) => o.sex === 'M').length,
-        femaleCount: occ.filter((o) => o.sex === 'F').length,
-        rent: r.monthly_rent,
-        perBoarder,
-        status: r.status,
-        utilities: Object.fromEntries(UTILITIES.map((u) => [
-          u.key,
-          utilityStatus(r[`${u.key}_billing`], r[`${u.key}_flat_fee`], occ.length, billMap.get(`${r.id}:${u.key}`) ?? [], today),
-        ])) as Record<UtilityKey, UtilityStatus>,
-        vacancy: occ.length === 0 ? 'empty' : occ.length >= (r.capacity ?? 0) ? 'full' : 'partial',
-        floorKey: r.floor != null ? String(r.floor) : '',
-        rentBand: r.monthly_rent == null ? '' : r.monthly_rent < 2000 ? 'low' : r.monthly_rent < 3000 ? 'mid' : 'high',
-        rentBasis: perBoarder ? 'boarder' : 'room',
-        _raw: r,
-      }
-    })
-    // Rooms of one accommodation sit together, in room-number order.
-    rooms.value.sort((a, b) =>
-      a.accommodation.localeCompare(b.accommodation) ||
-      a.name.localeCompare(b.name, undefined, { numeric: true }))
-  } finally {
-    loading.value = false
-  }
-}
 
 const filteredRooms = computed(() => {
   let result = rooms.value
@@ -514,97 +213,6 @@ watch([search, sort], () => {
   currentPage.value = 1
 })
 
-const roomPreview = computed<DrawerPreview>(() => {
-  const r = selectedRoom.value
-  if (!r) return { kind: 'room', title: 'Room Preview', name: '', avatar: '' }
-  const name = roomTypeName(r) || roomName(r)
-  const statusTone = getTone(r.status)
-  const chips: PreviewChip[] = [
-    { text: roomStatusLabel(r.status) || 'Unknown', tone: statusTone, icon: getStatus(r.status).icon ?? 'lucide:door-closed' },
-    { text: r.floor != null ? `Floor ${r.floor}` : 'No floor', tone: 'neutral', icon: 'lucide:layers' },
-  ]
-  const detailGroups = [
-    {
-      title: 'Room',
-      icon: 'lucide:door-open',
-      rows: [
-        { label: 'Room Type', value: r.custom_room_type || (r.room_type ? cap(String(r.room_type).replace('_', ' ')) : '—') },
-        { label: 'Room Number', value: r.room_number ? String(r.room_number) : '—' },
-        { label: 'Label', value: r.label || '—' },
-        { label: 'Floor', value: r.floor != null ? String(r.floor) : '—' },
-        { label: 'Capacity', value: String(r.capacity ?? '—') },
-        { label: 'Boarders', value: String(r.current_pax ?? 0) },
-      ],
-    },
-    {
-      title: 'Terms',
-      icon: 'lucide:banknote',
-      rows: [
-        { label: 'Monthly Rent', value: r.monthly_rent != null ? `${peso(r.monthly_rent)} ${r.rent_basis === 'person' && (r.capacity ?? 0) > 1 ? 'per boarder' : 'whole room'}` : '—' },
-        { label: 'Status', value: roomStatusLabel(r.status) || '—' },
-      ],
-    },
-    {
-      title: 'Belongs to',
-      icon: 'lucide:building-2',
-      rows: [
-        { label: 'Accommodation', value: selectedRoom.value?.accommodation || '—' },
-        { label: landlordTitle((selectedRoom.value?.landlordInfo as { sex?: string | null } | null | undefined)?.sex), value: (selectedRoom.value?.landlord as string) || '—' },
-      ],
-    },
-  ]
-  const landlord = r.landlordInfo as { id: string; full_name: string | null; sex: string | null; phone: string | null; initials: string | null; avatar_url: string | null } | null | undefined
-  const firstPhoto = ((r.photos as { url: string }[] | undefined) ?? [])[0]?.url ?? ''
-  return {
-    kind: 'room',
-    title: 'Room Preview',
-    name,
-    roomOverview: {
-      coverUrl: firstPhoto,
-      title: r.room_number ? `Room ${r.room_number}` : r.label || name,
-      typeLabel: r.custom_room_type || humanizeEnum(r.room_type) || 'Room',
-      accommodation: { id: r.accommodation_id ?? r.accommodationId ?? '', name: r.accommodation || '—' },
-      floor: r.floor ?? null,
-      capacity: r.capacity ?? 0,
-      status: String(r.status ?? ''),
-      statusLabel: roomStatusLabel(r.status) || 'Unknown',
-      rent: r.monthly_rent ?? r.rent ?? null,
-      rentBasis: r.rent_basis === 'person' && (r.capacity ?? 0) > 1 ? 'person' : 'room',
-      advanceMonths: r.advance_months ?? null,
-      depositMonths: r.deposit_months ?? null,
-      label: r.room_number && r.label ? r.label : null,
-      floorName: r.floorName ?? null,
-      utilities: UTILITIES.map((u) => {
-        const billing = r[`${u.key}_billing`] as string | null
-        const fee = r[`${u.key}_flat_fee`] as number | null
-        const bills = ((r.bills as (PostedBill & { utility: string })[] | undefined) ?? []).filter((b) => b.utility === u.key)
-        const s = utilityStatus(billing, fee, (r.occupants as unknown[] | undefined)?.length ?? 0, bills, manilaToday())
-        // The drawer has room for the full wording; the table keeps it short.
-        const terms = !billing ? 'Not specified' : billing === 'flat_fee' ? `Flat fee · ${s.terms}` : UTILITY_BILLING_LABEL[billing] ?? billing
-        return { key: u.key, label: u.label, icon: u.icon, terms, bill: billing === 'flat_fee' || !billing ? '' : s.bill, tone: s.tone }
-      }),
-      bills: (r.bills as any[]) ?? [],
-      landlord: landlord
-        ? {
-            id: landlord.id,
-            name: landlord.full_name || '—',
-            title: landlordTitle(landlord.sex),
-            contact: landlord.phone || '',
-            initials: landlord.initials || initialsOf(landlord.full_name || '?'),
-            avatarUrl: landlord.avatar_url || undefined,
-          }
-        : null,
-    },
-    avatar: avatarUrl(name),
-    chips,
-    detailGroups,
-    occupants: (r.occupants as any[]) || undefined,
-    photos: (r.photos as any[]) || undefined,
-    // Always an array once the detail has loaded, so the tab shows its empty
-    // state for a bedspace room rather than vanishing.
-    facilities: (r.facilities as any[]) ?? [],
-  }
-})
 
 onMounted(async () => {
   await fetchRooms()
