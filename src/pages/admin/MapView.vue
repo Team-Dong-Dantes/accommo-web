@@ -93,15 +93,16 @@ import MapAreaCard from '@/features/map/MapAreaCard.vue'
 import MapAreaDialog from '@/features/map/MapAreaDialog.vue'
 import { presetOf, savedStyle, saveStyle } from '@/features/map/mapStyles'
 import { useMapAreas } from '@/features/map/useMapAreas'
+import { usePinMarkers } from '@/features/map/usePinMarkers'
 import '@/features/map/map-markers.css'
 import {
-  EMPTY_BED, FRAME_KM, SEX_COLORS, STATUS_GROUPS, boarderRing, circleRing, statusGroup, type MapItem,
+  EMPTY_BED, FRAME_KM, SEX_COLORS, STATUS_GROUPS, circleRing, statusGroup, type MapItem,
 } from '@/features/map/mapPins'
 import { addCampusLayers, cardSide, frameWalk, useCampusWalk, type CardSide } from '@/features/map/campusRoute'
 import { CAMPUS, kmBetween } from '@/utils/geo'
 import { humanizeEnum } from '@/utils/format'
 import { useAccommodations } from '@/composables/useAccommodations'
-import { useAccommodationRecord, toRecordRow } from '@/composables/useAccommodationRecord'
+import { useAccommodationRecord, toRecordRow, type RecordRow } from '@/composables/useAccommodationRecord'
 import { consoleZoom, fitViewport } from '@/utils/consoleScale'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
@@ -190,7 +191,6 @@ const mapContainer = ref<HTMLElement | null>(null)
 // driver it throws on creation, and the page used to die with it.
 const mapFailed = ref(false)
 let map: mapboxgl.Map | null = null
-const pins = new Map<string, { marker: mapboxgl.Marker; el: HTMLButtonElement; wrap: HTMLDivElement }>()
 let campusMarker: mapboxgl.Marker | null = null
 
 // The base map preset, remembered in this browser (mapStyles.ts).
@@ -235,7 +235,7 @@ function flyToPin(item: MapItem) {
 
 function openDetail() {
   if (!selected.value) return
-  openAccommodation(selected.value.row)
+  openAccommodation(selected.value.row as RecordRow)
   detailOpen.value = true
 }
 
@@ -244,51 +244,7 @@ function viewAll(tab: string) {
   drawerOpen.value = true
 }
 
-/**
- * Mapbox positions a marker by writing `transform` on the element it is
- * given, so the pin that grows on hover is a button inside that element, not
- * the element itself — scaling the element would throw the pin off its spot.
- */
-function makePin(item: MapItem) {
-  const wrap = document.createElement('div')
-  const el = document.createElement('button')
-  el.type = 'button'
-  el.className = 'map-pin'
-  el.innerHTML = '<span class="map-pin-ring"></span><span class="map-pin-core"></span>'
-  el.addEventListener('click', (e) => { e.stopPropagation(); select(item.id) })
-  el.addEventListener('mouseenter', () => { hotId.value = item.id })
-  el.addEventListener('mouseleave', () => { if (hotId.value === item.id) hotId.value = null })
-  wrap.appendChild(el)
-  return { wrap, el }
-}
-
-/** Rebuild the pins for what is shown; cheap at this scale (tens of houses). */
-function syncPins() {
-  if (!map) return
-  const keep = new Set(shown.value.map((i) => i.id))
-  for (const [id, pin] of pins) {
-    if (!keep.has(id)) { pin.marker.remove(); pins.delete(id) }
-  }
-  for (const item of shown.value) {
-    let pin = pins.get(item.id)
-    if (!pin) {
-      const { wrap, el } = makePin(item)
-      pin = { el, wrap, marker: new mapboxgl.Marker({ element: wrap }).setLngLat([item.lng, item.lat]).addTo(map) }
-      pins.set(item.id, pin)
-    }
-    // The selected and hovered pins sit above their neighbours.
-    pin.wrap.style.zIndex = item.id === selectedId.value ? '4' : item.id === hotId.value ? '3' : ''
-    // The ring is who lives there, by sex; the centre dot is accreditation.
-    const [ring, core] = [...pin.el.children] as HTMLElement[]
-    ring!.style.background = boarderRing(item.female, item.male, item.taken, item.beds)
-    core!.style.background = `var(${STATUS_GROUPS[item.group].token})`
-    const who = item.taken ? `: ${item.female} female, ${item.male} male` : ''
-    pin.el.setAttribute('aria-label', `${item.name}, ${item.statusLabel}, ${item.taken} of ${item.beds} beds taken${who}`)
-    pin.el.classList.toggle('is-sel', item.id === selectedId.value)
-    pin.el.classList.toggle('is-hot', item.id === hotId.value)
-  }
-}
-watch([shown, selectedId, hotId], syncPins)
+const { syncPins, disposePins } = usePinMarkers(() => map, shown, selectedId, hotId, select)
 
 // The walk to campus along the roads, as accommo-mobile draws it.
 const { walk, show: showWalk, dispose: disposeWalk } = useCampusWalk(() => map)
@@ -376,8 +332,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
   resizeObs?.disconnect()
-  pins.forEach((p) => p.marker.remove())
-  pins.clear()
+  disposePins()
   campusMarker?.remove()
   disposeWalk()
   map?.remove()
