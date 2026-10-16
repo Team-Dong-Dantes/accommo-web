@@ -1,0 +1,154 @@
+/* DataTable's cells: truncation, the column-sizing classes callers put on
+   their columns (headerClasses), and the skeleton rows. Imported scoped by
+   DataTable.vue, after its own block. */
+
+/* Truncate long text. The cell is a flex container; its text children clip to
+   width and show an ellipsis. Applies to bare text and wrapped nodes alike. */
+.custom-data-table :deep(thead th),
+.custom-data-table :deep(tbody td) {
+  min-width: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+/* Headers wrap instead of truncating. A clipped "NO. OF RO…" is useless, and
+   forcing every header onto one line made narrow numeric columns reserve width
+   for their label rather than their two digits — width the name column needed.
+   Body cells keep truncating: a clipped value is still readable, and the full
+   one is in the drawer. */
+.custom-data-table :deep(thead th) {
+  white-space: normal;
+  text-overflow: clip;
+  line-height: 1.15;
+}
+
+/* Direct child elements share the truncation (mono id, ellipsis cells, etc.) */
+.custom-data-table :deep(tbody td > *) {
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+/* Stacked sub-content (name over email) — each inner line truncates on its own */
+.custom-data-table :deep(tbody td .column) {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.custom-data-table :deep(tbody td .column > div) {
+  max-width: 100%;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.custom-data-table :deep(thead th) {
+  padding: 12px 16px !important;
+}
+
+/*
+ * The header fill lives on the ROW, not on each `th`. It used to be painted per
+ * cell, which left a grey stripe wherever two cells did not sit flush — the
+ * `.col-split` gap (margin-left: auto, used to push a group of columns to the
+ * right) has no cell in it, so the row's own grey background showed through
+ * and broke the fill into two pieces.
+ */
+.custom-data-table :deep(thead tr.header-row) {
+  background-color: var(--c-surface-2);
+}
+
+/* Columns holding a single number: the 16px side padding is most of the cell at
+   these widths, so it comes down and the label centres over the digits. */
+.custom-data-table :deep(thead th.num-cell),
+.custom-data-table :deep(tbody td.num-cell) {
+  padding: 0 6px !important;
+  justify-content: center;
+  text-align: center;
+}
+
+.custom-data-table :deep(thead th.num-cell) {
+  padding: 12px 6px !important;
+}
+
+/* ---- Column sizing ------------------------------------------------------
+ *
+ * Every cell above is `flex: 1 1 0`, and for a flex item a basis of 0 beats
+ * `width` — so a `headerStyle: 'width: 42%'` was silently ignored and all
+ * columns came out exactly equal. In an 8-column table that left the name
+ * column ~130px, most of it padding and avatar.
+ *
+ * So a column that holds something of known size claims a fixed basis instead.
+ * Put the class on BOTH the `th` (via the column's `headerClasses`) and the
+ * `td`, exactly as `.row-num-cell` does — the header and body are separate
+ * flex rows and only match if both are sized the same way.
+ *
+ * These may shrink but never grow, so a row of them leaves slack. `.col-split`
+ * collects that slack in front of one column, which pins the identity columns
+ * to the left and everything from the split onwards to the right.
+ */
+.custom-data-table :deep(thead th.col-num),
+.custom-data-table :deep(tbody td.col-num) { flex: 0 1 56px !important; }
+
+.custom-data-table :deep(thead th.col-num-wide),
+.custom-data-table :deep(tbody td.col-num-wide) { flex: 0 1 68px !important; }
+
+.custom-data-table :deep(thead th.col-badge),
+.custom-data-table :deep(tbody td.col-badge) { flex: 0 1 124px !important; }
+/* A badge whose longest state is two words plus its icon ("Under maintenance"). */
+.custom-data-table :deep(thead th.col-badge-wide),
+.custom-data-table :deep(tbody td.col-badge-wide) { flex: 0 1 172px !important; }
+
+/* A total plus a two-figure gender breakdown ("12  ♂5 ♀7"). */
+.custom-data-table :deep(thead th.col-occupants),
+.custom-data-table :deep(tbody td.col-occupants) { flex: 0 1 110px !important; }
+
+/* A short reference code ("REQ-AM1A2B"), monospace. */
+.custom-data-table :deep(thead th.col-ref),
+.custom-data-table :deep(tbody td.col-ref) { flex: 0 1 110px !important; }
+
+/* A label plus a short second line beneath it (a document type + its count,
+   a permit name + its expiry). Wider than `.col-badge` because it holds text
+   that isn't a pill. */
+.custom-data-table :deep(thead th.col-type),
+.custom-data-table :deep(tbody td.col-type) { flex: 0 1 190px !important; }
+
+/* A checklist of short ✓/✗ chips: two requirements, or four permits. */
+.custom-data-table :deep(thead th.col-reqs),
+.custom-data-table :deep(tbody td.col-reqs) { flex: 0 1 260px !important; }
+.custom-data-table :deep(thead th.col-reqs-wide),
+.custom-data-table :deep(tbody td.col-reqs-wide) { flex: 0 1 340px !important; }
+
+/* A short date or relative time ("3 days ago", "Sep 22, 2026"). */
+.custom-data-table :deep(thead th.col-date),
+.custom-data-table :deep(tbody td.col-date) { flex: 0 1 100px !important; }
+
+.custom-data-table :deep(thead th.col-person),
+.custom-data-table :deep(tbody td.col-person) { flex: 0 1 244px !important; }
+
+/* Name + secondary line, with a thumbnail: the widest thing in the row. */
+.custom-data-table :deep(thead th.col-title),
+.custom-data-table :deep(tbody td.col-title) { flex: 0 1 420px !important; }
+
+/* All of the row's leftover width lands in front of this column. */
+.custom-data-table :deep(thead th.col-split),
+.custom-data-table :deep(tbody td.col-split) { margin-left: auto; }
+
+/* Skeleton loading rows — no hover flash, no background tint */
+.custom-data-table :deep(tbody tr.skeleton-row) {
+  border-bottom: 1px solid var(--c-border);
+}
+.custom-data-table :deep(tbody tr.skeleton-row:hover) {
+  background-color: transparent;
+}
+
+/* Visible skeleton bars (Quasar default is a faint near-white separator) */
+.custom-data-table :deep(tbody tr.skeleton-row .cell-skeleton) {
+  background: var(--c-surface-2);
+  border-radius: var(--radius-sm);
+  height: 14px;
+  width: 100%;
+  max-width: 85%;
+}
