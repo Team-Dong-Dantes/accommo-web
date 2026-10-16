@@ -106,12 +106,8 @@ import type {
 // types from this component's module.
 export type {
   DrawerPreview,
-  PreviewChip,
-  PreviewStat,
   PreviewDetail,
   PreviewDetailGroup,
-  PreviewCardCell,
-  PreviewCard,
   PreviewActivity,
   PreviewReview,
   PreviewHistoryCard,
@@ -119,8 +115,6 @@ export type {
   PreviewRoom,
   PreviewOccupant,
   PreviewPhoto,
-  PreviewTimelineItem,
-  PreviewPlacement,
   PreviewLease,
   PreviewPayment,
   HubKind,

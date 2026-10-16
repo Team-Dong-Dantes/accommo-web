@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { buildUserPreview } from './userPreview'
 
-// HistoryTab renders, in order: historyCards → card → history → empty state.
-// A placeholder row pushed into `history` for unplaced students kept the third
-// branch matching forever, so the empty state was unreachable and the tab showed
-// a one-dot timeline instead. These guard the branch the empty state needs.
+// HistoryTab renders historyCards, or its empty state when there are none. A
+// placeholder row once pushed for unplaced students kept the empty state
+// unreachable (the tab showed a one-dot timeline instead); these guard it.
 
 const student = {
   id: 'u1',
@@ -32,8 +31,6 @@ describe('buildUserPreview — boarding history', () => {
   it('leaves history empty for a student who has never been placed', () => {
     const preview = previewFor()
     expect(preview.historyCards).toEqual([])
-    expect(preview.history).toEqual([])
-    expect(preview.card).toBeUndefined()
   })
 
   it('builds a timeline once the student has a placement', () => {
@@ -46,7 +43,6 @@ describe('buildUserPreview — boarding history', () => {
         moveIn: '2026-08-01',
       },
     })
-    expect(preview.history?.length).toBe(1)
     expect(preview.historyCards?.length).toBe(1)
   })
 })

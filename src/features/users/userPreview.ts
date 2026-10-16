@@ -127,7 +127,6 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
   const isLandlord = (u.role || '').toLowerCase() === 'landlord'
   const respTime = fmtMinutes(detail?.avg_response_minutes)
 
-  let card: DrawerPreview['card']
   const historyCards: any[] = []
   if (isStudent) {
     if (housing?.placed) {
@@ -156,21 +155,6 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
         accommodationId: hh.accommodationId,
       })
     })
-  } else if (isLandlord && accommodationRows.length) {
-    // `accommodationRows.length` is checked above, but the compiler cannot see
-    // that through the index — and `name` really is nullable in the database.
-    const p = accommodationRows[0]!
-    card = {
-      title: 'Active Listing',
-      accommodationId: p.id,
-      head: { title: p.name ?? 'Unnamed accommodation', location: composeAddress(p), status: cap(p.status), statusTone: getTone(p.status) },
-      cells: [
-        { label: 'Type', value: cap(p.room_type) },
-        { label: 'Rooms', value: p.total_rooms != null ? String(p.total_rooms) : '—' },
-        { label: 'Rating', value: p.rating_avg != null ? `${p.rating_avg.toFixed(1)} ★` : 'No rating' },
-        { label: 'Ratings', value: String(p.reviews_count || 0) },
-      ],
-    }
   }
 
   type PReview = NonNullable<DrawerPreview['reviews']>
@@ -253,33 +237,6 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     }
   }
 
-  type PHistory = NonNullable<DrawerPreview['history']>
-  const history: PHistory = []
-  if (isStudent) {
-    if (housing?.placed) {
-      const h = housing
-      history.push({
-        title: h.accommodationName || 'Active Placement',
-        desc: [cap(h.roomType), h.landlordName, h.address].filter(Boolean).join(' · '),
-        meta: `Move-in ${fmtDate(h.moveIn)}`,
-        tone: 'success',
-        icon: 'lucide:house',
-        active: true,
-      })
-    }
-    boardingHistory.forEach((hh) => {
-      history.push({
-        title: hh.accommodationName || 'Boarding',
-        desc: [hh.roomType ? cap(hh.roomType) : '', hh.address].filter(Boolean).join(' · '),
-        meta: hh.period,
-        tone: 'neutral',
-        icon: 'lucide:history',
-      })
-    })
-  }
-
-    
-
   const leaseRows: PreviewLease[] = isStudent ? leaseRowsOf(leases) : []
 
   const leaseById = new Map<string, PreviewLease>()
@@ -296,7 +253,6 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     initials: u.initials,
     activity,
   }
-  if (card) result.card = card
   result.kind = 'user'
   result.userOverview = {
     userId: u.rawId ?? '',
@@ -345,7 +301,6 @@ export function buildUserPreview(input: UserDetailInput): DrawerPreview {
     standing: input.standing ?? NO_STANDING,
   }
   if (isStudent) {
-       result.history = history
        result.historyCards = historyCards
        result.studentId = u.id
        result.leases = leaseRows
