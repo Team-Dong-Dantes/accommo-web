@@ -279,7 +279,7 @@ import PropertyMap from '@/features/verifications/PropertyMap.vue'
 import DecisionForm from '@/features/verifications/DecisionForm.vue'
 import VerificationChecks from '@/features/verifications/VerificationChecks.vue'
 import { fileIcon } from '@/features/verifications/fileUtils'
-import { ROUND_KIND_LABEL, type RoundInfo } from '@/composables/useVerifications'
+import { ROUND_KIND_LABEL, type RoundInfo } from '@/features/verifications/queue'
 import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps({

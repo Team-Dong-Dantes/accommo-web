@@ -1,236 +1,19 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
-import { supabase } from '@/utils/supabase'
 import { useNotify } from '@/utils/notify'
 import { registerReset } from '@/utils/pageCache'
-import { getStatus } from '@/utils/status.config'
-import { getInitials, capitalize, getTimeAgo, ageInDays, formatPhone, humanizeEnum, isStudentId, landlordTitle } from '@/utils/format'
 import { secureDocUrl } from '@/utils/docUrl'
-import { fetchAccommodationExtras, type AccommodationExtras } from '@/api/accommodations'
+import { fetchAccommodationExtras } from '@/api/accommodations'
+import { readinessFilterConfig, verificationColumns, verificationEmptyMessage, verificationSearchPlaceholder } from '@/features/verifications/table'
+import { fetchOpenRounds, fetchRoundEvidence, fetchVerificationQueue } from '@/api/verifications'
 import { fetchPendingApplicants } from '@/api/leases'
-import { fetchReviewProfile, fetchApplicantDetails, type ApplicantDetails, type ReviewProfile } from '@/api/users'
-import { setAccountStatus } from '@/api/accounts'
-import { useReviewPresence } from '@/composables/useReviewPresence'
+import { fetchReviewProfile, fetchApplicantDetails } from '@/api/users'
+import { useReviewLocks } from '@/composables/useReviewLocks'
+import { useVerificationDecisions } from '@/composables/useVerificationDecisions'
 import { useAuthStore } from '@/stores/auth'
-import { counted } from '@/utils/filterOptions'
 import { sortRows, type SortState } from '@/composables/useSort'
+import { groupQueueRows, toAccountRequest, toAccommodationRequests } from '@/features/verifications/requests'
+import { byQueueOrder, type QueueFile, type VerificationRequest, type AccommodationFacts } from '@/features/verifications/queue'
 
-/**
- * The property behind an accreditation request. An accommodation is not an
- * account, so none of `ReviewProfile` applies to it — what a reviewer checks
- * the permits against is the address, the size and the landlord/landlady behind it.
- */
-export interface AccommodationFacts {
-  accommodation_type: string | null
-  description: string | null
-  /** Amenities and house rules, loaded when the review window opens. */
-  extras?: AccommodationExtras
-  gender_policy: string | null
-  purok?: string | null
-  barangay: string | null
-  city: string | null
-  lat: number | null
-  lng: number | null
-  landlord_email: string | null
-  landlord_phone: string | null
-  landlord_status: string | null
-  landlord_sex: string | null
-}
-
-export interface VerificationRequest {
-  id: string
-  rawId: string
-  name: string
-  email: string
-  owner: string
-  initials: string
-  type: string
-  files: QueueFile[]
-  status: string
-  statusStyle: { tone: string; icon: string }
-  submitted: string
-  /** When it arrived, ISO, for ordering. `submitted` is the same thing in words. */
-  submittedAt: string | null
-  /** When the current review claim was taken, ISO. Null when nobody holds it. */
-  reviewingAt: string | null
-  /** Who holds the claim (reviewing_by). Null when nobody does. */
-  reviewingBy: string | null
-  /** The account behind the request, loaded when the review window opens. */
-  profile?: ReviewProfile
-  /** The property behind an accreditation request, carried from the queue. */
-  accommodation?: AccommodationFacts
-  /** Accommodation tab: the open accreditation round this request is. */
-  round?: RoundInfo
-  avatarColor: string
-  /** The applicant's profile photo. Empty for an accreditation request. */
-  avatarUrl: string
-  ownerId?: string
-  /** Each file the applicant must supply, and whether it is in. */
-  requirements: { label: string; ok: boolean }[]
-  /** Every requirement is in, so the request can be decided now. */
-  ready: boolean
-  /** Student tab: an application is waiting on a landlord/landlady, held up by this decision. */
-  applying: boolean
-  /** Whole days since it arrived; null when the arrival time is unknown. */
-  ageDays: number | null
-  /** Past the review target. Accreditation has no target, so never late. */
-  late: boolean
-  /** A student whose e-mail is not the university's own domain. */
-  nonInstitutionalEmail: boolean
-  /** Student tab: the student number, empty when not given. */
-  studentNumber: string
-  /** Student tab: the college, empty when not recorded. */
-  college: string
-  /** Student tab: "3rd year", empty when not recorded. */
-  yearLevel: string
-  /** Landlord/Landlady tab: the contact number. */
-  phone: string
-  /** Accommodation tab: barangay and city. */
-  location: string
-  /** Accommodation tab: the kind of accommodation, in words. */
-  accommodationType: string
-}
-
-/**
- * OSAS's review target for account verifications, in days. Mirrors
- * VERIFICATION_REVIEW_SLA_DAYS on the dashboard.
- */
-const REVIEW_TARGET_DAYS = 3
-
-/**
- * The files each applicant role must supply, by the `doc_type` accommo-mobile
- * uploads them as (see its stores/auth.ts). A request is ready to decide when
- * all of them are in — a count of files, which is what this used to check,
- * called a landlord/landlady with a business permit and no ID complete.
- */
-export const APPLICANT_REQUIREMENTS: Record<'student' | 'landlord', { type: string; label: string }[]> = {
-  student: [
-    { type: 'school_id', label: 'School ID' },
-    { type: 'assessment_of_fees', label: 'Assessment of fees' },
-  ],
-  landlord: [
-    { type: 'government_id', label: 'Government ID' },
-    { type: 'business_permit', label: 'Business permit' },
-  ],
-}
-
-const INSTITUTIONAL_DOMAIN = '@isu.edu.ph'
-
-function checklist(required: { type: string; label: string }[], files: { type?: string }[]) {
-  const have = new Set(files.map((file) => file.type))
-  return required.map((item) => ({ label: item.label, ok: have.has(item.type) }))
-}
-
-function ordinalYear(year: number | null | undefined) {
-  if (!year) return ''
-  const suffix = year === 1 ? 'st' : year === 2 ? 'nd' : year === 3 ? 'rd' : 'th'
-  return `${year}${suffix} year`
-}
-
-/**
- * The school record a student must have filled in before OSAS can decide.
- * The student ID is skippable at registration (freshmen sign up before ISU
- * issues one) and addable later from Profile, so it is chased here rather than
- * at sign-up. Only the student number is a chip of its own, because it is the
- * one commonly missing; the rest is required at registration.
- */
-function studentRecordChecks(detail: ApplicantDetails) {
-  return [
-    { label: 'Student ID', ok: isStudentId(detail.student_id) },
-    { label: 'Course', ok: Boolean(detail.college && detail.program && detail.year_level) },
-  ]
-}
-
-/**
- * Ready to decide first, then those still waiting on the applicant. Inside
- * each, a student with an application waiting on a landlord/landlady comes
- * first — this decision is what holds their room — then oldest first. A
- * request that has waited longest is the one most overdue, so it leads its
- * group instead of sinking to the last page.
- */
-function byQueueOrder(a: VerificationRequest, b: VerificationRequest) {
-  if (a.ready !== b.ready) return a.ready ? -1 : 1
-  if (a.applying !== b.applying) return a.applying ? -1 : 1
-  return (a.submittedAt ?? '9999').localeCompare(b.submittedAt ?? '9999')
-}
-
-/** What an accreditation round asks OSAS to look at. */
-export type RoundKind = 'new' | 'resubmission' | 'appeal' | 'renewal' | 'change' | 'permit_update'
-
-export const ROUND_KIND_LABEL: Record<RoundKind, string> = {
-  new: 'New accreditation',
-  resubmission: 'Resubmission',
-  appeal: 'Appeal',
-  renewal: 'Renewal',
-  change: 'Listing change',
-  permit_update: 'Permit update',
-}
-
-/**
- * The open round behind an accommodation request, and the decision before it.
- * The accreditation term itself now lives in the database
- * (public.accreditation_term), next to the one function that stamps it.
- */
-export interface RoundInfo {
-  id: string
-  number: number
-  kind: RoundKind
-  /** The listing stays visible to students while this is decided. */
-  live: boolean
-  /** accommodations.status as it stands. */
-  listingStatus: string
-  /** What the landlord/landlady wrote with it: the appeal, or a resubmission note. */
-  message: string | null
-  /** kind = 'change': the values asked for, by column. */
-  proposedChanges: Record<string, unknown> | null
-  expiresAt: string | null
-  previous: {
-    decision: 'approved' | 'returned' | 'rejected'
-    decidedAt: string
-    flaggedDocs: string[]
-    tags: string[]
-    note: string | null
-  } | null
-}
-
-function getStatusStyle(status: string) {
-  const def = getStatus(status)
-  return { tone: def.tone, icon: def.icon || 'lucide:clock' }
-}
-
-const ACCOMMODATION_PERMITS = [
-  { type: 'sanitary_permit', label: 'Sanitary permit' },
-  { type: 'fire_safety', label: 'Fire safety permit' },
-  { type: 'business_permit', label: 'Business permit' },
-  { type: 'building_permit', label: 'Building permit' },
-]
-
-/** A document as the verification queue view returns it. */
-interface QueueDocumentRow {
-  id: string
-  filename: string | null
-  doc_type: string | null
-}
-
-/**
- * A file already mapped onto a queue request. `url` is empty until the request
- * is opened — documents have no readable URL without a signature — and `id` is
- * optional because the profile-column fallbacks carry a URL but no row.
- */
-export interface QueueFile {
-  id?: string
-  name: string
-  url: string
-  type?: string
-  /** Permits only: the expiry date the landlord/landlady gave, ISO date. */
-  expiresAt?: string | null
-  version?: number
-  /** Permits only: SHA-256 of the file, for the duplicate check. */
-  sha256?: string | null
-  /** Permits only: replaced since OSAS last flagged it. */
-  replaced?: boolean
-}
-
-// Module scope: the three queues survive navigation, so returning to
 // Verifications shows them at once while fetch() refreshes them. Tabs, search,
 // paging and the open request stay per visit. See utils/pageCache.ts.
 const studentRequests = ref<VerificationRequest[]>([])
@@ -258,17 +41,10 @@ export function useVerifications() {
   // Opens on "ready" so OSAS sees only what it can act on; the incomplete ones
   // stay one filter away for chasing or turning away spam.
   const activeFilters = ref<{ readiness: string[] }>({ readiness: ['ready'] })
-  // Counted from the open tab's requests, so an option never shows an empty list.
-  const READINESS: Record<string, string> = { ready: 'Ready to decide', waiting: 'Waiting on the applicant' }
-  const filterConfig = computed(() => {
-    const rows = activeTab.value === 'landlord' ? landlordRequests.value
-      : activeTab.value === 'accommodation' ? accommodationRequests.value : studentRequests.value
-    return [{
-      label: 'Readiness',
-      key: 'readiness',
-      options: counted(rows.map((r) => ({ readiness: r.ready ? 'ready' : 'waiting' })), 'readiness', (v) => READINESS[v] ?? v, ['ready', 'waiting']),
-    }]
-  })
+  const filterConfig = computed(() => readinessFilterConfig(
+    activeTab.value === 'landlord' ? landlordRequests.value
+      : activeTab.value === 'accommodation' ? accommodationRequests.value : studentRequests.value,
+  ))
 
   function clearFilters() {
     activeFilters.value = { readiness: [] }
@@ -285,52 +61,8 @@ export function useVerifications() {
     if (list.length && !list.some((t) => t.name === activeTab.value)) activeTab.value = list[0]!.name as typeof activeTab.value
   }, { immediate: true })
 
-  const searchPlaceholder = computed(() => {
-    if (activeTab.value === 'student') return 'Search student name...'
-    if (activeTab.value === 'landlord') return 'Search landlord/landlady name...'
-    return 'Search accommodation name...'
-  })
-
-  // Each header names exactly what sits under it, in that tab's own words. Only
-  // `action` is left flexible: it holds either a chevron or a lock note with a
-  // reviewer's name and "Take over", which is genuinely variable-width.
-  // Columns whose cell is drawn from other fields sort by what the cell shows.
-  const SORT_VALUE: Record<string, (r: VerificationRequest) => unknown> = {
-    entity: (r) => r.name,
-    requirements: (r) => r.requirements.filter((q) => q.ok).length,
-    waiting: (r) => r.ageDays,
-  }
-  const columns = computed(() => {
-    const col = (name: string, label: string, headerClasses: string) =>
-      ({ name, label, align: 'left', field: name, headerClasses, sortValue: SORT_VALUE[name] })
-    const action = { name: 'action', label: '', align: 'right', field: 'action' }
-    if (activeTab.value === 'student') {
-      return [
-        { ...col('entity', 'Student', 'col-title'), required: true },
-        col('studentNumber', 'Student number', 'col-ref'),
-        col('college', 'College and year', 'col-type'),
-        col('requirements', 'Requirements', 'col-reqs'),
-        col('waiting', 'Waiting', 'col-date'),
-        action,
-      ]
-    }
-    if (activeTab.value === 'landlord') {
-      return [
-        { ...col('entity', 'Landlord/Landlady', 'col-title'), required: true },
-        col('phone', 'Phone number', 'col-type'),
-        col('requirements', 'Requirements', 'col-reqs'),
-        col('waiting', 'Waiting', 'col-date'),
-        action,
-      ]
-    }
-    return [
-      { ...col('entity', 'Accommodation', 'col-title'), required: true },
-      col('location', 'Location', 'col-type'),
-      col('requirements', 'Permits', 'col-reqs-wide'),
-      col('waiting', 'Waiting', 'col-date'),
-      action,
-    ]
-  })
+  const searchPlaceholder = computed(() => verificationSearchPlaceholder(activeTab.value))
+  const columns = computed(() => verificationColumns(activeTab.value))
 
   async function fetch() {
     // With cached queues on screen, refresh without the loading state.
@@ -338,41 +70,18 @@ export function useVerifications() {
     try {
       // get_verification_queue() is the one source for users + documents: it is
       // admin-gated server-side and already joins the pending document rows.
-      const { data: queueRows, error: queueError } = await (supabase as any)
-        .rpc('get_verification_queue')
-
-      if (queueError) {
-        console.error('Could not fetch the verification queue:', queueError.message)
-        notify.error('Verification queue unavailable', queueError.message)
+      let queueRows: any[] | null = null
+      try {
+        queueRows = await fetchVerificationQueue()
+      } catch (queueError) {
+        const message = queueError instanceof Error ? queueError.message : String(queueError)
+        console.error('Could not fetch the verification queue:', message)
+        notify.error('Verification queue unavailable', message)
         studentRequests.value = []
         landlordRequests.value = []
-      } else {
-        const grouped = new Map<string, any>()
-        for (const row of (queueRows ?? []) as any[]) {
-          const existing = grouped.get(row.user_id) ?? {
-            id: row.user_id,
-            full_name: row.full_name,
-            email: row.email,
-            role: row.role,
-            status: row.user_status,
-            avatar_url: row.avatar_url,
-            created_at: row.created_at,
-            reviewing_at: row.reviewing_at,
-            reviewing_by: row.reviewing_by,
-            documents: [],
-          }
-          if (row.file_url) {
-            existing.documents.push({
-              id: row.doc_id,
-              doc_type: row.doc_type,
-              file_url: row.file_url,
-              filename: row.filename,
-            })
-          }
-          grouped.set(row.user_id, existing)
-        }
-
-        const queueUsers = Array.from(grouped.values())
+      }
+      if (queueRows) {
+        const queueUsers = groupQueueRows(queueRows)
 
         // Phone, school record and pending applications are not in the queue
         // RPC. A failed read costs those columns, never the queue itself.
@@ -388,55 +97,7 @@ export function useVerifications() {
         const details = detailsResult.status === 'fulfilled' ? detailsResult.value : null
         const applicants = applicantsResult.status === 'fulfilled' ? applicantsResult.value : new Set<string>()
 
-        const mapRequest = (user: any, manager: boolean): VerificationRequest => {
-          const files = user.documents.map((document: QueueDocumentRow) => ({
-            id: document.id,
-            name: document.filename || document.doc_type || 'Verification document',
-            // Kept so the row can say which requirement is in, not just how many.
-            type: document.doc_type ?? undefined,
-            // Signed on demand in selectRequest — documents have no readable URL.
-            url: '',
-          }))
-          const detail = details?.get(user.id)
-          const requirements = [
-            ...checklist(APPLICANT_REQUIREMENTS[manager ? 'landlord' : 'student'], files),
-            ...(!manager && details ? studentRecordChecks(detail ?? { phone: null, student_id: null, college: null, program: null, year_level: null }) : []),
-          ]
-          const ageDays = user.created_at ? ageInDays(user.created_at) : null
-          const email = String(user.email ?? '')
-          return {
-            // Row identity only; no longer shown — it was the uuid's first four
-            // characters, which two students could share.
-            id: `REQ-${manager ? 'AM' : 'S'}${user.id.substring(0, 4).toUpperCase()}`,
-            rawId: user.id,
-            name: user.full_name || (manager ? 'Unknown Landlord/Landlady' : 'Unknown Student'),
-            email,
-            owner: '',
-            initials: getInitials(user.full_name),
-            type: manager ? 'Landlord/Landlady Identity' : 'Enrollment Form / COR',
-            files,
-            status: capitalize(user.status),
-            statusStyle: getStatusStyle(user.status),
-            submitted: getTimeAgo(user.created_at),
-            submittedAt: user.created_at ?? null,
-            reviewingAt: user.reviewing_at ?? null,
-            reviewingBy: user.reviewing_by ?? null,
-            avatarColor: manager ? 'teal-7' : 'blue-6',
-            avatarUrl: user.avatar_url || '',
-            requirements,
-            ready: requirements.every((item) => item.ok),
-            applying: !manager && applicants.has(user.id),
-            ageDays,
-            late: ageDays !== null && ageDays > REVIEW_TARGET_DAYS,
-            nonInstitutionalEmail: !manager && !!email && !email.toLowerCase().endsWith(INSTITUTIONAL_DOMAIN),
-            studentNumber: detail?.student_id ?? '',
-            college: detail?.college ?? '',
-            yearLevel: ordinalYear(detail?.year_level),
-            phone: detail?.phone ? formatPhone(detail.phone) : '',
-            location: '',
-            accommodationType: '',
-          }
-        }
+        const mapRequest = (user: any, manager: boolean) => toAccountRequest(user, manager, details, applicants)
 
         // Split on the account's own role. The old document-type heuristic put a
         // landlord/landlady who uploaded an `id_card` into the Student tab, and it still
@@ -457,156 +118,19 @@ export function useVerifications() {
       // resubmission, an appeal, a renewal, a change or a permit replaced on a
       // live listing. It used to be "status is pending or reviewing", which
       // could not see the last three: they leave the listing live.
-      const { data: openRounds, error: accommodationError } = await supabase
-        .from('accreditation_rounds')
-        .select(
-          `id, round, kind, message, proposed_changes, submitted_at,
-           accommodation:accommodation_id (
-             id, name, status, landlord_id, accommodation_type, gender_policy,
-             purok, barangay, city, description, lat, lng, reviewing_at, reviewing_by,
-             accreditation_expires_at,
-             landlord:users_full!accommodations_landlord_id_fkey ( full_name, email, phone, status, sex )
-           )`,
-        )
-        .is('decided_at', null)
-
-      if (accommodationError) {
-        console.warn('Could not fetch accommodations:', accommodationError.message)
-      } else if (openRounds) {
-        const rounds = (openRounds as any[]).filter((r) => r.accommodation)
+      let openRounds: any[] | null = null
+      try {
+        openRounds = await fetchOpenRounds()
+      } catch (accommodationError) {
+        console.warn('Could not fetch accommodations:', accommodationError instanceof Error ? accommodationError.message : accommodationError)
+      }
+      if (openRounds) {
+        const rounds = openRounds.filter((r) => r.accommodation)
         const accommodationIds = rounds.map((r) => r.accommodation.id as string)
-        const [{ data: documents, error: documentError }, { data: pastRounds }] = accommodationIds.length
-          ? await Promise.all([
-            supabase
-              .from('accommodation_documents')
-              .select('id, accommodation_id, doc_type, uploaded_at, expires_at, version, file_sha256')
-              .in('accommodation_id', accommodationIds)
-              .order('version', { ascending: false }),
-            supabase
-              .from('accreditation_rounds')
-              .select('accommodation_id, round, kind, decision, decided_at, flagged_docs, tags, note')
-              .in('accommodation_id', accommodationIds)
-              .not('decided_at', 'is', null)
-              .order('round', { ascending: false }),
-          ])
-          : [{ data: [], error: null }, { data: [] }]
+        const { documents, documentError, pastRounds } = await fetchRoundEvidence(accommodationIds)
         if (documentError) console.warn('Could not fetch accommodation permits:', documentError.message)
 
-        // Latest version of each permit only. Every version used to be listed,
-        // so a resubmitted listing showed the rejected file beside its fix.
-        const latestDocs = new Map<string, any[]>()
-        for (const document of documents ?? []) {
-          if (!document.accommodation_id) continue
-          const list = latestDocs.get(document.accommodation_id) ?? []
-          if (!list.some((d) => d.doc_type === document.doc_type)) list.push(document)
-          latestDocs.set(document.accommodation_id, list)
-        }
-        const previousRound = new Map<string, any>()
-        for (const past of pastRounds ?? []) {
-          if (!previousRound.has(past.accommodation_id)) previousRound.set(past.accommodation_id, past)
-        }
-
-        accommodationRequests.value = rounds.map((r: any) => {
-          const p = r.accommodation
-          const landlordRow = (Array.isArray(p.landlord) ? p.landlord[0] : p.landlord) as any
-          const ownerName = landlordRow?.full_name || 'Unknown Landlord/Landlady'
-          const previous = previousRound.get(p.id) ?? null
-          const live = !['pending', 'reviewing'].includes(String(p.status))
-          // A live listing keeps its own status; whether someone has it open is
-          // the claim alone.
-          const queueStatus = live ? (p.reviewing_by ? 'reviewing' : 'pending') : String(p.status)
-          const files = (latestDocs.get(p.id) ?? []).map((document) => ({
-            id: document.id,
-            name: ACCOMMODATION_PERMITS.find((permit) => permit.type === document.doc_type)?.label ?? document.doc_type,
-            type: document.doc_type,
-            // Signed on demand in selectRequest — permits have no readable URL.
-            url: '',
-            expiresAt: document.expires_at ?? null,
-            version: document.version ?? 1,
-            sha256: document.file_sha256 ?? null,
-            // Replaced since OSAS last sent it back, which is what a reviewer
-            // checks first on a resubmission.
-            replaced: Boolean(
-              previous?.decided_at &&
-              (previous.flagged_docs ?? []).includes(document.doc_type) &&
-              document.uploaded_at &&
-              new Date(document.uploaded_at) > new Date(previous.decided_at),
-            ),
-          }))
-          // Short names: four chips have to share one cell.
-          const requirements = checklist(
-            ACCOMMODATION_PERMITS.map((permit) => ({ ...permit, label: permit.label.replace(/ permit$/, '') })),
-            files,
-          )
-          const submittedAt: string | null = r.submitted_at ?? null
-          const ageDays = submittedAt ? ageInDays(submittedAt) : null
-          return {
-            requirements,
-            ready: requirements.every((item) => item.ok),
-            applying: false,
-            ageDays,
-            // No review target exists for accreditation, so nothing reads as late.
-            late: false,
-            nonInstitutionalEmail: false,
-            studentNumber: '',
-            college: '',
-            yearLevel: '',
-            phone: '',
-            location: [p.purok, p.barangay, p.city].filter(Boolean).join(', '),
-            accommodationType: p.accommodation_type ? humanizeEnum(p.accommodation_type) : '',
-            id: `REQ-AC${p.id.substring(0, 4).toUpperCase()}`,
-            rawId: p.id,
-            name: p.name || 'Unnamed Accommodation',
-            email: '',
-            owner: ownerName,
-            ownerId: p.landlord_id,
-            initials: getInitials(p.name),
-            type: ROUND_KIND_LABEL[r.kind as RoundKind] ?? 'OSAS Accreditation',
-            files,
-            status: capitalize(queueStatus),
-            statusStyle: getStatusStyle(queueStatus),
-            submitted: submittedAt ? getTimeAgo(submittedAt) : 'Unknown',
-            submittedAt,
-            reviewingAt: p.reviewing_at ?? null,
-            reviewingBy: p.reviewing_by ?? null,
-            avatarColor: 'orange-6',
-            // A property, not a person — the initials circle is the whole avatar.
-            avatarUrl: '',
-            round: {
-              id: r.id,
-              number: r.round,
-              kind: r.kind as RoundKind,
-              live,
-              listingStatus: String(p.status),
-              message: r.message ?? null,
-              proposedChanges: (r.proposed_changes ?? null) as Record<string, unknown> | null,
-              expiresAt: p.accreditation_expires_at ?? null,
-              previous: previous
-                ? {
-                  decision: previous.decision,
-                  decidedAt: previous.decided_at,
-                  flaggedDocs: previous.flagged_docs ?? [],
-                  tags: previous.tags ?? [],
-                  note: previous.note ?? null,
-                }
-                : null,
-            },
-            accommodation: {
-              accommodation_type: p.accommodation_type ?? null,
-              description: p.description ?? null,
-              gender_policy: p.gender_policy ?? null,
-              purok: p.purok ?? null,
-              barangay: p.barangay ?? null,
-              city: p.city ?? null,
-              lat: p.lat ?? null,
-              lng: p.lng ?? null,
-              landlord_email: landlordRow?.email ?? null,
-              landlord_phone: landlordRow?.phone ?? null,
-              landlord_status: landlordRow?.status ?? null,
-              landlord_sex: landlordRow?.sex ?? null,
-            },
-          }
-        }).sort(byQueueOrder)
+        accommodationRequests.value = toAccommodationRequests(rounds, documents, pastRounds)
       }
       hasLoaded.value = true
     } catch (err) {
@@ -669,168 +193,17 @@ export function useVerifications() {
     return `${ready} ready to decide, ${waiting} waiting`
   })
 
-  const emptyTitle = computed(() => {
-    if (activeTab.value === 'student') return 'All caught up!'
-    if (activeTab.value === 'landlord') return 'All caught up!'
-    return 'All caught up!'
+  const emptyTitle = computed(() => 'All caught up!')
+  const emptyMessage = computed(() => verificationEmptyMessage(activeTab.value))
+
+  const { decideAccommodation, decideAccount } = useVerificationDecisions()
+
+  const {
+    claimedIds, presence, isLockedByOther, reviewerOf, sweepStaleLocks, claimForReview, releaseReview,
+  } = useReviewLocks({
+    lists: () => [studentRequests.value, landlordRequests.value, accommodationRequests.value],
+    selectedRequest,
   })
-  const emptyMessage = computed(() => {
-    if (activeTab.value === 'student') return 'No pending student verifications.'
-    if (activeTab.value === 'landlord') return 'No pending landlord/landlady verifications.'
-    return 'No pending accommodation accreditations.'
-  })
-
-  /**
-   * `reviewing` marks a request that a reviewer currently has open, so the queue
-   * shows who is already being worked and two admins do not duplicate a
-   * decision. Only a `pending` request is claimed — a decided one keeps its
-   * verdict — and it is released again if the window closes with no decision,
-   * which matters now that the reviewer can page through the queue.
-   */
-  /**
-   * Writes the status to every copy of the request the page is holding.
-   *
-   * `selectRequest` replaces the selection with `{ ...row, files: signed }` — a
-   * detached copy — so mutating the object handed to this function updated the
-   * copy and left the table row showing the old badge. The request is patched by
-   * id wherever it lives instead.
-   */
-  function patchRowStatus(id: string, next: 'pending' | 'reviewing', reviewingAt: string | null, reviewingBy: string | null) {
-    const label = capitalize(next)
-    const style = getStatusStyle(next)
-    const lists = [studentRequests.value, landlordRequests.value, accommodationRequests.value]
-    for (const list of lists) {
-      for (const row of list) {
-        if (row.id !== id) continue
-        row.status = label
-        row.statusStyle = style
-        row.reviewingAt = reviewingAt
-        row.reviewingBy = reviewingBy
-      }
-    }
-    if (selectedRequest.value?.id === id) {
-      selectedRequest.value = { ...selectedRequest.value, status: label, statusStyle: style, reviewingAt, reviewingBy }
-    }
-  }
-
-  /**
-   * The claim and its owner move together. A status written without the two
-   * lock columns is exactly the unverifiable claim this replaced.
-   */
-  async function setRequestStatus(row: VerificationRequest, next: 'pending' | 'reviewing') {
-    const table = row.id.startsWith('REQ-AC') ? 'accommodations' : 'users'
-    // Opening a request claims it for review; view-only access just looks.
-    if (!auth.can(table === 'accommodations' ? 'accreditation' : 'verification', 'edit')) return
-    const taking = next === 'reviewing'
-    const reviewingAt = taking ? new Date().toISOString() : null
-    const reviewingBy = taking ? auth.user?.id ?? (await supabase.auth.getUser()).data.user?.id ?? null : null
-    // A live listing (renewal, change, permit update) keeps its own status —
-    // writing 'reviewing' over 'accredited' would take it off Discover. Its
-    // claim is the two lock columns alone.
-    const { error } = await supabase
-      .from(table)
-      .update(
-        (row.round?.live
-          ? { reviewing_by: reviewingBy, reviewing_at: reviewingAt }
-          : { status: next, reviewing_by: reviewingBy, reviewing_at: reviewingAt }) as never,
-      )
-      .eq('id', row.rawId)
-    if (error) {
-      console.warn('Could not set review status:', error.message)
-      return
-    }
-    patchRowStatus(row.id, next, reviewingAt, reviewingBy)
-  }
-
-  /** Requests this browser session has open. */
-  const claimedIds = ref(new Set<string>())
-
-  const presence = useReviewPresence()
-  const auth = useAuthStore()
-
-  /**
-   * A claim made by this admin — in this tab, an earlier one, or before a
-   * refresh. reviewing_by records the owner, and presence carries the user id
-   * too, so neither should read the admin's own lock as somebody else's.
-   */
-  function isMine(row: VerificationRequest): boolean {
-    const me = auth.user?.id
-    if (!me) return false
-    const holder = presence.holderOf(row.id)?.userId || row.reviewingBy
-    return holder === me
-  }
-
-  /**
-   * How long a claim stands on its timestamp alone. Presence answers the online
-   * case within seconds; this is the floor that stops a live lock being freed
-   * just because Realtime is slow, reconnecting, or switched off entirely.
-   */
-  const STALE_AFTER_MS = 10 * 60 * 1000
-
-  /**
-   * Whether somebody is really in the review panel for this request. The two
-   * checks are OR'd, so a lock is only abandoned when presence says nobody is
-   * connected to it AND its claim has aged out.
-   */
-  function isHeld(row: VerificationRequest): boolean {
-    if (presence.holderOf(row.id)) return true
-    if (!row.reviewingAt) return false
-    const age = Date.now() - new Date(row.reviewingAt).getTime()
-    return Number.isFinite(age) && age < STALE_AFTER_MS
-  }
-
-  function isLockedByOther(row: VerificationRequest): boolean {
-    return (
-      String(row.status).toLowerCase() === 'reviewing' &&
-      !claimedIds.value.has(row.id) &&
-      !isMine(row) &&
-      isHeld(row)
-    )
-  }
-
-  /** The reviewer who has this open, when presence knows their name. */
-  function reviewerOf(row: VerificationRequest): string {
-    return presence.holderOf(row.id)?.name ?? ''
-  }
-
-  /**
-   * Put every abandoned claim back in the queue. Gated on `presence.ready`:
-   * a client that has not yet received its first sync reads an empty channel,
-   * and would take that as nobody reviewing anything and free the lot.
-   */
-  async function sweepStaleLocks() {
-    if (!presence.ready.value) return
-    const lists = [studentRequests.value, landlordRequests.value, accommodationRequests.value]
-    for (const list of lists) {
-      for (const row of list) {
-        if (String(row.status).toLowerCase() !== 'reviewing') continue
-        if (claimedIds.value.has(row.id) || isHeld(row)) continue
-        await setRequestStatus(row, 'pending')
-      }
-    }
-  }
-
-  // A lock can go stale while the queue simply sits open, so the sweep follows
-  // presence rather than only the load that first drew the table.
-  watch([presence.holders, presence.ready], () => void sweepStaleLocks())
-
-  async function claimForReview(row: VerificationRequest) {
-    // Pending, or already this admin's (reopened after a refresh): take it and
-    // stamp a fresh claim time.
-    const status = String(row.status).toLowerCase()
-    if (status !== 'pending' && !(status === 'reviewing' && isMine(row))) return
-    claimedIds.value.add(row.id)
-    presence.track(row.id)
-    await setRequestStatus(row, 'reviewing')
-  }
-
-  async function releaseReview(row: VerificationRequest | null) {
-    if (!row) return
-    claimedIds.value.delete(row.id)
-    presence.untrack()
-    if (String(row.status).toLowerCase() !== 'reviewing') return
-    await setRequestStatus(row, 'pending')
-  }
 
   /**
    * The ordinary close. Not awaited and not relied on — a killed browser never
@@ -948,42 +321,6 @@ export function useVerifications() {
     currentPage.value = 1
   }, { deep: true })
 
-  /**
-   * An accommodation decision is one call. decide_accreditation (accommo-mobile
-   * migration 20261002120000) closes the round, sets the status, stamps the
-   * term, writes the audit entry and tells the landlord/landlady — in one
-   * transaction. It used to be five separate writes from here, any of which
-   * could fail alone and leave a listing accredited with nobody told and
-   * nothing recorded.
-   */
-  async function decideAccommodation(req: VerificationRequest, payload: any): Promise<boolean> {
-    const decision: 'approved' | 'returned' | 'rejected' =
-      payload?.decision === 'approve' ? 'approved'
-        : payload?.allowResubmission === true ? 'returned'
-          : 'rejected'
-    const { data, error } = await supabase.rpc('decide_accreditation', {
-      p_accommodation: req.rawId,
-      p_decision: decision,
-      p_flagged_docs: payload?.flaggedDocs?.length ? payload.flaggedDocs : undefined,
-      p_tags: payload?.tags?.length ? payload.tags : undefined,
-      p_note: payload?.notes || undefined,
-      p_override: payload?.override === true,
-    })
-    if (error) {
-      notify.error('Decision not saved', error.message)
-      return false
-    }
-    const kind = req.round?.kind
-    const words =
-      decision === 'approved'
-        ? kind === 'renewal' ? 'Renewal approved' : kind === 'change' ? 'Change approved'
-          : kind === 'permit_update' ? 'Permit accepted' : 'Accommodation accredited'
-        : decision === 'returned' ? 'Sent back for changes'
-          : kind === 'appeal' ? 'Rejection upheld' : 'Refused'
-    notify.success(words, `${req.name} · status ${humanizeEnum(String(data))}. The ${landlordTitle(req.accommodation?.landlord_sex).toLowerCase()} was notified.`)
-    return true
-  }
-
   async function handleDecision(decisionPayload: any) {
     if (!selectedRequest.value) return
     loading.value = true
@@ -1015,66 +352,6 @@ export function useVerifications() {
     }
   }
 
-  /** A student or landlord/landlady account. Throws on the status write. */
-  async function decideAccount(req: VerificationRequest, decisionPayload: any) {
-    const decision = decisionPayload?.decision || 'approve'
-    // Either way the applicant can re-upload; "allow resubmission" is OSAS
-    // asking again rather than refusing, so it has its own status.
-    const allowResub = decision === 'reject' && decisionPayload?.allowResubmission === true
-    const newStatus = decision === 'approve' ? 'verified' : allowResub ? 'needs_resubmission' : 'rejected'
-
-    const rawId = req.rawId
-    const actorId = (await supabase.auth.getUser()).data.user?.id || null
-
-    // One transaction: the status, the review claim, the documents, the
-    // decision history and the applicant's notice (admin_set_account_status).
-    // This used to be five writes from here, any of which could fail alone —
-    // and its OSAS stamp went onto every approved account, landlords/landladies
-    // included, giving them a verified student profile. tg_revoke_on_unverify
-    // stamps students on 'verified'.
-    try {
-      await setAccountStatus(rawId, newStatus, { reason: decisionPayload?.notes || null })
-    } catch (error) {
-      notify.error('Decision not saved', error instanceof Error ? error.message : String(error))
-      throw error
-    }
-
-    const verb = decision === 'approve' ? 'verified' : allowResub ? 'sent back for resubmission' : 'rejected'
-
-    notify.success('User ' + verb, `Status set to "${newStatus}".`)
-
-    // The function's own history keeps the note; the tags and the override
-    // live only here (best-effort, after the decision itself has landed).
-    {
-      const { error: auditErr } = await supabase.from('audit_logs').insert({
-        action: allowResub ? 'verification.resubmit' : `verification.${decision}`,
-        actor_id: actorId,
-        entity_id: rawId,
-        entity_type: 'user',
-        before_json: { status: req.status },
-        after_json: {
-          status: newStatus,
-          decision,
-          override: decisionPayload?.override === true,
-          allow_resubmission: allowResub,
-          tags: decisionPayload?.tags ?? null,
-          notes: decisionPayload?.notes ?? null,
-        },
-      } as any)
-      if (auditErr) notify.warning('Decision not recorded in the audit log', auditErr.message)
-    }
-
-    // The admin's own copy; the applicant's notice came with the decision.
-    if (actorId) {
-      await supabase.from('notifications').insert({
-        user_id: actorId,
-        type: 'system',
-        title: 'Verification decision recorded',
-        body: `You ${verb} ${req.name}.`,
-        link_url: `/users?user=${rawId}`,
-      } as any)
-    }
-  }
 
   return {
     loading,

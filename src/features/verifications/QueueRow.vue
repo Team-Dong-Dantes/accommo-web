@@ -91,7 +91,7 @@
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import UserInfoCell from '@/components/user/UserInfoCell.vue'
-import type { VerificationRequest } from '@/composables/useVerifications'
+import type { VerificationRequest } from '@/features/verifications/queue'
 
 const props = withDefaults(
   defineProps<{
