@@ -18,7 +18,11 @@
   }
   window.addEventListener('error', function (e) {
     var t = e.target;
-    show(t && t !== window && (t.src || t.href) ? 'Failed to load ' + (t.src || t.href) : (e.message || 'error') + ' ' + (e.filename || '') + ':' + (e.lineno || ''));
+    var url = t && t !== window && (t.src || t.href);
+    // Only our own files can stop startup. In-app browsers (Messenger, Instagram)
+    // inject scripts like connect.facebook.net/.../pcm.js that the CSP blocks.
+    if (url && url.indexOf(location.origin + '/') !== 0) return;
+    show(url ? 'Failed to load ' + url : (e.message || 'error') + ' ' + (e.filename || '') + ':' + (e.lineno || ''));
   }, true);
   window.addEventListener('unhandledrejection', function (e) {
     show('Unhandled: ' + (e.reason && (e.reason.stack || e.reason.message) || e.reason));
