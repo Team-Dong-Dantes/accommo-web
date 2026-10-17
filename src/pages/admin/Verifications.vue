@@ -20,7 +20,7 @@
         :total-items="activeTotal"
         item-name="requests"
         :page="currentPage"
-        @refresh="fetch"
+        @refresh="fetch(true)"
         @update:page="currentPage = $event"
         @clear-filters="clearFilters"
       >

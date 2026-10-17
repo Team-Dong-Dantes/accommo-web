@@ -27,7 +27,7 @@
         :total-items="filteredAccommodations.length"
         item-name="accommodations"
         @clear-filters="clearFilters"
-        @refresh="fetchAccommodations"
+        @refresh="loadAccommodations(true)"
       >
       <template #panels>
         <q-tab-panels v-model="activeTab" animated style="background: transparent; height: 100%;">

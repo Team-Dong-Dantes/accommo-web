@@ -211,10 +211,13 @@ export function useTickets() {
     if (data) agents.value = data.map((a) => ({ id: a.id, full_name: a.full_name || 'Admin' }))
   }
 
-  /** `quiet` refreshes in place — a live update must not flash the loading state. */
-  async function fetch(quiet = false) {
+  /**
+   * `quiet` refreshes in place — a live update must not flash the loading state.
+   * `show` is the refresh button: with no loading state a click looked like it did nothing.
+   */
+  async function fetch(quiet = false, show = false) {
     // With cached tickets on screen, a refresh is quiet too.
-    if (!quiet && !hasLoaded.value) loading.value = true
+    if (show || (!quiet && !hasLoaded.value)) loading.value = true
     error.value = null
     await ensureUser()
     await fetchAgents()

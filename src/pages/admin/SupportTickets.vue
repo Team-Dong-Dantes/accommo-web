@@ -37,7 +37,7 @@
         :selected-id="selectedId"
         :highlight-id="highlightId"
         @select="selectTicket"
-        @refresh="fetch"
+        @refresh="fetch(false, true)"
       />
 
       <!-- A right-hand detail drawer over the board or table. -->

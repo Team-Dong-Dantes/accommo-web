@@ -60,11 +60,16 @@ export async function sendSystemNotice(userId: string, title: string, body: stri
  * The rail's work badges: accounts and accommodations awaiting review, and
  * open tickets. Each count's own error comes back with it, so one failing
  * query does not blank the others.
+ *
+ * The verification counts read what the Verifications page lists, or the badge
+ * says work is waiting on an empty page. They used to count every pending
+ * user (admin accounts too, which the page never shows) and every pending
+ * accommodation status, where the page lists open accreditation rounds.
  */
 export async function fetchWorkCounts() {
   const [users, accommodations, tickets] = await Promise.all([
-    supabase.from('users').select('id', { count: 'exact', head: true }).in('status', ['pending', 'reviewing']),
-    supabase.from('accommodations').select('*', { count: 'exact', head: true }).in('status', ['pending', 'reviewing']),
+    supabase.from('users').select('id', { count: 'exact', head: true }).in('status', ['pending', 'reviewing']).in('role', ['student', 'landlord']),
+    supabase.from('accreditation_rounds').select('id', { count: 'exact', head: true }).is('decided_at', null),
     supabase.from('tickets').select('*', { count: 'exact', head: true }).in('status', ['open', 'in_progress']),
   ])
   return { users, accommodations, tickets }

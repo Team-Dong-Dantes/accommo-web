@@ -64,9 +64,10 @@ export function useVerifications() {
   const searchPlaceholder = computed(() => verificationSearchPlaceholder(activeTab.value))
   const columns = computed(() => verificationColumns(activeTab.value))
 
-  async function fetch() {
+  /** `show`: the refresh button — with no loading state a click looked like it did nothing. */
+  async function fetch(show = false) {
     // With cached queues on screen, refresh without the loading state.
-    if (!hasLoaded.value) loading.value = true
+    if (show || !hasLoaded.value) loading.value = true
     try {
       // get_verification_queue() is the one source for users + documents: it is
       // admin-gated server-side and already joins the pending document rows.

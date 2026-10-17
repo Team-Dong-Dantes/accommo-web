@@ -47,8 +47,9 @@ export function useAccommodations() {
   const loading = ref(!hasLoaded.value)
   const error = ref<string | null>(null)
 
-  async function load() {
-    loading.value = !hasLoaded.value
+  /** `show`: the refresh button — with no loading state a click looked like it did nothing. */
+  async function load(show = false) {
+    loading.value = show || !hasLoaded.value
     error.value = null
     try {
       const { props, rooms, leases, landlordProfiles, permits, images, facilities, facilityImages } = await fetchAccommodationTables()

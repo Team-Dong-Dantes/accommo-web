@@ -141,8 +141,9 @@ export function useUserDirectory() {
   const loading = ref(!hasLoaded.value)
   const error = ref('')
 
-  async function load() {
-    loading.value = !hasLoaded.value
+  /** `show`: the refresh button — with no loading state a click looked like it did nothing. */
+  async function load(show = false) {
+    loading.value = show || !hasLoaded.value
     error.value = ''
     try {
       const { users: data, profiles, leases, accommodations } = await fetchDirectory()

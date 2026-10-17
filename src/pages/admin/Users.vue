@@ -20,7 +20,7 @@
       :total-items="filteredRows.length"
       :item-name="activeTab === 'students' ? 'students' : 'landlords/landladies'"
       @clear-filters="clearFilters"
-      @refresh="load"
+      @refresh="load(true)"
     >
       <template #panels>
         <q-tab-panels v-model="activeTab" animated style="background: transparent; height: 100%;">

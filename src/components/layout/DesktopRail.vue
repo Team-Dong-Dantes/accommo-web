@@ -96,10 +96,10 @@ const groups = computed<Row[][]>(() => [
 async function loadWorkCounts() {
   const { users: usersResult, accommodations: propertiesResult, tickets: ticketsResult } = await fetchWorkCounts()
 
-  if (!usersResult.error || !propertiesResult.error) {
-    workCounts.value.verifications = (usersResult.error ? 0 : usersResult.count ?? 0)
-      + (propertiesResult.error ? 0 : propertiesResult.count ?? 0)
-  }
+  // Only the tabs this admin's Verifications page shows.
+  const accounts = authStore.can('verification') && !usersResult.error ? usersResult.count ?? 0 : 0
+  const rounds = authStore.can('accreditation') && !propertiesResult.error ? propertiesResult.count ?? 0 : 0
+  if (!usersResult.error || !propertiesResult.error) workCounts.value.verifications = accounts + rounds
   if (!ticketsResult.error) workCounts.value['support-tickets'] = ticketsResult.count ?? 0
 }
 
@@ -120,6 +120,7 @@ onMounted(() => {
     .channel('sidebar-work-counts')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, loadWorkCounts)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'accommodations' }, loadWorkCounts)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'accreditation_rounds' }, loadWorkCounts)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, loadWorkCounts)
     .subscribe()
 })
