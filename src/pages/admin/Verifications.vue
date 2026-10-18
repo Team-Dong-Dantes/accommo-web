@@ -75,6 +75,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ActiveFilters } from '@/types/table'
 import { computed, ref, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useVerifications } from '@/composables/useVerifications'
@@ -154,7 +155,7 @@ const panels = computed(() => [
   { name: 'accommodation' as const, filtered: accommodationFiltered.value, paginated: accommodationPaginated.value },
 ])
 
-function onActiveFilters(val: Record<string, any[]>) {
+function onActiveFilters(val: ActiveFilters) {
   activeFilters.value = { readiness: (val.readiness ?? []) as string[] }
 }
 

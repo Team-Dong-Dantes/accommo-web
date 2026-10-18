@@ -124,11 +124,11 @@ const props = withDefaults(
   defineProps<{
     modelValue: boolean
     /** Data-driven preview (our system's data) rendered in the reference layout. */
-    preview?: DrawerPreview
-    title?: string
-    subtitle?: string
-    countLabel?: string
-    viewDetailsLabel?: string
+    preview?: DrawerPreview | undefined
+    title?: string | undefined
+    subtitle?: string | undefined
+    countLabel?: string | undefined
+    viewDetailsLabel?: string | undefined
     width?: string
     /**
      * `panel` is the original right-hand drawer. `full` is the two-pane record
@@ -147,6 +147,11 @@ const props = withDefaults(
   }>(),
   {
     initialTab: 'rooms',
+    preview: undefined,
+    title: undefined,
+    subtitle: undefined,
+    countLabel: undefined,
+    viewDetailsLabel: undefined,
     width: '620px',
     size: 'panel',
     loading: false,

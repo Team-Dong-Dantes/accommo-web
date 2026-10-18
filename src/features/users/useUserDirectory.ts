@@ -31,8 +31,8 @@ export function activeState(lastLoginAt: string | null | undefined, now = Date.n
 }
 
 /** A row passes a filter when its field equals any chosen value. */
-export const matches = (row: DirectoryRow, key: string, values: string[]) =>
-  values.some((v) => v.toLowerCase() === String(row[key] ?? '').toLowerCase())
+export const matches = (row: DirectoryRow, key: string, values: Array<string | number>) =>
+  values.some((v) => String(v).toLowerCase() === String(row[key] ?? '').toLowerCase())
 
 /** The table/drawer shape for one `users` row and its role profile. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

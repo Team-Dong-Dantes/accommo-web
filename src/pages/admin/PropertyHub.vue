@@ -79,6 +79,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ActiveFilters } from '@/types/table'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import TabNav from '@/components/ui/TabNav.vue'
@@ -102,7 +103,7 @@ import { complianceColumns, overviewColumns, performanceColumns } from '@/featur
 const search = ref('')
 const activeTab = ref('overview')
 const currentPage = ref(1)
-const activeFilters = ref<Record<string, any[]>>({})
+const activeFilters = ref<ActiveFilters>({})
 
 const { loading, accommodations: realAccommodations, load: loadAccommodations } = useAccommodations()
 

@@ -1,7 +1,7 @@
 <template>
   <q-table
     :rows="paddedRows"
-    :columns="columns"
+    :columns="columns as QTableColumn[]"
     :row-key="rowKey"
     :hide-no-data="loading"
     flat
@@ -10,13 +10,13 @@
     hide-bottom
     :pagination="pagination"
   >
-<template v-slot:header="props">
-      <q-tr :props="props" :key="'header'" class="header-row border-bottom">
+<template #header="tp">
+      <q-tr :props="tp" :key="'header'" class="header-row border-bottom">
         <q-th class="text-muted text-weight-bold custom-th row-num-cell" scope="col">#</q-th>
         <q-th
-          v-for="col in props.cols"
+          v-for="col in tp.cols"
           :key="col.name"
-          :props="{ ...props, col }"
+          :props="{ ...tp, col }"
           class="text-muted text-weight-bold text-uppercase custom-th"
           :class="[col.headerClasses, { 'sortable-th': canSort(col), 'sorted-th': sort?.by === col.name }]"
           :aria-sort="canSort(col) ? (sort?.by !== col.name ? 'none' : sort?.desc ? 'descending' : 'ascending') : undefined"
@@ -41,16 +41,16 @@
     <!-- Single root <q-tr> per row: avoids the duplicate-key warning that a
          v-if/v-else chain at the slot root would trigger, and keeps rows
          rendered (a bare <template> wrapper renders as display:none). -->
-    <template v-slot:body="props">
+    <template #body="tp">
       <q-tr
-        :props="props"
-        :key="props.row[rowKey] || props.row.id || `row-${props.rowIndex}`"
+        :props="tp"
+        :key="tp.row[rowKey] || tp.row.id || `row-${tp.rowIndex}`"
         :class="[
           'body-row',
-          rowClass ? rowClass(props.row) : '',
-          { 'skeleton-row': loading, 'empty-row bg-surface': props.row._isEmpty }
+          rowClass ? rowClass(tp.row) : '',
+          { 'skeleton-row': loading, 'empty-row bg-surface': tp.row._isEmpty }
         ]"
-        @click="!loading && !props.row._isEmpty && emit('row-click', props.row)"
+        @click="!loading && !tp.row._isEmpty && emit('row-click', tp.row)"
       >
         <template v-if="loading">
           <q-td class="skeleton-cell row-num-cell">
@@ -60,7 +60,7 @@
                fixed-width column would render at the shared 1-1-0 share instead
                of that column's real width, and the row would visibly reflow the
                moment loading finishes and the real cells take over. -->
-          <q-td v-for="col in columns" :key="col.name" :props="props" class="skeleton-cell" :class="col.headerClasses">
+          <q-td v-for="col in columns" :key="col.name" :props="tp" class="skeleton-cell" :class="col.headerClasses">
             <q-skeleton type="rect" animation="wave" class="cell-skeleton" />
           </q-td>
           <q-td v-if="rowChevron" class="row-chevron-cell"></q-td>
@@ -68,9 +68,9 @@
 
         <!-- Padding rows exist only to hold the table's height; they are not
              records, so they get a blank cell rather than a number. -->
-        <template v-else-if="props.row._isEmpty">
+        <template v-else-if="tp.row._isEmpty">
           <q-td class="row-num-cell"></q-td>
-          <q-td v-for="col in columns" :key="col.name" :props="props" :class="col.headerClasses"></q-td>
+          <q-td v-for="col in columns" :key="col.name" :props="tp" :class="col.headerClasses"></q-td>
           <q-td v-if="rowChevron" class="row-chevron-cell"></q-td>
         </template>
 
@@ -81,7 +81,7 @@
              `rowNumber` as its first <q-td>, or its columns will be one short
              of the header. -->
         <template v-else>
-          <slot name="body" :props="props" :row-number="startIndex + props.rowIndex + 1"></slot>
+          <slot name="body" :props="tp" :row-number="startIndex + tp.rowIndex + 1"></slot>
           <!-- Landed outside the slot's own <q-tr> the same way `rowNumber`'s
                cell is, on purpose — see the note above it. Renders as the row's
                last flex cell regardless of whether the caller wraps its cells
@@ -98,15 +98,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { SortState } from '@/composables/useSort'
+import type { QTableColumn } from 'quasar'
+import type { TableColumn, TableRow } from '@/types/table'
 
 const props = withDefaults(
   defineProps<{
-    rows: any[]
-    columns: any[]
+    rows: TableRow[]
+    columns: TableColumn[]
     rowKey?: string
     pagination?: { rowsPerPage?: number }
     loading?: boolean
-    rowClass?: ((row: any) => string) | undefined
+    rowClass?: ((row: TableRow) => string) | undefined
     /**
      * Position of this page's first row in the full list, so the `#` column
      * counts continuously (page 2 starts at 11, not 1). Callers slice their own
@@ -128,19 +130,19 @@ const props = withDefaults(
      */
     sort?: SortState | undefined
   }>(),
-  { rowKey: 'id', pagination: () => ({ rowsPerPage: 10 }), loading: false, startIndex: 0, rowChevron: false },
+  { rowKey: 'id', pagination: () => ({ rowsPerPage: 10 }), loading: false, startIndex: 0, rowChevron: false, rowClass: undefined, sort: undefined },
 )
 
 const emit = defineEmits<{
-  (e: 'row-click', row: any): void
+  (e: 'row-click', row: TableRow): void
   (e: 'update:sort', value: SortState): void
 }>()
 
 // Unlabelled columns hold actions, not values.
-const canSort = (col: any) => props.sort !== undefined && col.sortable !== false && !!col.label
+const canSort = (col: TableColumn) => props.sort !== undefined && col.sortable !== false && !!col.label
 
 /** Ascending → descending → back to the list's own order. */
-function toggleSort(col: any) {
+function toggleSort(col: TableColumn) {
   if (!canSort(col)) return
   const s = props.sort
   emit('update:sort', s?.by !== col.name ? { by: col.name, desc: false } : s?.desc ? null : { by: col.name, desc: true })

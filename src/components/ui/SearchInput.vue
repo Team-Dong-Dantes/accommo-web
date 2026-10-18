@@ -8,7 +8,7 @@
     class="bg-surface rounded-input"
     style="width: 300px;"
   >
-    <template v-slot:prepend>
+    <template #prepend>
       <Icon icon="lucide:search" width="20" height="20" color="#757575" />
     </template>
   </q-input>

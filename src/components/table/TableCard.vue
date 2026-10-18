@@ -60,26 +60,27 @@ import TableToolbar from '@/components/table/TableToolbar.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import DataTable from '@/components/table/DataTable.vue'
 import type { SortState } from '@/composables/useSort'
+import type { ActiveFilters, FilterGroup, TableColumn, TableRow } from '@/types/table'
 
 withDefaults(defineProps<{
   search: string
   searchPlaceholder?: string
-  filters?: any[]
-  activeFilters?: Record<string, any[]>
+  filters?: FilterGroup[]
+  activeFilters?: ActiveFilters
   loading?: boolean
   totalLabel: string
-  rows?: any[]
-  columns?: any[]
+  rows?: TableRow[]
+  columns?: TableColumn[]
   rowKey?: string
   rowsPerPage?: number
   totalItems: number
   itemName: string
   page: number
-  rowClass?: (row: any) => string
+  rowClass?: ((row: TableRow) => string) | undefined
   /** See the same prop on DataTable.vue. */
   rowChevron?: boolean
   /** See the same prop on DataTable.vue; single-table mode only. */
-  sort?: SortState
+  sort?: SortState | undefined
 }>(), {
   rowsPerPage: 10,
   rowChevron: false,
@@ -87,16 +88,18 @@ withDefaults(defineProps<{
   rowKey: 'id',
   rows: () => [],
   columns: () => [],
+  rowClass: undefined,
+  sort: undefined,
   filters: () => [],
   activeFilters: () => ({}),
 })
 defineEmits<{
   (e: 'update:search', value: string): void
-  (e: 'update:activeFilters', value: Record<string, any[]>): void
+  (e: 'update:activeFilters', value: ActiveFilters): void
   (e: 'clearFilters'): void
   (e: 'refresh'): void
   (e: 'update:page', value: number): void
-  (e: 'row-click', value: any): void
+  (e: 'row-click', value: TableRow): void
   (e: 'update:sort', value: SortState): void
 }>()
 </script>

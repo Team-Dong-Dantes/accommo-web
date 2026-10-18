@@ -114,6 +114,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ActiveFilters } from '@/types/table'
 import { errorMessage } from '@/utils/errors'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useSort } from '@/composables/useSort'
@@ -150,8 +151,8 @@ const showArchived = ref(false)
 const tabs = [{ name: 'announcements', label: 'Announcements' }]
 const activeTab = ref('announcements')
 // OSAS's own broadcasts by default; landlord/landlady notices are one filter away.
-const defaultFilters = (): Record<string, any[]> => ({ source: ['osas'] })
-const activeFilters = ref<Record<string, any[]>>(defaultFilters())
+const defaultFilters = (): ActiveFilters => ({ source: ['osas'] })
+const activeFilters = ref<ActiveFilters>(defaultFilters())
 
 const announcements = ref<any[]>([])
 

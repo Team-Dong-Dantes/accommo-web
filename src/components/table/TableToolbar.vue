@@ -23,20 +23,21 @@
 </template>
 
 <script setup lang="ts">
+import type { ActiveFilters, FilterGroup } from '@/types/table'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import FilterDropdown from '@/components/ui/FilterDropdown.vue'
 
 defineProps<{
   search: string
   searchPlaceholder?: string
-  filters: any[]
-  activeFilters: Record<string, any[]>
+  filters: FilterGroup[]
+  activeFilters: ActiveFilters
   loading?: boolean
   totalLabel: string
 }>()
 defineEmits<{
   (e: 'update:search', value: string): void
-  (e: 'update:activeFilters', value: Record<string, any[]>): void
+  (e: 'update:activeFilters', value: ActiveFilters): void
   (e: 'clearFilters'): void
   (e: 'refresh'): void
 }>()

@@ -44,7 +44,7 @@ const props = withDefaults(defineProps<{
   delta?: string
   deltaLabel?: string
   countTo?: number | null
-  to?: string
+  to?: string | undefined
 }>(), {
   variant: 'default',
   accent: 'primary',
@@ -52,6 +52,7 @@ const props = withDefaults(defineProps<{
   delta: '',
   deltaLabel: '',
   countTo: null,
+  to: undefined,
 })
 
 const displayValue = ref(props.value)

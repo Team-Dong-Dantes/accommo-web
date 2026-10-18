@@ -7,6 +7,8 @@
 </template>
 
 <script setup lang="ts">
+// The model is undefined until the parent binds a value, which q-input accepts.
+// eslint-disable-next-line vue/require-default-prop
 const model = defineModel<string | number | null>()
 </script>
 

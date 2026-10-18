@@ -33,19 +33,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-interface FilterOption {
-  label: string;
-  value: string | number;
-}
-
-interface FilterGroup {
-  label: string;
-  key: string;
-  options: FilterOption[];
-}
+import type { ActiveFilters, FilterGroup } from '@/types/table'
 
 const props = withDefaults(
-  defineProps<{ filters?: FilterGroup[]; activeFilters?: Record<string, any[]> }>(),
+  defineProps<{ filters?: FilterGroup[]; activeFilters?: ActiveFilters }>(),
   { filters: () => [], activeFilters: () => ({}) },
 )
 
@@ -58,7 +49,7 @@ const wide = computed(() => shown.value.length > 4)
 
 const emit = defineEmits(['update:activeFilters', 'clear'])
 
-function updateFilter(key: string, values: any[]) {
+function updateFilter(key: string, values: Array<string | number>) {
   emit('update:activeFilters', { ...props.activeFilters, [key]: values })
 }
 </script>

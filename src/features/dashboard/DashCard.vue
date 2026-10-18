@@ -38,11 +38,11 @@ withDefaults(
     icon: string
     title: string
     summary?: string
-    link?: { to: string; label: string }
+    link?: { to: string; label: string } | undefined
     /** Tints the icon chip: `work` for the queues OSAS acts on, `context` for the figures that describe the term. */
     tone?: 'work' | 'context'
   }>(),
-  { summary: '', tone: 'context' },
+  { summary: '', tone: 'context', link: undefined },
 )
 
 const titleId = useId()

@@ -98,6 +98,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ActiveFilters } from '@/types/table'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useSort } from '@/composables/useSort'
 import { useRooms, type RoomTableRow } from '@/composables/useRooms'
@@ -125,7 +126,7 @@ const tabs = [
   { name: 'rooms', label: 'Rooms' },
 ]
 
-const activeFilters = ref<Record<string, any[]>>({})
+const activeFilters = ref<ActiveFilters>({})
 
 const VACANCY: Record<string, string> = { empty: 'Empty', partial: 'Has free beds', full: 'Full' }
 const RENT_BASIS: Record<string, string> = { boarder: 'Per boarder', room: 'Whole room' }

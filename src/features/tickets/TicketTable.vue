@@ -33,67 +33,67 @@
       </div>
     </template>
 
-    <template #body="{ props, rowNumber }">
+    <template #body="{ props: tp, rowNumber }">
       <!-- DataTable always draws the "#" header, so every body row carries the cell. -->
       <q-td class="row-num-cell">{{ rowNumber }}</q-td>
 
       <!-- Two lines per cell at most: DataTable caps a row at 76px. -->
-      <q-td key="ticket" :props="props" class="tk-stack tk-grow">
-        <div class="tk-line tk-title" :title="props.row.subject">
-          <span v-if="props.row.unread" class="tk-unread" aria-label="Unread reply" />
-          <span class="tk-ref">{{ props.row.ref }}</span>
-          <span class="tk-subject">{{ props.row.subject }}</span>
+      <q-td key="ticket" :props="tp" class="tk-stack tk-grow">
+        <div class="tk-line tk-title" :title="tp.row.subject">
+          <span v-if="tp.row.unread" class="tk-unread" aria-label="Unread reply" />
+          <span class="tk-ref">{{ tp.row.ref }}</span>
+          <span class="tk-subject">{{ tp.row.subject }}</span>
         </div>
-        <div v-if="boardLane(props.row) === 'waiting' && props.row.lastReplyAt" class="tk-line tk-sub">
-          You replied {{ getTimeAgo(props.row.lastReplyAt) }}
+        <div v-if="boardLane(tp.row) === 'waiting' && tp.row.lastReplyAt" class="tk-line tk-sub">
+          You replied {{ getTimeAgo(tp.row.lastReplyAt) }}
         </div>
-        <div v-else class="tk-line tk-said" :title="props.row.lastRequesterText">“{{ props.row.lastRequesterText }}”</div>
+        <div v-else class="tk-line tk-said" :title="tp.row.lastRequesterText">“{{ tp.row.lastRequesterText }}”</div>
       </q-td>
 
-      <q-td key="requester" :props="props" class="tk-requester tk-wide">
-        <q-avatar size="26px" :color="props.row.avatarColor" text-color="white" class="tk-av">
-          <img v-if="props.row.avatarUrl" :src="props.row.avatarUrl" :alt="props.row.reporterName" />
-          <template v-else>{{ props.row.initials }}</template>
+      <q-td key="requester" :props="tp" class="tk-requester tk-wide">
+        <q-avatar size="26px" :color="tp.row.avatarColor" text-color="white" class="tk-av">
+          <img v-if="tp.row.avatarUrl" :src="tp.row.avatarUrl" :alt="tp.row.reporterName" />
+          <template v-else>{{ tp.row.initials }}</template>
         </q-avatar>
         <div class="tk-stack">
-          <div class="tk-line tk-strong" :title="props.row.reporterName">{{ props.row.reporterName }}</div>
-          <div class="tk-line tk-sub">{{ props.row.reporterTitle }}</div>
+          <div class="tk-line tk-strong" :title="tp.row.reporterName">{{ tp.row.reporterName }}</div>
+          <div class="tk-line tk-sub">{{ tp.row.reporterTitle }}</div>
         </div>
       </q-td>
 
-      <q-td key="place" :props="props" class="tk-stack">
-        <template v-if="props.row.accommodationName">
-          <div class="tk-line tk-strong" :title="props.row.accommodationName">{{ props.row.accommodationName }}</div>
-          <div v-if="props.row.room !== '—'" class="tk-line tk-sub">{{ props.row.room }}</div>
+      <q-td key="place" :props="tp" class="tk-stack">
+        <template v-if="tp.row.accommodationName">
+          <div class="tk-line tk-strong" :title="tp.row.accommodationName">{{ tp.row.accommodationName }}</div>
+          <div v-if="tp.row.room !== '—'" class="tk-line tk-sub">{{ tp.row.room }}</div>
         </template>
         <span v-else class="tk-none">—</span>
       </q-td>
 
-      <q-td key="category" :props="props" class="tk-plain tk-narrow">{{ capitalize(props.row.category) }}</q-td>
+      <q-td key="category" :props="tp" class="tk-plain tk-narrow">{{ capitalize(tp.row.category) }}</q-td>
 
-      <q-td key="priority" :props="props" class="tk-narrow">
-        <BadgePill :tone="getStatus(props.row.priority).tone" :icon="getStatus(props.row.priority).icon ?? ''" :label="stLabel(props.row.priority)" />
+      <q-td key="priority" :props="tp" class="tk-narrow">
+        <BadgePill :tone="getStatus(tp.row.priority).tone" :icon="getStatus(tp.row.priority).icon ?? ''" :label="stLabel(tp.row.priority)" />
       </q-td>
 
-      <q-td key="waiting" :props="props" class="tk-stack">
-        <template v-if="props.row.waitingSince">
-          <span class="tk-wait" :class="{ 'is-overdue': isOverdue(props.row.waitingSince) }">
-            {{ waitAge(props.row.waitingSince) }}
+      <q-td key="waiting" :props="tp" class="tk-stack">
+        <template v-if="tp.row.waitingSince">
+          <span class="tk-wait" :class="{ 'is-overdue': isOverdue(tp.row.waitingSince) }">
+            {{ waitAge(tp.row.waitingSince) }}
           </span>
-          <div v-if="isOverdue(props.row.waitingSince)" class="tk-overdue">Overdue</div>
-          <div v-else class="tk-sub">{{ props.row.lastReplyAt ? 'since reply' : 'no reply yet' }}</div>
+          <div v-if="isOverdue(tp.row.waitingSince)" class="tk-overdue">Overdue</div>
+          <div v-else class="tk-sub">{{ tp.row.lastReplyAt ? 'since reply' : 'no reply yet' }}</div>
         </template>
         <template v-else>
           <span class="tk-none">—</span>
-          <div v-if="props.row.status === 'resolved'" class="tk-sub">Resolved</div>
-          <div v-else-if="props.row.lastReplyAt" class="tk-sub">replied {{ getTimeAgo(props.row.lastReplyAt) }}</div>
+          <div v-if="tp.row.status === 'resolved'" class="tk-sub">Resolved</div>
+          <div v-else-if="tp.row.lastReplyAt" class="tk-sub">replied {{ getTimeAgo(tp.row.lastReplyAt) }}</div>
         </template>
       </q-td>
 
-      <q-td key="assignee" :props="props" class="tk-assignee tk-wide">
-        <template v-if="props.row.assignee">
-          <span class="tk-ring">{{ getInitials(props.row.assignee) }}</span>
-          <span class="tk-line tk-strong" :title="props.row.assignee">{{ props.row.assignee }}</span>
+      <q-td key="assignee" :props="tp" class="tk-assignee tk-wide">
+        <template v-if="tp.row.assignee">
+          <span class="tk-ring">{{ getInitials(tp.row.assignee) }}</span>
+          <span class="tk-line tk-strong" :title="tp.row.assignee">{{ tp.row.assignee }}</span>
         </template>
         <template v-else>
           <span class="tk-ring is-none" />
@@ -105,6 +105,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ActiveFilters } from '@/types/table'
 import { Icon } from '@iconify/vue'
 import TableCard from '@/components/table/TableCard.vue'
 import BadgePill from '@/components/user/BadgePill.vue'
@@ -126,7 +127,7 @@ const props = defineProps<{
   selectedId: string | null
   highlightId: string
   filters: { key: string; label: string; options: { label: string; value: string }[] }[]
-  activeFilters: Record<string, string[]>
+  activeFilters: ActiveFilters
   sort: SortState
 }>()
 
@@ -134,7 +135,7 @@ defineEmits<{
   (e: 'update:search', value: string): void
   (e: 'update:page', value: number): void
   (e: 'update:sort', value: SortState): void
-  (e: 'update:activeFilters', value: Record<string, string[]>): void
+  (e: 'update:activeFilters', value: ActiveFilters): void
   (e: 'select', id: string): void
   (e: 'refresh'): void
 }>()

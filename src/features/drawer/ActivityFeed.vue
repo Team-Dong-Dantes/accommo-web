@@ -34,6 +34,7 @@
       </div>
       <div class="af-body">
         <!-- Built by each record's builder with every spliced value escaped. -->
+        <!-- eslint-disable-next-line vue/no-v-html -->
         <div class="af-text" v-html="a.text"></div>
         <div class="af-time">
           {{ a.time }}<template v-if="a.by"> · {{ a.by }}</template>
@@ -47,6 +48,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ActiveFilters } from '@/types/table'
 import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import TabEmptyState from './TabEmptyState.vue'
@@ -66,7 +68,7 @@ const props = withDefaults(defineProps<{ items: PreviewActivity[]; dense?: boole
 
 const notify = useNotify()
 const search = ref('')
-const active = ref<Record<string, string[]>>({})
+const active = ref<ActiveFilters>({})
 const selected = ref<AuditEvent | null>(null)
 
 function plain(html: string): string {

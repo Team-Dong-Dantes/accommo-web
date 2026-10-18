@@ -139,6 +139,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ActiveFilters } from '@/types/table'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useSort } from '@/composables/useSort'
 import { useUserRecord } from '@/composables/useUserRecord'
@@ -167,8 +168,8 @@ const { rows: allRows, students, landlords, campusResponseRate, loading, error: 
 const search = ref('')
 const currentPage = ref(1)
 const activeTab = ref<'students' | 'landlords'>('students')
-const EMPTY_FILTERS = (): Record<string, string[]> => ({})
-const activeFilters = ref<Record<string, string[]>>(EMPTY_FILTERS())
+const EMPTY_FILTERS = (): ActiveFilters => ({})
+const activeFilters = ref<ActiveFilters>(EMPTY_FILTERS())
 const route = useRoute()
 const { drawerOpen, selectedUser, detailLoading, standing, signIn, closed, openUser, fetchDetail, loadAccountState, userPreview } = useUserRecord(campusResponseRate)
 

@@ -70,6 +70,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ActiveFilters } from '@/types/table'
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useTickets } from '@/composables/useTickets'
@@ -200,7 +201,7 @@ async function confirmResolve(note: string) {
 
 /* ---- Table: lane tabs, the Filter menu, pagination ---- */
 const laneTab = ref<'all' | BoardLane>('all')
-const tableFilters = ref<Record<string, string[]>>({})
+const tableFilters = ref<ActiveFilters>({})
 
 const tabs = computed(() => {
   const n = (lane: BoardLane) => rows.value.filter((t) => boardLane(t) === lane).length
