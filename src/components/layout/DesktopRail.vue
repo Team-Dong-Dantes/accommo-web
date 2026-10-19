@@ -48,7 +48,8 @@ import { dashboardLeaf, navGroups } from './nav-config'
 import { useAuthStore } from '@/stores/auth'
 import CommandPalette from '@/components/ui/CommandPalette.vue'
 import { supabase } from '@/utils/supabase'
-import { fetchWorkCounts } from '@/api/notifications'
+import { fetchOpenTicketCount } from '@/api/notifications'
+import { countReadyRequests } from '@/composables/useVerifications'
 
 const route = useRoute()
 const router = useRouter()
@@ -94,12 +95,12 @@ const groups = computed<Row[][]>(() => [
 ])
 
 async function loadWorkCounts() {
-  const { users: usersResult, accommodations: propertiesResult, tickets: ticketsResult } = await fetchWorkCounts()
+  const [ready, ticketsResult] = await Promise.all([countReadyRequests(), fetchOpenTicketCount()])
 
   // Only the tabs this admin's Verifications page shows.
-  const accounts = authStore.can('verification') && !usersResult.error ? usersResult.count ?? 0 : 0
-  const rounds = authStore.can('accreditation') && !propertiesResult.error ? propertiesResult.count ?? 0 : 0
-  if (!usersResult.error || !propertiesResult.error) workCounts.value.verifications = accounts + rounds
+  const accounts = authStore.can('verification') ? ready.accounts ?? 0 : 0
+  const rounds = authStore.can('accreditation') ? ready.rounds ?? 0 : 0
+  if (ready.accounts !== null || ready.rounds !== null) workCounts.value.verifications = accounts + rounds
   if (!ticketsResult.error) workCounts.value['support-tickets'] = ticketsResult.count ?? 0
 }
 

@@ -27,6 +27,42 @@ registerReset(() => {
   hasLoaded.value = false
 })
 
+/**
+ * Every student and landlord/landlady account request, ready or not, in the
+ * page's order. The rail's badge and the dashboard read the page's readiness
+ * rule through this rather than a copy of it.
+ */
+export async function loadAccountRequests(): Promise<VerificationRequest[]> {
+  const roleOf = (user: any) => String(user.role).toLowerCase().trim()
+  const users = groupQueueRows(await fetchVerificationQueue()).filter((user) => ['student', 'landlord'].includes(roleOf(user)))
+  const ids = users.map((user) => user.id)
+  const [details, applicants] = await Promise.all([
+    fetchApplicantDetails(ids).catch(() => null),
+    fetchPendingApplicants(ids).catch(() => new Set<string>()),
+  ])
+  return users.map((user) => toAccountRequest(user, roleOf(user) === 'landlord', details, applicants)).sort(byQueueOrder)
+}
+
+/** Every listing with an open accreditation round, as the page lists them. */
+async function loadRoundRequests(): Promise<VerificationRequest[]> {
+  const list = ((await fetchOpenRounds()) ?? []).filter((r) => r.accommodation)
+  const { documents } = await fetchRoundEvidence(list.map((r) => r.accommodation.id as string))
+  return toAccommodationRequests(list, documents, null)
+}
+
+/**
+ * The rail's Verifications badge: the requests the page opens on, those ready
+ * to decide. Counting every pending account and open round put a number on the
+ * rail over an empty page — those were still waiting on the applicant. Null is
+ * a count that could not be read.
+ */
+export async function countReadyRequests() {
+  const [accounts, rounds] = await Promise.allSettled([loadAccountRequests(), loadRoundRequests()])
+  const ready = (result: PromiseSettledResult<VerificationRequest[]>) =>
+    result.status === 'fulfilled' ? result.value.filter((request) => request.ready).length : null
+  return { accounts: ready(accounts), rounds: ready(rounds) }
+}
+
 export function useVerifications() {
   const loading = ref(!hasLoaded.value)
   const notify = useNotify()
