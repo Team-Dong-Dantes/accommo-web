@@ -145,7 +145,6 @@ function rowClass(t: Ticket) {
   if (!t.id) return ''
   return [
     'cursor-pointer ticket-row',
-    `prio-${t.priority}`,
     t.id === props.selectedId ? 'is-active' : '',
     t.id === props.highlightId ? 'row-flash' : '',
   ].filter(Boolean).join(' ')
@@ -155,17 +154,7 @@ function rowClass(t: Ticket) {
 <style scoped>
 /* Rows and header cells are drawn by DataTable, and TableCard has two root
    elements, so this component's scope reaches neither — :deep() matched
-   nothing. :global with the ticket-row / tk- prefixes keeps them contained.
-
-   Priority runs down each row's left edge, so the queue reads for urgency
-   before any text does. The tones are the ones the priority badges use. It
-   sits on the first cell, not the row: cells paint an opaque background over
-   anything the row draws beneath them. */
-:global(.ticket-row > td:first-child) { box-shadow: inset 3px 0 0 var(--row-prio, transparent); }
-:global(.ticket-row.prio-urgent) { --row-prio: var(--c-danger); }
-:global(.ticket-row.prio-high) { --row-prio: color-mix(in srgb, var(--c-danger) 70%, var(--c-warning)); }
-:global(.ticket-row.prio-medium) { --row-prio: var(--c-warning); }
-:global(.ticket-row.prio-low) { --row-prio: var(--c-info); }
+   nothing. :global with the ticket-row / tk- prefixes keeps them contained. */
 :global(.ticket-row.is-active) { background: var(--c-primary-soft) !important; }
 :global(.ticket-row.row-flash) { animation: rowFlash 2.4s ease; }
 @keyframes rowFlash {
