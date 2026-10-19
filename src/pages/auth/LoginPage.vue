@@ -116,8 +116,12 @@ async function handleLogin() {
     loading.value = true
     await authStore.login(email.value, password.value, captchaHost.value)
 
-    $q.notify({ message: 'Welcome back!', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-check-circle', iconColor: 'teal-4', classes: 'custom-notify' })
-    void router.push(authStore.needsOnboarding ? '/onboarding' : '/dashboard')
+    await router.push(authStore.needsOnboarding ? '/onboarding' : '/dashboard')
+    // The guard may have stopped at a step first (two-factor code, its setup,
+    // a new password); the welcome waits until they are actually in.
+    if (!router.currentRoute.value.path.startsWith('/auth/')) {
+      $q.notify({ message: 'Welcome back!', position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-check-circle', iconColor: 'teal-4', classes: 'custom-notify' })
+    }
   } catch (error: unknown) {
     $q.notify({ message: errorMessage(error, 'An unexpected error occurred'), position: 'top', color: 'grey-9', textColor: 'white', icon: 'mdi-close-circle', iconColor: 'red-4', classes: 'custom-notify' })
   } finally {

@@ -75,6 +75,7 @@ async function submit() {
       const factor = await fetchVerifiedTotp()
       if (!factor) throw new Error('No authenticator is set up for this account.')
       await verifyTotp(factor.id, code.value)
+      notify.success('Welcome back!')
     } else {
       const weak = passwordProblem(password.value)
       if (weak) throw new Error(weak)
