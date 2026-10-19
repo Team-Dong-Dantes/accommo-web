@@ -24,6 +24,13 @@
   --c-info: #0E7490;
   --c-info-soft: #E0EFF3;
 
+  /* ----- Color: chart series (identity, never status) -----
+     Fixed order, checked for colour-blind separation and contrast against
+     --c-surface in each theme. */
+  --c-series-1: #0D9488;
+  --c-series-2: #6366F1;
+  --c-series-3: #E0654B;
+
   /* ----- Color: surfaces & text ----- */
   --c-bg: #F3F6FA;                       /* lighter pale cool gray app background */
   --c-surface: #FAFCFE;                  /* lighter pale cool gray surface — never white */
@@ -135,6 +142,10 @@
   --c-danger-soft: #3A1414;
   --c-info: #60A5FA;
   --c-info-soft: #132A42;
+
+  --c-series-1: #14A394;
+  --c-series-2: #6D6AF0;
+  --c-series-3: #E0654B;
 
   --c-panel-dark: #0E2E2A;
   --c-panel-dark-text: #EAF4F1;

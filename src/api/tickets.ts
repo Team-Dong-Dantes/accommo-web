@@ -33,27 +33,6 @@ export async function fetchStudentProfiles(): Promise<StudentProfileRow[]> {
   return (data ?? []) as unknown as StudentProfileRow[]
 }
 
-// --- tickets -----------------------------------------------------------------
-
-export interface TicketSummaryRow {
-  id: string
-  subject: string | null
-  priority: string
-  status: string
-  category: string | null
-  assignee_id: string | null
-  reported_at: string
-}
-
-export async function fetchTicketSummaries(): Promise<TicketSummaryRow[]> {
-  const { data, error } = await supabase
-    .from('tickets')
-    .select('id, subject, priority, status, category, assignee_id, reported_at')
-    .order('reported_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []) as unknown as TicketSummaryRow[]
-}
-
 // --- tickets (the Support Tickets console) ------------------------------------
 
 const ENRICHED_SELECT = `

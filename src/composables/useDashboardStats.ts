@@ -10,6 +10,7 @@ import { registerReset } from '@/utils/pageCache'
 import {
   fetchAccommodationRows,
   fetchExpiringAccommodationAccreditations,
+  fetchAccreditedPermits,
   fetchPendingAccommodations,
   fetchAccommodationDocumentIndex,
 } from '@/api/accommodations'
@@ -20,13 +21,14 @@ import {
   fetchNewStudentCount,
   fetchRegistrationsSince,
   fetchStudentSexes,
-  fetchPendingVerificationUsers,
-  fetchVerificationDocIndex,
 } from '@/api/users'
 import {
   fetchStudentProfiles,
-  fetchTicketSummaries,
+  fetchEnrichedTickets,
 } from '@/api/tickets'
+import { currentUserId } from '@/api/notifications'
+import { mapTicket } from '@/composables/useTickets'
+import { loadAccountRequests } from '@/composables/useVerifications'
 import {
   fetchActiveLeaseCount,
   fetchExpiringLeases,
@@ -37,12 +39,13 @@ import {
 } from '@/api/payments'
 import {
   computeAccommodations,
-  computeOperationalQueues,
+  computeAccreditationQueue,
+  computeComingUp,
   computeRegistrationTrend,
   computeRooms,
   computeStudentDemographics,
-  computeTicketMix,
-  computeVerificationAges,
+  computeTickets,
+  computeVerifications,
   emptyStats,
 } from './dashboardCompute'
 
@@ -95,8 +98,9 @@ export function useDashboardStats() {
       const thirtyDaysIso = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString()
       const regFetchSince = new Date(Date.now() - 395 * 24 * 3600 * 1000).toISOString()
 
-      // 19 queries, down from 26: seven fed transforms that were computed and
-      // then rendered nowhere.
+      // The two work queues read what their pages read, through the pages' own
+      // loaders, so the dashboard cannot disagree with them. Either failing
+      // blanks its own card, not the dashboard.
       const [
         adminName,
         accommodations,
@@ -106,14 +110,15 @@ export function useDashboardStats() {
         profiles,
         sexes,
         ticketRows,
+        me,
         activeLeases,
         leaseAccreditation,
         regRows,
         expLeases,
         expAccred,
+        accreditedPermits,
         landlordPaymentsPending,
-        verificationUsers,
-        verificationDocs,
+        accountRequests,
         pendingAccommodations,
         accommodationDocuments,
       ] = await settleWithin(Promise.all([
@@ -124,15 +129,16 @@ export function useDashboardStats() {
         fetchNewStudentCount(since),
         fetchStudentProfiles(),
         fetchStudentSexes(),
-        fetchTicketSummaries(),
+        fetchEnrichedTickets().then((rows) => rows.map((row) => mapTicket(row))).catch(() => null),
+        currentUserId().catch(() => null),
         fetchActiveLeaseCount(),
         fetchActiveLeaseAccreditation(),
         fetchRegistrationsSince(regFetchSince),
         fetchExpiringLeases(nowIso, thirtyDaysIso),
         fetchExpiringAccommodationAccreditations(nowIso, thirtyDaysIso),
+        fetchAccreditedPermits(),
         fetchPendingLandlordPaymentVerificationCount(),
-        fetchPendingVerificationUsers(),
-        fetchVerificationDocIndex(),
+        loadAccountRequests().catch(() => null),
         fetchPendingAccommodations(),
         fetchAccommodationDocumentIndex(),
       ]))
@@ -162,38 +168,10 @@ export function useDashboardStats() {
       // Registration trend — the 13-month series behind the registrations chart.
       computeRegistrationTrend(regRows, data)
 
-      // Shape, not just depth: how long the queue has been waiting.
-      computeVerificationAges(verificationUsers, data)
-      computeTicketMix(ticketRows, data)
-
-      computeOperationalQueues(
-        verificationUsers,
-        verificationDocs,
-        pendingAccommodations,
-        accommodationDocuments,
-        ticketRows,
-        data,
-      )
-
-      // Expiring leases (active, ending within 30 days)
-      data.expiringLeases = expLeases.map(l => ({
-        id: l.id,
-        end_date: l.end_date,
-      }))
-
-      // Expiring accommodation accreditations (within 30 days).
-      data.expiringAccreditations = expAccred.length
-
-      data.recentTickets = ticketRows
-        .filter((ticket) => ['open', 'in_progress'].includes(ticket.status.toLowerCase()))
-        .slice(0, 5)
-        .map((ticket) => ({
-          id: ticket.id,
-          subject: ticket.subject,
-          priority: ticket.priority,
-          status: ticket.status,
-          reported_at: ticket.reported_at,
-        }))
+      computeVerifications(accountRequests, data)
+      computeTickets(ticketRows, me, data)
+      computeAccreditationQueue(pendingAccommodations, accommodationDocuments, data)
+      computeComingUp(expAccred, accreditedPermits, expLeases, thirtyDaysIso, data)
     } catch (e) {
       error.value = errorMessage(e, 'Failed to load dashboard data')
     } finally {

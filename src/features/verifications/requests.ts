@@ -80,6 +80,7 @@ export function toAccountRequest(
     avatarColor: manager ? 'teal-7' : 'blue-6',
     avatarUrl: user.avatar_url || '',
     requirements,
+    role: manager ? 'landlord' : 'student',
     ready: requirements.every((item) => item.ok),
     applying: !manager && applicants.has(user.id),
     ageDays,

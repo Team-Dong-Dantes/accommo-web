@@ -1,15 +1,15 @@
 // The dashboard's figures, computed from the rows useDashboardStats fetches.
 // Pure: each compute* writes its part of the stats object and nothing else.
 
-import type { DashboardStats } from '@/types/dashboard'
-import { ageInDays } from '@/utils/format'
-import type { AccommodationRow, fetchPendingAccommodations } from '@/api/accommodations'
+import type { ComingUpItem, DashboardStats } from '@/types/dashboard'
+import type { AccommodationExpiryRow, AccommodationRow, PermitExpiryRow, fetchPendingAccommodations } from '@/api/accommodations'
+import type { LeaseExpiryRow } from '@/api/leases'
 import type { RoomRow } from '@/api/rooms'
-import type { fetchPendingVerificationUsers } from '@/api/users'
-import type { fetchStudentProfiles, fetchTicketSummaries } from '@/api/tickets'
+import type { fetchStudentProfiles } from '@/api/tickets'
+import type { Ticket } from '@/composables/useTickets'
+import type { VerificationRequest } from '@/features/verifications/queue'
+import { boardLane, compareTickets, isOverdue, type BoardLane } from '@/utils/ticketTriage'
 
-const VERIFICATION_REVIEW_SLA_DAYS = 3
-const SUPPORT_TICKET_SLA_DAYS = 3
 const REQUIRED_ACCOMMODATION_PERMITS = [
   { type: 'sanitary_permit', label: 'Sanitary permit' },
   { type: 'fire_safety', label: 'Fire safety certificate' },
@@ -33,43 +33,20 @@ export function emptyStats(): DashboardStats {
     gender: { female: 0, male: 0, other: 0, unspecified: 0 },
     activeLeases: 0,
     registrationsByMonth: [],
-    verificationAges: [],
-    accommodationFunnel: [],
-    permitCompleteness: [],
-    ticketsByCategory: [],
-    ticketAges: [],
-    oldestUrgent: null,
-    ticketsByPriority: [],
     leasesByAccreditation: { accredited: 0, pipeline: 0, delisted: 0 },
-    expiringLeases: [],
-    expiringAccreditations: 0,
-    recentTickets: [],
+    comingUp: [],
     landlordPayments: { pendingVerification: 0 },
-    verificationQueue: { students: 0, landlords: 0, withDocs: 0, oldestDays: 0, oldestStudentDays: 0, studentsReadyForReview: 0, studentsPastSla: 0, pastSla: 0, oldest: [] },
+    verifications: null,
     accreditationQueue: { total: 0, withPermits: 0, ready: [] },
-    ticketQueue: { open: 0, urgent: 0, unassigned: 0, oldestDays: 0, pastSla: 0, createdLast7Days: 0, createdPrevious7Days: 0, leadingOpenCategory: null, oldest: [] },
+    tickets: null,
   }
 }
 
 // --- pure transforms (verbatim from the original monolith) -----------------
 
-const FUNNEL_STAGES: { key: string; stage: string }[] = [
-  { key: 'pending', stage: 'Pending' },
-  { key: 'reviewing', stage: 'Reviewing' },
-  { key: 'accredited', stage: 'Accredited' },
-  { key: 'rejected', stage: 'Rejected' },
-  { key: 'delisted', stage: 'Delisted' },
-]
-
 export function computeAccommodations(accommodations: AccommodationRow[], rooms: RoomRow[], data: DashboardStats) {
   data.accommodations.total = accommodations.length
   data.accommodations.accredited = accommodations.filter((accommodation) => accommodation.status === 'accredited').length
-
-  // Where applications actually stop. Empty stages are dropped so the chart
-  // does not carry bars of nothing.
-  data.accommodationFunnel = FUNNEL_STAGES
-    .map(({ key, stage }) => ({ stage, count: accommodations.filter((a) => a.status === key).length }))
-    .filter((entry) => entry.count > 0)
 
   // Rent is per-room (rooms.monthly_rent), not per-accommodation.
   const rents = rooms.map((r) => r.monthly_rent).filter((r): r is number => r != null)
@@ -210,118 +187,79 @@ export function computeRegistrationTrend(
 }
 
 /**
- * Bucket the verification queue by how long each account has waited.
- *
- * The queue was previously reported as one total. Against the live data that
- * total was 69 while 47 of those accounts had been waiting more than a
- * fortnight and only 2 were inside the 3-day target — a shape a single number
- * cannot carry. Buckets are fixed rather than derived so the x-axis means the
- * same thing from one day to the next.
+ * The verification queue as the Verifications page reads it (useVerifications'
+ * loadAccountRequests): what OSAS can decide now, and what the rest still lack.
+ * The card used to chart every pending account's age, when most of them were
+ * still missing a document OSAS cannot decide without. Null is a queue that
+ * could not be read.
  */
-// `overdue` is relative to VERIFICATION_REVIEW_SLA_DAYS (3), so everything past
-// the first bucket has already missed the target — 4–7d included.
-const AGE_BUCKETS: { label: string; maxDays: number; overdue: boolean }[] = [
-  { label: '0–3d', maxDays: VERIFICATION_REVIEW_SLA_DAYS, overdue: false },
-  { label: '4–7d', maxDays: 7, overdue: true },
-  { label: '8–14d', maxDays: 14, overdue: true },
-  { label: '15d+', maxDays: Infinity, overdue: true },
-]
-
-export function computeVerificationAges(
-  pendingUsers: Awaited<ReturnType<typeof fetchPendingVerificationUsers>>,
-  data: DashboardStats,
-) {
-  const rows = AGE_BUCKETS.map((bucket) => ({
-    label: bucket.label,
-    students: 0,
-    landlords: 0,
-    overdue: bucket.overdue,
-  }))
-
-  for (const user of pendingUsers) {
-    const age = ageInDays(user.created_at)
-    const index = AGE_BUCKETS.findIndex((bucket) => age <= bucket.maxDays)
-    const row = rows[index === -1 ? rows.length - 1 : index]
-    if (!row) continue
-    if (user.role === 'landlord') row.landlords += 1
-    else row.students += 1
+export function computeVerifications(requests: VerificationRequest[] | null, data: DashboardStats) {
+  if (!requests) {
+    data.verifications = null
+    return
   }
-
-  data.verificationAges = rows
+  const ready = requests.filter((request) => request.ready)
+  const waiting = requests.filter((request) => !request.ready)
+  const missing = new Map<string, number>()
+  for (const request of waiting) {
+    for (const item of request.requirements) {
+      if (!item.ok) missing.set(item.label, (missing.get(item.label) ?? 0) + 1)
+    }
+  }
+  const top = Array.from(missing.entries()).sort((a, b) => b[1] - a[1])[0]
+  data.verifications = {
+    ready: ready.length,
+    waiting: waiting.length,
+    late: ready.filter((request) => request.late).length,
+    rows: ready.slice(0, 6).map((request) => ({
+      id: request.rawId,
+      name: request.name,
+      role: request.role ?? 'student',
+      ageDays: request.ageDays,
+      late: request.late,
+      applying: request.applying,
+    })),
+    mostMissing: top ? { label: top[0], count: top[1] } : null,
+  }
 }
 
-export function computeTicketMix(
-  tickets: Awaited<ReturnType<typeof fetchTicketSummaries>>,
-  data: DashboardStats,
-) {
-  const tally = (values: (string | null)[]) => {
-    const counts = new Map<string, number>()
-    for (const value of values) {
-      const key = value || 'Uncategorised'
-      counts.set(key, (counts.get(key) ?? 0) + 1)
-    }
-    return Array.from(counts.entries())
-      .map(([name, val]) => ({ name, val }))
-      .sort((a, b) => b.val - a.val)
+/**
+ * The support queue by who owes the next move, with the rules the Support
+ * Tickets board and table use (utils/ticketTriage), so the card and the page
+ * agree on what is overdue: 48 hours since the requester's unanswered message.
+ * It used to count days since filing against a 3-day target, so a ticket
+ * already answered still read as waiting. Null is a queue that could not be read.
+ */
+export function computeTickets(tickets: Ticket[] | null, me: string | null, data: DashboardStats) {
+  if (!tickets) {
+    data.tickets = null
+    return
   }
-
-  const open = tickets.filter((ticket) => ['open', 'in_progress'].includes(ticket.status.toLowerCase()))
-
-  data.ticketsByCategory = tally(open.map((t) => t.category))
-  data.ticketsByPriority = tally(open.map((t) => t.priority))
-
-  data.ticketAges = AGE_BUCKETS.map(({ label, maxDays, overdue }, index) => {
-    const floor = index === 0 ? -Infinity : (AGE_BUCKETS[index - 1]?.maxDays ?? 0)
-    return {
-      label,
-      overdue,
-      val: open.filter((ticket) => {
-        const age = ageInDays(ticket.reported_at)
-        return age > floor && age <= maxDays
-      }).length,
-    }
-  })
-
-  const urgent = open
-    .filter((ticket) => ticket.priority.toLowerCase() === 'urgent')
-    .sort((a, b) => ageInDays(b.reported_at) - ageInDays(a.reported_at))[0]
-  data.oldestUrgent = urgent
-    ? { category: urgent.category || 'Uncategorised', ageDays: ageInDays(urgent.reported_at) }
-    : null
+  const lanes: Record<BoardLane, number> = { new: 0, needs_reply: 0, waiting: 0, resolved: 0 }
+  for (const ticket of tickets) lanes[boardLane(ticket)] += 1
+  const owed = tickets.filter((ticket) => ticket.waitingSince).sort(compareTickets)
+  data.tickets = {
+    new: lanes.new,
+    needsReply: lanes.needs_reply,
+    waiting: lanes.waiting,
+    overdue: owed.filter((ticket) => isOverdue(ticket.waitingSince)).length,
+    rows: owed.slice(0, 6).map((ticket) => ({
+      id: ticket.id,
+      ref: ticket.ref,
+      subject: ticket.subject,
+      reporter: ticket.reporterName,
+      waitingSince: ticket.waitingSince!,
+      overdue: isOverdue(ticket.waitingSince),
+      mine: !!me && ticket.assigneeId === me,
+    })),
+  }
 }
 
-export function computeOperationalQueues(
-  pendingUsers: Awaited<ReturnType<typeof fetchPendingVerificationUsers>>,
-  verificationDocs: Map<string, string[]>,
+export function computeAccreditationQueue(
   pendingAccommodations: Awaited<ReturnType<typeof fetchPendingAccommodations>>,
   accommodationDocuments: Map<string, string[]>,
-  tickets: Awaited<ReturnType<typeof fetchTicketSummaries>>,
   data: DashboardStats,
 ) {
-  const verificationOldest = pendingUsers.slice(0, 6).map((user) => ({
-    id: user.id,
-    name: user.full_name || 'Unknown user',
-    role: user.role,
-    ageDays: ageInDays(user.created_at),
-    hasDocs: (verificationDocs.get(user.id)?.length ?? 0) > 0,
-  }))
-  const oldestPendingStudent = pendingUsers.find((user) => user.role === 'student')
-  data.verificationQueue = {
-    students: pendingUsers.filter((user) => user.role === 'student').length,
-    landlords: pendingUsers.filter((user) => user.role === 'landlord').length,
-    withDocs: pendingUsers.filter((user) => (verificationDocs.get(user.id)?.length ?? 0) > 0).length,
-    oldestDays: verificationOldest[0]?.ageDays ?? 0,
-    oldestStudentDays: ageInDays(oldestPendingStudent?.created_at ?? null),
-    studentsReadyForReview: pendingUsers.filter((user) =>
-      user.role === 'student' && (verificationDocs.get(user.id)?.length ?? 0) >= 2,
-    ).length,
-    studentsPastSla: pendingUsers.filter((user) =>
-      user.role === 'student' && ageInDays(user.created_at) > VERIFICATION_REVIEW_SLA_DAYS,
-    ).length,
-    pastSla: pendingUsers.filter((user) => ageInDays(user.created_at) > VERIFICATION_REVIEW_SLA_DAYS).length,
-    oldest: verificationOldest,
-  }
-
   // The applications an admin can act on today, by name. `accommodations` has
   // no created_at, so there is no age to rank by — a complete permit set is the
   // only thing that makes one of these decidable.
@@ -331,55 +269,60 @@ export function computeOperationalQueues(
       return REQUIRED_ACCOMMODATION_PERMITS.every(({ type }) => uploaded.has(type))
     })
     .map((accommodation) => ({ id: accommodation.id, name: accommodation.name || 'Unnamed accommodation' }))
-  // How complete each pending application is, 0–4 permits.
-  const completenessTally = [0, 0, 0, 0, 0]
-  for (const accommodation of pendingAccommodations) {
-    const uploaded = new Set(accommodationDocuments.get(accommodation.id) ?? [])
-    const submitted = REQUIRED_ACCOMMODATION_PERMITS.filter(({ type }) => uploaded.has(type)).length
-    completenessTally[submitted] = (completenessTally[submitted] ?? 0) + 1
-  }
-  data.permitCompleteness = completenessTally.map((accommodations, submitted) => ({
-    submitted,
-    accommodations,
-  }))
 
   data.accreditationQueue = {
     total: pendingAccommodations.length,
     withPermits: accreditationReady.length,
     ready: accreditationReady.slice(0, 6),
   }
+}
 
-  const openTickets = tickets
-    .filter((ticket) => ['open', 'in_progress'].includes(ticket.status.toLowerCase()))
-    .sort((a, b) => new Date(a.reported_at).getTime() - new Date(b.reported_at).getTime())
-  const sevenDaysAgo = Date.now() - 7 * 86_400_000
-  const fourteenDaysAgo = Date.now() - 14 * 86_400_000
-  const ticketCreatedAt = (ticket: { reported_at: string }) => new Date(ticket.reported_at).getTime()
-  const openCategoryCounts = new Map<string, number>()
-  for (const ticket of openTickets) {
-    const category = ticket.category || 'Other'
-    openCategoryCounts.set(category, (openCategoryCounts.get(category) ?? 0) + 1)
+/** Accreditations, permits and leases lapsing in the next 30 days, soonest first. */
+export function computeComingUp(
+  accreditations: AccommodationExpiryRow[],
+  permits: PermitExpiryRow[],
+  leases: LeaseExpiryRow[],
+  thirtyDaysIso: string,
+  data: DashboardStats,
+) {
+  const items: ComingUpItem[] = accreditations.map((a) => ({
+    kind: 'accreditation',
+    key: `accreditation:${a.id}`,
+    name: a.name || 'Unnamed accommodation',
+    what: 'Accreditation',
+    date: a.accreditation_expires_at,
+    to: `/accommodation-hub?accommodation=${a.id}`,
+  }))
+
+  // Newest version first, so the first of each permit seen is the one on file;
+  // an older file's expiry no longer counts once it has been replaced.
+  const seen = new Set<string>()
+  const horizon = new Date(thirtyDaysIso).getTime()
+  for (const permit of permits) {
+    const key = `${permit.accommodation_id}:${permit.doc_type}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    if (!permit.expires_at || new Date(permit.expires_at).getTime() > horizon) continue
+    items.push({
+      kind: 'permit',
+      key: `permit:${key}`,
+      name: permit.accommodation?.name || 'Unnamed accommodation',
+      what: REQUIRED_ACCOMMODATION_PERMITS.find((p) => p.type === permit.doc_type)?.label ?? permit.doc_type,
+      date: permit.expires_at,
+      to: `/accommodation-hub?accommodation=${permit.accommodation_id}`,
+    })
   }
-  const leadingOpenCategory = Array.from(openCategoryCounts.entries())
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count)[0] ?? null
-  data.ticketQueue = {
-    open: openTickets.length,
-    urgent: openTickets.filter((ticket) => ticket.priority === 'urgent').length,
-    unassigned: openTickets.filter((ticket) => !ticket.assignee_id).length,
-    oldestDays: ageInDays(openTickets[0]?.reported_at ?? null),
-    pastSla: openTickets.filter((ticket) => ageInDays(ticket.reported_at) > SUPPORT_TICKET_SLA_DAYS).length,
-    createdLast7Days: tickets.filter((ticket) => ticketCreatedAt(ticket) >= sevenDaysAgo).length,
-    createdPrevious7Days: tickets.filter((ticket) => {
-      const createdAt = ticketCreatedAt(ticket)
-      return createdAt >= fourteenDaysAgo && createdAt < sevenDaysAgo
-    }).length,
-    leadingOpenCategory,
-    oldest: openTickets.slice(0, 6).map((ticket) => ({
-      id: ticket.id,
-      subject: ticket.subject || 'Untitled ticket',
-      priority: ticket.priority,
-      ageDays: ageInDays(ticket.reported_at),
-    })),
+
+  for (const lease of leases) {
+    items.push({
+      kind: 'lease',
+      key: `lease:${lease.id}`,
+      name: lease.student?.full_name || 'Unknown student',
+      what: `Lease at ${lease.room?.accommodation?.name || 'their accommodation'}`,
+      date: lease.end_date,
+      to: `/users?user=${lease.student_id}`,
+    })
   }
+
+  data.comingUp = items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 }

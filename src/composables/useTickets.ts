@@ -73,7 +73,7 @@ function safeGet<T = any>(val: any): T | null {
   return Array.isArray(val) ? (val[0] ?? null) : val
 }
 
-function mapTicket(r: any, seenRequesterMessageIds: Set<string> = new Set()): Ticket {
+export function mapTicket(r: any, seenRequesterMessageIds: Set<string> = new Set()): Ticket {
   const lease = safeGet(r.lease) || {}
   const student = safeGet(lease.student) || {}
   const room = safeGet(lease.room) || {}

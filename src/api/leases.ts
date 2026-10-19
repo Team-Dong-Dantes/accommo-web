@@ -5,7 +5,10 @@ import { signRows } from '@/utils/docUrl'
 
 export interface LeaseExpiryRow {
   id: string
-  end_date: string | null
+  end_date: string
+  student_id: string
+  student: { full_name: string | null } | null
+  room: { accommodation: { name: string | null } | null } | null
 }
 
 /**
@@ -63,7 +66,7 @@ export async function fetchActiveLeaseAccreditation(): Promise<{ accredited: num
 export async function fetchExpiringLeases(nowIso: string, thirtyDaysIso: string): Promise<LeaseExpiryRow[]> {
   const { data, error } = await supabase
     .from('leases')
-    .select('id, end_date')
+    .select('id, end_date, student_id, student:users_full!leases_student_id_fkey ( full_name ), room:room_id ( accommodation:accommodation_id ( name ) )')
     .eq('status', 'active')
     .gte('end_date', nowIso)
     .lte('end_date', thirtyDaysIso)

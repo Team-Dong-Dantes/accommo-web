@@ -58,6 +58,8 @@ export interface VerificationRequest {
   ownerId?: string
   /** Each file the applicant must supply, and whether it is in. */
   requirements: { label: string; ok: boolean }[]
+  /** Account requests only: whose account it is. */
+  role?: 'student' | 'landlord'
   /** Every requirement is in, so the request can be decided now. */
   ready: boolean
   /** Student tab: an application is waiting on a landlord/landlady, held up by this decision. */

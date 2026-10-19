@@ -8,6 +8,17 @@
 // ticketsByCategory). They are gone along with the fetchers that fed only them.
 // `topOccupied` was in that set and has been brought back into the page.
 
+export interface ComingUpItem {
+  kind: 'accreditation' | 'permit' | 'lease'
+  key: string
+  name: string
+  /** What lapses: "Accreditation", the permit's name, or the lease's house. */
+  what: string
+  date: string
+  /** The record to open. */
+  to: string
+}
+
 export interface DashboardStats {
   loading: boolean
   error: string | null
@@ -36,66 +47,48 @@ export interface DashboardStats {
   gender: { female: number; male: number; other: number; unspecified: number }
   activeLeases: number
   registrationsByMonth: { ym: string; month: string; students: number; landlords: number }[]
-  /**
-   * How long the verification queue has been waiting, not just how deep it is.
-   * A single "69 waiting" hid that 47 of them had sat for over a fortnight.
-   */
-  verificationAges: { label: string; students: number; landlords: number; overdue: boolean }[]
-  /** Accreditation pipeline by stage — shows where applications actually stop. */
-  accommodationFunnel: { stage: string; count: number }[]
-  /**
-   * Pending accommodations bucketed by how many of the four permits they have
-   * submitted. A per-permit "which is missing most" chart was tried first and
-   * rendered four identical bars: houses submit everything or nothing, so the
-   * distribution is the informative cut, not the per-permit tally.
-   */
-  permitCompleteness: { submitted: number; accommodations: number }[]
-  ticketsByCategory: { name: string; val: number }[]
-  /**
-   * How long open tickets have waited, in the same buckets the verification
-   * backlog uses. Priority was the old breakdown and it is near-constant —
-   * 17 medium, 1 urgent — while every ticket is weeks past the response target.
-   */
-  ticketAges: { label: string; val: number; overdue: boolean }[]
-  /** The oldest urgent ticket still open, if there is one. */
-  oldestUrgent: { category: string; ageDays: number } | null
-  ticketsByPriority: { name: string; val: number }[]
   /** Active leases split by the accreditation status of the house they are in. */
   leasesByAccreditation: { accredited: number; pipeline: number; delisted: number }
-  expiringLeases: { id: string; end_date: string | null }[]
-  expiringAccreditations: number
-  recentTickets: { id: string; subject: string | null; priority: string; status: string; reported_at: string }[]
+  /**
+   * What lapses in the next 30 days, soonest first: accreditations, the
+   * permits on accredited listings (expired ones too — they are already late),
+   * and leases ending. The work that is coming, before it is in a queue.
+   */
+  comingUp: ComingUpItem[]
   landlordPayments: { pendingVerification: number }
-  /** Admin home — triage queues with the oldest rows surfaced. */
-  verificationQueue: {
-    students: number
-    landlords: number
-    withDocs: number
-    oldestDays: number
-    oldestStudentDays: number
-    studentsReadyForReview: number
-    studentsPastSla: number
-    /** Every pending account, students and landlords/landladies, past the review window. */
-    pastSla: number
-    oldest: { id: string; name: string; role: string; ageDays: number; hasDocs: boolean }[]
-  }
+  /**
+   * Account verification by the Verifications page's own readiness rule: what
+   * can be decided now, and what the rest still lack. Null when unreadable.
+   */
+  verifications: {
+    ready: number
+    waiting: number
+    /** Ready ones past the review target. */
+    late: number
+    /** Ready to decide, in the page's order: students holding a room first, then oldest. */
+    rows: { id: string; name: string; role: 'student' | 'landlord'; ageDays: number | null; late: boolean; applying: boolean }[]
+    /** The requirement the waiting ones most often lack. */
+    mostMissing: { label: string; count: number } | null
+  } | null
   accreditationQueue: {
     total: number
     withPermits: number
     /** Pending applications with a complete permit set, by name. */
     ready: { id: string; name: string }[]
   }
-  ticketQueue: {
-    open: number
-    urgent: number
-    unassigned: number
-    oldestDays: number
-    pastSla: number
-    createdLast7Days: number
-    createdPrevious7Days: number
-    leadingOpenCategory: { name: string; count: number } | null
-    oldest: { id: string; subject: string; priority: string; ageDays: number }[]
-  }
+  /**
+   * Support tickets by who owes the next move (utils/ticketTriage): New, Needs
+   * reply, Waiting on the requester. Null when unreadable.
+   */
+  tickets: {
+    new: number
+    needsReply: number
+    waiting: number
+    /** Owed a reply for 48 hours or more. */
+    overdue: number
+    /** Owed a reply, in the queue's order. */
+    rows: { id: string; ref: string; subject: string; reporter: string; waitingSince: string; overdue: boolean; mine: boolean }[]
+  } | null
 }
 
 // Quasar palette names used by the chart series on the dashboard.

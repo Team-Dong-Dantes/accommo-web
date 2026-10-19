@@ -72,26 +72,6 @@ export async function fetchStudentSexes(): Promise<Array<{ sex: string | null }>
   return fetchAll((from, to) => supabase.from('users').select('sex').eq('role', 'student').order('id').range(from, to))
 }
 
-// --- admin home: verification queue -----------------------------------------
-
-export interface PendingVerificationUser {
-  id: string
-  full_name: string | null
-  role: string
-  status: string
-  created_at: string | null
-}
-
-/** All users awaiting verification, oldest first. */
-export async function fetchPendingVerificationUsers(): Promise<PendingVerificationUser[]> {
-  const { data, error } = await supabase
-    .from('users')
-    .select('id, full_name, role, status, created_at')
-    .in('status', ['pending', 'reviewing'])
-    .order('created_at', { ascending: true })
-  if (error) throw error
-  return (data ?? []) as unknown as PendingVerificationUser[]
-}
 
 /** What the verification queue shows to tell applicants apart, keyed by user id. */
 export interface ApplicantDetails {
@@ -245,20 +225,6 @@ export async function fetchAccommodationDocs(accommodationIds: string[]): Promis
   return (data ?? []) as unknown as AccommodationDocRow[]
 }
 
-/** user_id → doc types uploaded, for the whole verification pipeline. */
-export async function fetchVerificationDocIndex(): Promise<Map<string, string[]>> {
-  const { data, error } = await supabase
-    .from('verification_documents')
-    .select('user_id, doc_type')
-  if (error) throw error
-  const rows = (data ?? []) as Array<{ user_id: string | null; doc_type: string }>
-  const map = new Map<string, string[]>()
-  for (const r of rows) {
-    if (!r.user_id) continue
-    map.set(r.user_id, [...(map.get(r.user_id) ?? []), r.doc_type])
-  }
-  return map
-}
 
 /** The fields a person's summary shows inside another record's drawer. */
 export interface PersonSummary {

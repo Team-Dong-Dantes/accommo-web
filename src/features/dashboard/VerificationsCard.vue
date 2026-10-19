@@ -1,97 +1,77 @@
 <template>
   <DashCard
     icon="lucide:user-check"
-    title="Verifications"
+    title="Ready to decide"
     tone="work"
     :summary="summary"
-    :link="{ to: '/verifications', label: 'All' }"
+    :link="{ to: '/verifications', label: 'Verifications' }"
   >
-    <div class="dc-sec dc-fill">
-      <ChartCard
-        type="bar" height="100%"
-        :series="series" :options="options"
-        :has-data="total > 0"
-        empty-text="Nothing is waiting for verification"
-      />
-    </div>
+    <template v-if="v">
+      <!-- The queue split the way the Verifications page splits it: what OSAS
+           can decide now, and what is still waiting on the applicant. -->
+      <div class="dc-sec">
+        <div v-if="bands.length" class="dc-band" role="img" :aria-label="bandLabel">
+          <span v-for="band in bands" :key="band.label" :class="band.cls" :style="{ flexGrow: band.value }">
+            <b>{{ band.value }}</b><em>{{ band.label }}</em>
+          </span>
+        </div>
+        <p v-else class="none">No account is waiting for verification.</p>
+      </div>
 
-    <ul v-if="oldest.length" class="dc-rows">
-      <li v-for="row in oldest" :key="row.id" class="dc-row">
-        <span class="dc-row-main" :title="row.name">{{ row.name }}</span>
-        <span class="dc-row-meta">{{ row.role === 'student' ? 'Student' : 'Landlord/Landlady' }}</span>
-        <span class="dc-row-meta" :class="{ 'is-late': row.ageDays > slaDays }">{{ row.ageDays }}d</span>
-        <router-link :to="`/verifications?focus=verification:${row.id}`" class="dc-row-act">Review</router-link>
-      </li>
-    </ul>
+      <ul v-if="v.rows.length" class="dc-rows rows">
+        <li v-for="row in v.rows" :key="row.id" class="dc-row">
+          <span class="dc-row-main" :title="row.name">{{ row.name }}</span>
+          <span v-if="row.applying" class="holding" title="Their room application waits on this decision">Holding a room</span>
+          <span class="dc-row-meta">{{ row.role === 'student' ? 'Student' : 'Landlord/Landlady' }}</span>
+          <span v-if="row.ageDays !== null" class="dc-row-meta" :class="{ 'is-late': row.late }">{{ row.ageDays }}d</span>
+          <router-link :to="`/verifications?focus=verification:${row.id}`" class="dc-row-act">Review</router-link>
+        </li>
+      </ul>
+      <p v-else class="dc-empty">Nothing can be decided yet{{ v.waiting ? ': every request still lacks a document.' : '.' }}</p>
+    </template>
+    <p v-else class="dc-empty">The verification queue could not be loaded.</p>
+
+    <template v-if="v?.mostMissing" #foot>
+      Most often missing: <b>{{ v.mostMissing.label }}</b> ({{ v.mostMissing.count }} waiting)
+    </template>
   </DashCard>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import ChartCard from '@/components/charts/ChartCard.vue'
 import DashCard from './DashCard.vue'
-import { cssVar } from '@/utils/chartTheme'
+import { REVIEW_TARGET_DAYS } from '@/features/verifications/queue'
 import type { DashboardStats } from '@/types/dashboard'
 
-const props = withDefaults(defineProps<{ data: DashboardStats; slaDays?: number }>(), { slaDays: 3 })
+const props = defineProps<{ data: DashboardStats }>()
 
-const buckets = computed(() => props.data.verificationAges)
-const total = computed(() => buckets.value.reduce((sum, b) => sum + b.students + b.landlords, 0))
-const overdue = computed(() =>
-  buckets.value.filter((b) => b.overdue).reduce((sum, b) => sum + b.students + b.landlords, 0),
-)
-// The three that have waited longest, by name — the rows the chart summarises.
-const oldest = computed(() => props.data.verificationQueue.oldest.slice(0, 3))
+const v = computed(() => props.data.verifications)
 
-const summary = computed(() =>
-  total.value === 0
-    ? 'The queue is empty.'
-    : `${overdue.value} of ${total.value} waiting past the ${props.slaDays}-day target`,
-)
+const bands = computed(() => [
+  { label: 'Ready to decide', value: v.value?.ready ?? 0, cls: 'is-good' },
+  { label: 'Waiting on the applicant', value: v.value?.waiting ?? 0, cls: '' },
+].filter((band) => band.value > 0))
+const bandLabel = computed(() => bands.value.map((b) => `${b.label}: ${b.value}`).join(', '))
 
-const series = computed(() => [
-  { name: 'Students', data: buckets.value.map((b) => b.students) },
-  { name: 'Landlords/Landladies', data: buckets.value.map((b) => b.landlords) },
-])
-
-const options = computed(() => ({
-  chart: { stacked: true, toolbar: { show: false } },
-  colors: [cssVar('--c-primary', '#0F766E'), cssVar('--c-info', '#0E7490')],
-  plotOptions: { bar: { borderRadius: 3, columnWidth: '55%' } },
-  xaxis: {
-    categories: buckets.value.map((b) => b.label),
-    labels: { style: { colors: cssVar('--c-muted', '#6B7770'), fontSize: '11px', fontWeight: 600 } },
-    axisBorder: { show: false },
-    axisTicks: { show: false },
-  },
-  yaxis: { labels: { style: { colors: cssVar('--c-muted', '#6B7770'), fontSize: '10px' } } },
-  grid: { borderColor: cssVar('--c-border', '#E7ECF2'), strokeDashArray: 3, padding: { top: -12, left: 4, right: 4 } },
-  dataLabels: { enabled: false },
-  legend: {
-    show: true,
-    position: 'top',
-    horizontalAlign: 'right',
-    fontSize: '11px',
-    markers: { size: 5 },
-    labels: { colors: cssVar('--c-muted', '#6B7770') },
-  },
-  // The span past the review target, shaded so the breach reads without a note.
-  annotations: {
-    xaxis: buckets.value.length > 2
-      ? [{
-          x: buckets.value.find((b) => b.overdue)?.label,
-          x2: buckets.value.at(-1)?.label,
-          fillColor: cssVar('--c-warning', '#B45309'),
-          opacity: 0.07,
-          label: {
-            text: 'past target',
-            orientation: 'horizontal',
-            position: 'top',
-            style: { fontSize: '9px', fontWeight: 700, color: cssVar('--c-warning', '#B45309'), background: 'transparent' },
-          },
-        }]
-      : [],
-  },
-  tooltip: { y: { formatter: (v: number) => `${v} account${v === 1 ? '' : 's'}` } },
-}))
+const summary = computed(() => {
+  if (!v.value) return ''
+  const { ready, late } = v.value
+  if (ready === 0) return 'Nothing to decide right now.'
+  const base = `${ready} account${ready === 1 ? '' : 's'} can be decided now`
+  return late ? `${base}, ${late} past the ${REVIEW_TARGET_DAYS}-day target` : base
+})
 </script>
+
+<style scoped>
+.none { margin: 0; color: var(--c-muted); font-size: var(--fs-xs); }
+.rows { flex: 1; }
+.holding {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+  font-size: 10px;
+  font-weight: 700;
+}
+</style>

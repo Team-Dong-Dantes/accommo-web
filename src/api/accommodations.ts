@@ -16,7 +16,15 @@ export interface AccommodationRow {
 
 export interface AccommodationExpiryRow {
   id: string
-  accreditation_expires_at: string | null
+  name: string | null
+  accreditation_expires_at: string
+}
+
+export interface PermitExpiryRow {
+  accommodation_id: string
+  doc_type: string
+  expires_at: string | null
+  accommodation: { name: string | null }
 }
 
 export async function fetchAccommodationRows(): Promise<AccommodationRow[]> {
@@ -34,11 +42,25 @@ export async function fetchExpiringAccommodationAccreditations(
 ): Promise<AccommodationExpiryRow[]> {
   const { data, error } = await supabase
     .from('accommodations')
-    .select('id, accreditation_expires_at')
+    .select('id, name, accreditation_expires_at')
     .gte('accreditation_expires_at', nowIso)
     .lte('accreditation_expires_at', thirtyDaysIso)
   if (error) throw error
   return (data ?? []) as unknown as AccommodationExpiryRow[]
+}
+
+/**
+ * Every permit on file for an accredited listing, newest version first, so the
+ * caller can keep each permit's current file and read its expiry.
+ */
+export async function fetchAccreditedPermits(): Promise<PermitExpiryRow[]> {
+  const { data, error } = await supabase
+    .from('accommodation_documents')
+    .select('accommodation_id, doc_type, expires_at, accommodation:accommodations!inner(name)')
+    .eq('accommodation.status', 'accredited')
+    .order('version', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as unknown as PermitExpiryRow[]
 }
 
 // --- admin home: accreditation queue ----------------------------------------

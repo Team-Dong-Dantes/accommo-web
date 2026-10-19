@@ -25,9 +25,9 @@
 
     <div class="board-grid" :style="{ gridTemplateRows: `repeat(${Math.max(1, Math.ceil(cardCount / 3))}, minmax(0, 1fr))` }">
       <!-- Only the areas this admin can view. -->
-      <VerificationsCard v-if="auth.can('verification')" :data="data" :sla-days="slaDays" />
-      <AccreditationCard v-if="auth.can('accreditation')" :data="data" />
-      <TicketsCard v-if="auth.can('support')" :data="data" :sla-days="slaDays" />
+      <VerificationsCard v-if="auth.can('verification')" :data="data" />
+      <ComingUpCard v-if="showComingUp" :data="data" />
+      <TicketsCard v-if="auth.can('support')" :data="data" />
       <RegistrationsCard v-if="auth.can('accounts')" :months="data.registrationsByMonth" />
       <HousingCard v-if="auth.can('accommodations')" :data="data" />
       <StudentsCard v-if="auth.can('accounts')" :data="data" />
@@ -38,7 +38,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import VerificationsCard from './VerificationsCard.vue'
-import AccreditationCard from './AccreditationCard.vue'
+import ComingUpCard from './ComingUpCard.vue'
 import TicketsCard from './TicketsCard.vue'
 import RegistrationsCard from './RegistrationsCard.vue'
 import HousingCard from './HousingCard.vue'
@@ -47,11 +47,14 @@ import type { DashboardStats } from '@/types/dashboard'
 import { useAuthStore } from '@/stores/auth'
 import type { Area } from '@/utils/access'
 
-const props = withDefaults(defineProps<{ data: DashboardStats; slaDays?: number }>(), { slaDays: 3 })
+const props = defineProps<{ data: DashboardStats }>()
 const auth = useAuthStore()
 // Fewer areas, fewer cards: rows follow the count so three cards fill the board.
+// Expiring soon covers accreditation and the listings' permits, so either area shows it.
+const showComingUp = computed(() => auth.can('accreditation') || auth.can('accommodations'))
 const cardCount = computed(() =>
-  (['verification', 'accreditation', 'support', 'accounts', 'accommodations', 'accounts'] as Area[]).filter((a) => auth.can(a)).length)
+  (['verification', 'support', 'accounts', 'accommodations', 'accounts'] as Area[]).filter((a) => auth.can(a)).length
+  + (showComingUp.value ? 1 : 0))
 
 const adminName = computed(() => props.data.adminName || 'Admin')
 const today = new Date()
@@ -67,15 +70,22 @@ const todayLabel = computed(() =>
 const counters = computed(() => {
   const d = props.data
   return [
+    // The same counts the cards below and the pages behind them use.
     {
-      label: 'Awaiting verification',
-      value: d.verificationQueue.students + d.verificationQueue.landlords,
-      late: d.verificationQueue.pastSla > 0,
+      label: 'Ready to verify',
+      value: d.verifications?.ready ?? 0,
+      late: (d.verifications?.late ?? 0) > 0,
       to: '/verifications',
       area: 'verification' as Area,
     },
     { label: 'In accreditation', value: d.accreditationQueue.total, late: false, to: '/verifications', area: 'accreditation' as Area },
-    { label: 'Open tickets', value: d.ticketQueue.open, late: d.ticketQueue.pastSla > 0, to: '/support-tickets', area: 'support' as Area },
+    {
+      label: 'Awaiting a reply',
+      value: (d.tickets?.new ?? 0) + (d.tickets?.needsReply ?? 0),
+      late: (d.tickets?.overdue ?? 0) > 0,
+      to: '/support-tickets',
+      area: 'support' as Area,
+    },
     { label: 'Students', value: d.students.total, late: false, to: '/users', area: 'accounts' as Area },
   ].filter((c) => auth.can(c.area))
 })
