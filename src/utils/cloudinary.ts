@@ -56,6 +56,48 @@ export function validateCloudinaryFile(file: File): string | null {
   return null
 }
 
+/** Long side a photo is scaled down to; past this the pixels only cost upload time. */
+const MAX_EDGE = 2000
+/** A photo already within MAX_EDGE and under this is left exactly as picked. */
+const SMALL_ENOUGH = 1024 * 1024
+
+/**
+ * Shrinks a photo before upload. Mirrors accommo-mobile/src/utils/upload.ts.
+ *
+ * A phone camera shot is 3–12 MB at 4000 px; it went up whole, and anything
+ * past 5 MB was refused outright by validateCloudinaryFile. Re-encoded here as a
+ * JPEG at most MAX_EDGE on its long side (orientation baked in, EXIF and its GPS
+ * dropped). Anything the browser cannot decode, or that would not come out
+ * smaller, passes through untouched for validation to judge.
+ */
+export async function compressImage(file: File): Promise<File> {
+  if (!ALLOWED_TYPES.includes(file.type)) return file
+  let bitmap: ImageBitmap
+  try {
+    bitmap = await createImageBitmap(file)
+  } catch {
+    return file
+  }
+  try {
+    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height))
+    if (scale === 1 && file.size <= SMALL_ENOUGH) return file
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bitmap.width * scale)
+    canvas.height = Math.round(bitmap.height * scale)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return file
+    // JPEG has no alpha; without a fill a transparent PNG turns black.
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82))
+    if (!blob || blob.size >= file.size) return file
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' })
+  } finally {
+    bitmap.close()
+  }
+}
+
 /**
  * Uploads one or more files to Cloudinary, each under the uploader's own folder
  * (the signature decides where, not the caller).
@@ -66,12 +108,17 @@ export async function uploadToCloudinary(
   files: File | File[],
 ): Promise<CloudinaryUploadResult[]> {
   const list = Array.isArray(files) ? files : [files]
-  const results = await Promise.all(list.map(async (file) => {
-    const validationError = validateCloudinaryFile(file)
-    if (validationError) throw new Error(validationError)
-
-    // One signature per file: it names the exact public_id.
-    const params = await callEdgeFunction<UploadParams>('doc-access', { action: 'public-upload-params' })
+  const results = await Promise.all(list.map(async (original) => {
+    // One signature per file: it names the exact public_id. Fetched while the
+    // photo compresses rather than after.
+    const [file, params] = await Promise.all([
+      compressImage(original).then((file) => {
+        const validationError = validateCloudinaryFile(file)
+        if (validationError) throw new Error(validationError)
+        return file
+      }),
+      callEdgeFunction<UploadParams>('doc-access', { action: 'public-upload-params' }),
+    ])
     const form = new FormData()
     form.append('file', file)
     form.append('api_key', params.apiKey)
