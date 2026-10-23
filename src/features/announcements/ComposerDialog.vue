@@ -49,6 +49,7 @@
             @update:model-value="clearFieldError('title')"
           />
 
+          <template v-if="kind === 'announcements'">
           <q-input
             v-model="form.summary"
             class="q-mt-md"
@@ -75,12 +76,37 @@
             aria-required="true"
             @update:model-value="clearFieldError('body')"
           />
+          </template>
+
+          <template v-else>
+            <div v-if="editingLive" class="new-version q-mt-md">
+              <q-toggle v-model="form.newVersion" color="primary" label="Publish as a new version" />
+              <div class="panel-copy">
+                {{ form.newVersion
+                  ? 'Everyone is notified and must accept this policy again. The current text is kept in its version history.'
+                  : 'Off: a correction such as a typo fix. Nobody is notified and existing acceptances stay valid.' }}
+              </div>
+            </div>
+            <q-input
+              v-model="form.version"
+              class="q-mt-md"
+              outlined
+              label="Version"
+              placeholder="e.g. v1.0"
+              :error="Boolean(errors.version)"
+              :error-message="errors.version"
+              :hint="form.newVersion ? 'Required. Give the new version its own label.' : 'Optional. A label such as v1.0.'"
+              persistent-hint
+              @update:model-value="errors.version = ''"
+            />
+          </template>
         </section>
 
         <section v-else-if="step === 2" class="composer-panel" aria-labelledby="composer-step-title">
           <h3 id="composer-step-title" class="panel-title">{{ currentStep.heading }}</h3>
           <p class="panel-copy">{{ currentStep.guidance }}</p>
 
+          <template v-if="kind === 'announcements'">
           <AppSelect
             v-model="form.audience"
             outlined
@@ -102,15 +128,40 @@
 
           <q-separator class="q-my-lg" />
           <AnnouncementDetailsFields v-model="form.details" />
+          </template>
+          <template v-else>
+            <q-input
+              v-model="form.body"
+              outlined
+              type="textarea"
+              autogrow
+              label="Policy content"
+              placeholder="State the policy, who it applies to, and any required actions or exceptions."
+              :error="Boolean(errors.body)"
+              :error-message="errors.body"
+              hint="Write the policy in clear, complete language."
+              persistent-hint
+              aria-required="true"
+              @update:model-value="clearFieldError('body')"
+            />
+            <DateTimeField
+              v-model="form.effectiveDate"
+              class="q-mt-md"
+              outlined
+              label="Effective date"
+              hint="A future date schedules the policy; nobody sees it until that day."
+              persistent-hint
+            />
+          </template>
         </section>
 
         <section v-else class="composer-panel" aria-labelledby="composer-step-title">
           <h3 id="composer-step-title" class="panel-title">Review {{ entityLabel }}</h3>
           <p class="panel-copy">Check the details below. You can return to an earlier step to make changes.</p>
 
-          <ComposerReview :form="form" />
+          <ComposerReview :form="form" :kind="kind" />
 
-          <div v-if="!editingLive" class="publish-choice q-mt-md">
+          <div v-if="kind === 'announcements' && !editingLive" class="publish-choice q-mt-md">
             <div class="panel-title">When should it go out?</div>
             <q-option-group v-model="form.publishMode" :options="publishOptions" color="primary" inline />
             <DateTimeField
@@ -179,10 +230,12 @@ import AppSelect from '@/components/ui/AppSelect.vue'
 import AnnouncementDetailsFields from './AnnouncementDetailsFields.vue'
 import ComposerSteps from './ComposerSteps.vue'
 import ComposerReview from './ComposerReview.vue'
-import { audienceOptions, publishOptions, steps } from './composer'
+import { audienceOptions, publishOptions, type AnnouncementKind } from './composer'
 import { useComposer } from './useComposer'
 
 const props = defineProps<{
+  /** Which entity the dialog creates/edits. */
+  kind: AnnouncementKind
   /**
    * Row being edited (null = create). Re-passing a row opens the dialog in
    * edit mode; pass `open-create` (a token that changes) to open for a new
@@ -198,6 +251,7 @@ const emit = defineEmits<{
 }>()
 
 const {
+  steps,
   dialogOpen,
   dialogTitle,
   currentStep,
@@ -321,6 +375,12 @@ const {
 .composer-actions {
   gap: var(--sp-2);
 }
+.new-version {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm, 10px);
+  padding: var(--sp-2, 8px) var(--sp-3, 12px);
+}
+
 .publish-choice {
   border-top: 1px solid var(--c-border);
   padding-top: var(--sp-3, 12px);

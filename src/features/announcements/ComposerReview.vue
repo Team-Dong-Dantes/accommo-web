@@ -5,9 +5,10 @@
       <dd>{{ form.title || 'Untitled' }}</dd>
     </div>
     <div class="review-row review-row-message">
-      <dt>Message</dt>
+      <dt>{{ kind === 'announcements' ? 'Message' : 'Policy content' }}</dt>
       <dd>{{ form.body || 'No content added' }}</dd>
     </div>
+    <template v-if="kind === 'announcements'">
     <div class="review-row">
       <dt>Audience</dt>
       <dd>{{ audienceLabel(form.audience) }}</dd>
@@ -36,6 +37,17 @@
       <dt>Poster</dt>
       <dd><img :src="form.details.imageUrl" alt="" class="review-poster" /></dd>
     </div>
+    </template>
+    <template v-else>
+      <div class="review-row">
+        <dt>Version</dt>
+        <dd>{{ form.version.trim() || 'No version' }}</dd>
+      </div>
+      <div class="review-row">
+        <dt>Effective date</dt>
+        <dd>{{ form.effectiveDate ? fmtDate(dateToIso(form.effectiveDate)) : 'Not specified' }}</dd>
+      </div>
+    </template>
   </dl>
 </template>
 
@@ -43,9 +55,9 @@
 // The last step's read-back of everything the composer will save.
 import { formatDateTime } from '@/utils/format'
 import { dateToIso, fmtDate } from './shared'
-import { audienceLabel, type ComposerForm } from './composer'
+import { audienceLabel, type AnnouncementKind, type ComposerForm } from './composer'
 
-defineProps<{ form: ComposerForm }>()
+defineProps<{ form: ComposerForm; kind: AnnouncementKind }>()
 </script>
 
 <style scoped>

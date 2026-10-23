@@ -1,15 +1,15 @@
-// The announcement composer's state: which step it is on, the form, its
-// validation, and the save. One instance per ComposerDialog.
+// The composer's state for an announcement or a policy: which step it is on,
+// the form, its validation, and the save. One instance per ComposerDialog.
 import { computed, ref, watch } from 'vue'
 import { errorMessage } from '@/utils/errors'
 import { useNotify } from '@/utils/notify'
-import { saveAnnouncement, sessionUserId } from '@/api/announcements'
-import { announcementStatus, dateToIso } from './shared'
-import { emptyForm, formFromRow, formPayload, steps, type ComposerForm, type FormStep } from './composer'
+import { saveAnnouncement, savePolicy, sessionUserId } from '@/api/announcements'
+import { announcementStatus, dateToIso, policyStatus } from './shared'
+import { emptyForm, formFromRow, formPayload, policyPayload, stepsFor, type AnnouncementKind, type ComposerForm, type FormStep } from './composer'
 
 export function useComposer(
-  /** The dialog's props: the row to edit, and the token bumped to create. */
-  source: { editRow: any | null; createToken: number },
+  /** The dialog's props: what it edits, the row to edit, and the token bumped to create. */
+  source: { kind: AnnouncementKind; editRow: any | null; createToken: number },
   onSaved: () => void,
 ) {
   const notify = useNotify()
@@ -20,29 +20,45 @@ export function useComposer(
   const saving = ref(false)
   const step = ref(1)
   const stepError = ref('')
-  const errors = ref({ title: '', body: '', publishAt: '' })
+  const errors = ref({ title: '', body: '', version: '', publishAt: '' })
 
   const form = ref<ComposerForm>(emptyForm())
   /** The row as it was when editing began (null when creating). */
   const original = ref<any | null>(null)
 
+  const isAnn = computed(() => source.kind === 'announcements')
+
   /**
    * Editing something readers can already see. A live announcement keeps its
-   * publish state (unpublish from the list).
+   * publish state (unpublish from the list); an in-effect policy offers a new version.
    */
-  const editingLive = computed(() => !!original.value && announcementStatus(original.value) === 'live')
+  const editingLive = computed(() => {
+    const row = original.value
+    if (!row) return false
+    return isAnn.value ? announcementStatus(row) === 'live' : policyStatus(row) === 'in_effect'
+  })
 
-  const entityLabel = 'announcement'
-  const dialogTitle = computed(() => `${mode.value === 'create' ? 'Create' : 'Edit'} ${entityLabel}`)
-  const currentStep = computed<FormStep>(() => steps[step.value - 1] ?? steps[0]!)
-  const noteIcon = 'lucide:file-pen'
+  const steps = computed(() => stepsFor(source.kind))
+  const entityLabel = computed(() => (isAnn.value ? 'announcement' : 'policy'))
+  const dialogTitle = computed(() => `${mode.value === 'create' ? 'Create' : 'Edit'} ${entityLabel.value}`)
+  const currentStep = computed<FormStep>(() => steps.value[step.value - 1] ?? steps.value[0]!)
+  const noteIcon = computed(() => (isAnn.value ? 'lucide:file-pen' : 'lucide:calendar-check'))
   const saveLabel = computed(() => {
+    if (!isAnn.value) {
+      if (form.value.newVersion) return 'Publish new version'
+      return mode.value === 'edit' ? 'Save changes' : 'Create policy'
+    }
     if (editingLive.value) return 'Save changes'
     if (form.value.publishMode === 'now') return 'Publish now'
     if (form.value.publishMode === 'schedule') return 'Schedule'
     return mode.value === 'edit' ? 'Save changes' : 'Save draft'
   })
   const saveNote = computed(() => {
+    if (!isAnn.value) {
+      if (form.value.newVersion) return 'Everyone is notified and must accept the new version. The current text moves to version history.'
+      if (editingLive.value) return 'A correction: nobody is notified and existing acceptances stay valid.'
+      return 'Students and landlords/landladies are notified and asked to accept it on its effective date.'
+    }
     if (editingLive.value) return 'This announcement is live. Changes show immediately; readers are not notified again.'
     if (form.value.publishMode === 'now') return 'Everyone in the audience is notified as soon as you publish.'
     if (form.value.publishMode === 'schedule') return 'It stays hidden until the scheduled time, then the audience is notified.'
@@ -52,7 +68,7 @@ export function useComposer(
   function resetProgress() {
     step.value = 1
     stepError.value = ''
-    errors.value = { title: '', body: '', publishAt: '' }
+    errors.value = { title: '', body: '', version: '', publishAt: '' }
   }
 
   function clearFieldError(field: 'title' | 'body') {
@@ -61,17 +77,24 @@ export function useComposer(
   }
 
   function validateCurrentStep(): boolean {
-    errors.value = { title: '', body: '', publishAt: '' }
+    errors.value = { title: '', body: '', version: '', publishAt: '' }
     stepError.value = ''
 
     if (step.value === 1 && !form.value.title.trim()) {
       errors.value.title = 'Enter a title before continuing.'
     }
-    if (step.value === 1 && !form.value.body.trim()) {
-      errors.value.body = 'Enter the message before continuing.'
+    if (step.value === 1 && form.value.newVersion) {
+      const label = form.value.version.trim()
+      if (!label || label === (original.value?.version ?? '').trim()) {
+        errors.value.version = 'Give the new version a label different from the current one.'
+      }
+    }
+    // The message is on step 1 of an announcement, the content on step 2 of a policy.
+    if (step.value === (isAnn.value ? 1 : 2) && !form.value.body.trim()) {
+      errors.value.body = isAnn.value ? 'Enter the message before continuing.' : 'Add the policy content before continuing.'
     }
 
-    if (errors.value.title || errors.value.body) {
+    if (errors.value.title || errors.value.body || errors.value.version) {
       stepError.value = 'Complete the required fields before continuing.'
       return false
     }
@@ -116,7 +139,7 @@ export function useComposer(
       mode.value = 'edit'
       editingId.value = row.id
       original.value = row
-      form.value = formFromRow(row)
+      form.value = formFromRow(row, source.kind)
       resetProgress()
       dialogOpen.value = true
     },
@@ -124,7 +147,7 @@ export function useComposer(
 
   async function save() {
     if (!form.value.title.trim() || !form.value.body.trim()) {
-      step.value = 1
+      step.value = !form.value.title.trim() || isAnn.value ? 1 : 2
       validateCurrentStep()
       return
     }
@@ -133,6 +156,20 @@ export function useComposer(
     const userId = await sessionUserId()
 
     try {
+      if (!isAnn.value) {
+        const payload = policyPayload(form.value, original.value?.revision)
+        if (mode.value === 'create') {
+          if (!userId) throw new Error('Not logged in')
+          await savePolicy(null, { ...payload, created_by: userId })
+        } else {
+          await savePolicy(editingId.value!, payload)
+        }
+        notify.success(form.value.newVersion ? 'New version published.' : mode.value === 'create' ? 'Policy created.' : 'Policy updated.')
+        dialogOpen.value = false
+        onSaved()
+        return
+      }
+
       const payload = formPayload(form.value)
       // A live announcement keeps its publish state; otherwise the choice decides it.
       if (!editingLive.value) {
@@ -173,6 +210,7 @@ export function useComposer(
   }
 
   return {
+    steps,
     dialogOpen,
     dialogTitle,
     currentStep,
